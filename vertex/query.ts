@@ -1,23 +1,23 @@
 import { Transaction } from "neo4j-driver";
 import { VNodeType, isVNodeType, RawVNode } from "./vnode";
 
-type FieldType = VNodeType | "string" | "number" | "any";
-type ReturnTypeFor<DT extends FieldType> = (
+export type FieldType = VNodeType | "string" | "number" | "any";
+export type ReturnTypeFor<DT extends FieldType> = (
     DT extends VNodeType ? RawVNode<DT> :
     DT extends "string" ? string :
     DT extends "number" ? number :
     DT extends "any" ? any :
     never
 );
-type ReturnShapeType = {[key: string]: FieldType};
-type TypedRecord<ReturnShape extends ReturnShapeType> = {
+export type ReturnShapeType = {[key: string]: FieldType};
+export type TypedRecord<ReturnShape extends ReturnShapeType> = {
     [key in keyof ReturnShape]: ReturnTypeFor<ReturnShape[key]>;
 };
-type TypedRecords<ReturnShape extends ReturnShapeType> = TypedRecord<ReturnShape>[];
+export type TypedRecords<ReturnShape extends ReturnShapeType> = TypedRecord<ReturnShape>[];
 
 /**
  * Run a query on the Neo4j graph database and return its result.
- * Unlike tx.run(), this method is aware of VNode models and will return a typed result set.
+ * Unlike tx.run(), this method will return a typed result set, according to returnShape
  * @param cypherQuery The cypher query to run
  * @param args The parameters to pass into the query
  * @param returnShape The expected shape of the result (e.g. {u: User, "count(*)": number})
@@ -99,62 +99,4 @@ export async function queryOne<ReturnShape extends ReturnShapeType>(
         throw new Error(`Expected a single result, got ${result.length}`);
     }
     return result[0];
-}
-
-/**
- * Get a single VNode from the Neo4j graph using its UUID or some set of properties that define a unique result.
- * Throws an error if the node was not found.
- * @param type the VNode type definition, created via defineVNodeType()
- * @param keyOrProps the node's UUID, shortId, or an object with filters like {email: "jamie@localhost"}
- * @param tx the current read/write transaction, if any
- */
-export async function getOne<T extends VNodeType>(
-    type: T,
-    keyOrProps: string|{[key: string]: any},
-    tx: Transaction,
-): Promise<ReturnTypeFor<T>> {
-    let result: TypedRecords<{node: T}>;
-    if (typeof keyOrProps === "string") {
-        // This is a UUID or shortId
-        const cypherQuery = `MATCH (node:${type.label})::{$key}`;
-        result = await query(cypherQuery, {key: keyOrProps}, {node: type}, tx);
-    } else {
-        // This is an object with properties+values to filter on, like {foo: true, bar: 15}
-        const paramKeys = Object.keys(keyOrProps);
-        const cypherQuery = `MATCH (node:${type.label} {${paramKeys.map(k => `${k}: $${k}`).join(", ")}})`;
-        result = await query(cypherQuery, keyOrProps, {node: type}, tx);
-    }
-    if (result.length !== 1) {
-        throw new Error(`Could not find ${type.label} uniquely identified by ${JSON.stringify(keyOrProps)} (matched ${result.length})`);
-    }
-    return result[0].node;
-}
-
-/** A Neo4j Transaction with some TechNotes-specific convenience methods */
-export interface WrappedTransaction extends Transaction {
-    query<ReturnShape extends ReturnShapeType>(
-        cypherQuery: Parameters<typeof query>[0],
-        args: Parameters<typeof query>[1],
-        returnShape: ReturnShape,
-    ): Promise<TypedRecords<ReturnShape>>;
-
-    queryOne<ReturnShape extends ReturnShapeType>(
-        cypherQuery: Parameters<typeof query>[0],
-        args: Parameters<typeof query>[1],
-        returnShape: ReturnShape,
-    ): Promise<TypedRecord<ReturnShape>>;
-
-    getOne<T extends VNodeType>(
-        type: T,
-        keyOrProps: string|{[key: string]: any},
-    ): Promise<ReturnTypeFor<T>>;
-}
-
-/** Wrap a Neo4j Transaction with some convenience methods. */
-export function wrapTransaction(tx: Transaction): WrappedTransaction {
-    const mutableTx: any = tx;
-    mutableTx.query = (a: any, b: any, c: any) => query(a, b, c, tx);
-    mutableTx.queryOne = (a: any, b: any, c: any) => queryOne(a, b, c, tx);
-    mutableTx.getOne = (a: any, b: any) => getOne(a, b, tx);
-    return mutableTx;
 }

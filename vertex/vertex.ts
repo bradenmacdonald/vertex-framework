@@ -4,6 +4,7 @@ import { runAction } from "./action-runner";
 import { UUID } from "./lib/uuid";
 import { DataRequest, DataRequestFilter, DataResult, pull } from "./pull";
 import { migrations as coreMigrations, SYSTEM_UUID } from "./schema";
+import { WrappedTransaction, wrapTransaction } from "./transaction";
 import { Migration, VertexCore } from "./vertex-interface";
 import { VNodeType } from "./vnode";
 
@@ -36,11 +37,11 @@ export class Vertex implements VertexCore {
     /**
      * Create a database read transaction, for reading data from the graph DB.
      */
-    public async read<T>(code: (tx: Transaction) => Promise<T>): Promise<T> {
+    public async read<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T> {
         const session = this.driver.session({defaultAccessMode: "READ"});
         let result: T;
         try {
-            result = await session.readTransaction(code);
+            result = await session.readTransaction(tx => code(wrapTransaction(tx)));
         } finally {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             session.close();
@@ -49,13 +50,13 @@ export class Vertex implements VertexCore {
     }
 
     /**
-     * Read data from the graph
+     * Read data from the graph, outside of a transaction
      */
     public async pull<Request extends DataRequest<any, any>>(
         request: Request,
         filter: DataRequestFilter = {}
     ): Promise<DataResult<Request>[]> {
-        return pull(this, request, filter);
+        return this.read(tx => tx.pull<Request>(request, filter));
     }
 
     /**
@@ -88,11 +89,11 @@ export class Vertex implements VertexCore {
      * data to the graph DB. This should only be used from within a schema migration or by action-runner.ts, because
      * writes to the database should only happen via Actions.
      */
-    public async _restrictedWrite<T>(code: (tx: Transaction) => Promise<T>): Promise<T> {
+    public async _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T> {
         const session = this.driver.session({defaultAccessMode: "WRITE"});
         let result: T;
         try {
-            result = await session.writeTransaction(code);
+            result = await session.writeTransaction(tx => code(wrapTransaction(tx)));
         } finally {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             session.close();

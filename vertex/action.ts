@@ -7,7 +7,7 @@ import Joi from "@hapi/joi";
 
 import { NominalType } from "./lib/ts-utils";
 import { VNodeType, RawVNode, ValidationError, registerVNodeType } from "./vnode";
-import { WrappedTransaction } from "./query";
+import { WrappedTransaction } from "./transaction";
 import { UUID } from "./lib/uuid";
 import { Transaction } from "neo4j-driver";
 
@@ -185,7 +185,7 @@ export function defaultUpdateActionFor<UpdateArgs extends {[K: string]: any}>(
         type: `Update${label}`,
         apply: async (tx, data) => {
             // Load the current value of the VNode from the graph
-            const nodeSnapshot = await tx.getOne(type, data.key);
+            const nodeSnapshot = (await tx.queryOne(`MATCH (node:${label})::{$key}`, {key: data.key}, {node: type})).node;
             // Prepare to store the previous values of any changed properties/relationships
             let previousValues: Partial<UpdateArgs> = {};
             // Store the new values (properties that are being changed):

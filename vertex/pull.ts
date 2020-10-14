@@ -7,6 +7,7 @@ import {
     VirtualOneRelationshipProperty,
     VirtualPropertyDefinition,
 } from "./vnode";
+import { WrappedTransaction } from "./transaction";
 
 ////////////////////////////// VNode Data Request format ////////////////////////////////////////////////////////////
 
@@ -157,14 +158,14 @@ export function buildCypherQuery<Request extends DataRequest<VNodeType, any>>(re
 }
 
 export async function pull<Request extends DataRequest<any, any>>(
-    graph: VertexCore,
+    tx: WrappedTransaction,
     request: Request,
     filter: DataRequestFilter = {},
 ): Promise<DataResult<Request>[]> {
     const query = buildCypherQuery(request, filter);
     log.debug(query.query);
 
-    const result = await graph.read(tx => tx.run(query.query, query.params));
+    const result = await tx.run(query.query, query.params);
 
     return result.records.map(record => {
         const newRecord: any = {};
@@ -178,12 +179,12 @@ export async function pull<Request extends DataRequest<any, any>>(
 }
 
 export async function pullOne<Request extends DataRequest<any, any>>(
-    graph: VertexCore,
+    tx: WrappedTransaction,
     request: Request,
     filter: DataRequestFilter = {},
 ): Promise<DataResult<Request>> {
     
-    const result = await pull<Request>(graph, request, filter);
+    const result = await pull<Request>(tx, request, filter);
 
     if (result.length !== 1) {
         throw new Error(`Expected a single result, got ${result.length}`);

@@ -3,7 +3,6 @@ import { UUID } from "./lib/uuid";
 import { SYSTEM_UUID } from "./schema";
 import { log } from "./lib/log";
 import { getVNodeType, RawVNode } from "./vnode";
-import { wrapTransaction } from "./query";
 import { VertexCore } from "./vertex-interface";
 
 /**
@@ -28,11 +27,10 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
 
     const [result, tookMs] = await graph._restrictedWrite(async (tx) => {
         // First, apply the action:
-        const wrappedTx = wrapTransaction(tx); // Purely convenience wrapper / syntactic sugar
         let modifiedNodes: RawVNode<any>[];
         let resultData: any;
         try {
-            const x = await actionImplementation.apply(wrappedTx, actionData/*, context */);
+            const x = await actionImplementation.apply(tx, actionData/*, context */);
             modifiedNodes = x.modifiedNodes;
             resultData = x.resultData;
         } catch (err) {
