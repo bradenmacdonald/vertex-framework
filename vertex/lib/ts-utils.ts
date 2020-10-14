@@ -5,9 +5,13 @@ export type NominalType<T, K extends string> = T & { nominal: K };
 
 // Helper for asserting that types are equal
 export type AssertEqual<Type, Expected> =
-    Type extends Expected
-    ? (Expected extends Type ? true : void)
-    : never;
+    {foo: "bar"} extends Type // Guard against "any" type
+    ?
+        ({foo: "bar"} extends Expected ? true : false) // Unless "any" was expected
+    :
+        Type extends Expected
+        ? (Expected extends Type ? true : void)
+        : never;
 
 // Helper for asserting that types are equal
 export type AssertNotEqual<Type, Expected> =

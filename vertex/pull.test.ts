@@ -6,36 +6,49 @@ import { Person } from "./test-project/Person";
 import { Movie } from "./test-project/Movie";
 import { testGraph } from "./test-project/graph";
 
-// Compile time tests. /////////////////////////////////////////////////////////////////////////////////////////////////
-// These are just checking the TypeScript type inference
+// Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // This DataRequest gets the raw properties of Person, with no virtual properties
 const basicPersonRequest = DataRequest(Person, {uuid: true, name: true, dateOfBirth: true});
-const checkBPR: {
-    uuid: true,
-    name: true,
-    dateOfBirth: true,
-} = basicPersonRequest;
-const checkBRR2: AssertEqual<typeof basicPersonRequest.uuid, true> = true;
 
-// This DataRequest tests typing of conditional fields and excluded fields
+// This DataRequest tests conditional fields and excluded fields
 const maybe: boolean = ("yes".indexOf("y") === 0) ? true : false;
 const partialPersonRequest = DataRequest(Person, {uuid: false, name: true, dateOfBirth: maybe});
-const checkPPR: {
-    uuid: false,
-    name: true,
-    dateOfBirth: boolean,
-} = partialPersonRequest;
-// If a requested field like "uuid" is set to 'true' or 'false' (not an unknown boolean value), it should be typed that way:
-const checkPRR: AssertEqual<typeof partialPersonRequest.uuid, false> = true;
-const checkPRR2: AssertNotEqual<typeof partialPersonRequest.uuid, true> = true;
-const checkPRR3: AssertEqual<typeof partialPersonRequest.name, true> = true;
-const checkPRR4: AssertNotEqual<typeof partialPersonRequest.name, false> = true;
-// Whereas if a requested field is set to some value not known until runtime, it should be typed as 'boolean':
-const checkPRR5: AssertEqual<typeof partialPersonRequest.name, boolean> = true;
 
-// Runtime tests. /////////////////////////////////////////////////////////////////////////////////////////////////
 registerSuite("pull", {
+    "DataRequest - static typing": { // These are transpile-time tests; they check static typing, not code.
+        "basicPersonRequest": {
+            tests: {
+                "DataRequest helper returns a fully typed data request"() {
+                    const checkBPR: {
+                        uuid: true,
+                        name: true,
+                        dateOfBirth: true,
+                    } = basicPersonRequest;
+                    const checkBRR2: AssertEqual<typeof basicPersonRequest.uuid, true> = true;
+                },
+            },
+        },
+
+        "partialPersonRequest": {
+            tests: {
+                "DataRequest helper returns a fully typed data request"() {
+                    const checkPPR: {
+                        uuid: false,
+                        name: true,
+                        dateOfBirth: boolean,
+                    } = partialPersonRequest;
+                    // If a requested field like "uuid" is set to 'true' or 'false' (not an unknown boolean value), it should be typed that way:
+                    const checkPRR: AssertEqual<typeof partialPersonRequest.uuid, false> = true;
+                    const checkPRR2: AssertNotEqual<typeof partialPersonRequest.uuid, true> = true;
+                    const checkPRR3: AssertEqual<typeof partialPersonRequest.name, true> = true;
+                    const checkPRR4: AssertNotEqual<typeof partialPersonRequest.name, false> = true;
+                    // Whereas if a requested field is set to some value not known until runtime, it should be typed as 'boolean':
+                    const checkPRR5: AssertEqual<typeof partialPersonRequest.name, boolean> = true;
+                },
+            },
+        },
+    },
     "buildCypherQuery": {
         "Queries with requested raw properties": {
             tests: {
@@ -93,9 +106,11 @@ registerSuite("pull", {
                     assert.equal(people.length, 7);
                     // TODO: database-level ordering
                     people.sort((a, b) => a.name.localeCompare(b.name));
-                    assert.equal(people[0].name, "Chris Pratt");
-                    assert.equal(people[0].dateOfBirth, "1979-06-21");
-                    assert.equal(people[0].uuid, undefined);  // UUID was not requested
+                    const firstPerson = people[0];
+                    assert.equal(firstPerson.name, "Chris Pratt");
+                    const checkNameType: AssertEqual<typeof firstPerson.name, string> = true;
+                    assert.equal(firstPerson.dateOfBirth, "1979-06-21");
+                    assert.equal(firstPerson.uuid, undefined);  // UUID was not requested
                 },
 
                 async "Partial Person request with name filter"() {

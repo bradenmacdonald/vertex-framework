@@ -51,10 +51,10 @@ export class Vertex implements VertexCore {
     /**
      * Read data from the graph
      */
-    public async pull<T extends VNodeType, Request extends DataRequest<T, any>>(
+    public async pull<Request extends DataRequest<any, any>>(
         request: Request,
         filter: DataRequestFilter = {}
-    ): Promise<DataResult<T, Request>[]> {
+    ): Promise<DataResult<Request>[]> {
         return pull(this, request, filter);
     }
 

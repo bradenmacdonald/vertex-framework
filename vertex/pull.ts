@@ -62,11 +62,14 @@ export interface DataRequestFilter {
 
 
 
-export type DataResult<T extends VNodeType, Request extends DataRequest<T, any>> = {
-    [K in keyof Request]: ResultFieldFor<T, Request, K, Request[K]>
-}
+export type DataResult<Request extends DataRequest<any, any>> = (
+    Request extends DataRequest<infer T, infer Fields> ?
+        {[K in keyof Request]: ResultFieldFor<T, Fields, Request, K, Request[K]>}
+    :
+        {"error": "DataResult<> Couldn't infer DataRequest type parameters"}
+);
 
-    type ResultFieldFor<T extends VNodeType, Request extends DataRequest<T, any>, K extends keyof Request, Value extends Request[K]> = (
+    type ResultFieldFor<T extends VNodeType, Fields extends DataRequestFields<T>, Request extends DataRequest<T, Fields>, K extends keyof Request, Value extends Request[K]> = (
         K extends keyof T["properties"] ? PropertyDataType<T["properties"], K> :
         K extends keyof T["virtualProperties"] ? VirtualPropertyDataType<T["virtualProperties"][K], Value> :
         never
@@ -148,11 +151,11 @@ export function buildCypherQuery<Request extends DataRequest<VNodeType, any>>(re
     return {query, params};
 }
 
-export async function pull<T extends VNodeType, Request extends DataRequest<T, any>>(
+export async function pull<Request extends DataRequest<any, any>>(
     graph: VertexCore,
     request: Request,
     filter: DataRequestFilter = {},
-): Promise<DataResult<T, Request>[]> {
+): Promise<DataResult<Request>[]> {
     const query = buildCypherQuery(request, filter);
     log.debug(query.query);
 
@@ -169,13 +172,13 @@ export async function pull<T extends VNodeType, Request extends DataRequest<T, a
     });
 }
 
-export async function pullOne<T extends VNodeType, Request extends DataRequest<T, any>>(
+export async function pullOne<Request extends DataRequest<any, any>>(
     graph: VertexCore,
     request: Request,
     filter: DataRequestFilter = {},
-): Promise<DataResult<T, Request>> {
+): Promise<DataResult<Request>> {
     
-    const result = await pull<T, Request>(graph, request, filter);
+    const result = await pull<Request>(graph, request, filter);
 
     if (result.length !== 1) {
         throw new Error(`Expected a single result, got ${result.length}`);
