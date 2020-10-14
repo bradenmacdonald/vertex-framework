@@ -85,6 +85,7 @@ export type PropertyDataType<Props extends PropSchema, propName extends keyof Pr
     Props[propName] extends Joi.StringSchema ? string :
     Props[propName] extends Joi.NumberSchema ? number :
     Props[propName] extends Joi.BooleanSchema ? boolean :
+    Props[propName] extends Joi.DateSchema ? string :
     any
 );
 

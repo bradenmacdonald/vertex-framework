@@ -109,8 +109,12 @@ registerSuite("pull", {
                     const firstPerson = people[0];
                     assert.equal(firstPerson.name, "Chris Pratt");
                     const checkNameType: AssertEqual<typeof firstPerson.name, string> = true;
+                    // dateOfBirth was "maybe" requested (only known at runtime, not compile time)
                     assert.equal(firstPerson.dateOfBirth, "1979-06-21");
-                    assert.equal(firstPerson.uuid, undefined);  // UUID was not requested
+                    const checkDOBType: AssertEqual<typeof firstPerson.dateOfBirth, string|undefined> = true; // Note: this assertion isn't really working
+                    // UUID was explicitly not requested, so should be undefined:
+                    assert.equal(firstPerson.uuid, undefined);
+                    const checkUuidType: AssertEqual<typeof firstPerson.uuid, undefined> = true;
                 },
 
                 async "Partial Person request with name filter"() {

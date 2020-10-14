@@ -64,14 +64,19 @@ export interface DataRequestFilter {
 
 export type DataResult<Request extends DataRequest<any, any>> = (
     Request extends DataRequest<infer T, infer Fields> ?
-        {[K in keyof Request]: ResultFieldFor<T, Fields, Request, K, Request[K]>}
+        {[K in keyof Request]: ResultFieldFor<T, Fields, Request, K>}
     :
         {"error": "DataResult<> Couldn't infer DataRequest type parameters"}
 );
 
-    type ResultFieldFor<T extends VNodeType, Fields extends DataRequestFields<T>, Request extends DataRequest<T, Fields>, K extends keyof Request, Value extends Request[K]> = (
-        K extends keyof T["properties"] ? PropertyDataType<T["properties"], K> :
-        K extends keyof T["virtualProperties"] ? VirtualPropertyDataType<T["virtualProperties"][K], Value> :
+    type ResultFieldFor<T extends VNodeType, Fields extends DataRequestFields<T>, Request extends DataRequest<T, Fields>, K extends keyof Request> = (
+        K extends keyof T["properties"] ? 
+            (
+                boolean extends Request[K] ? PropertyDataType<T["properties"], K>|undefined :
+                true extends Request[K] ? PropertyDataType<T["properties"], K> :
+                undefined
+            ) :
+        K extends keyof T["virtualProperties"] ? VirtualPropertyDataType<T["virtualProperties"][K], Request[K]> :
         never
     );
 
