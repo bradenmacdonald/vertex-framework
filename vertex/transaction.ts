@@ -1,20 +1,20 @@
 import { Transaction } from "neo4j-driver";
 import { DataRequest, DataRequestFilter, DataResult, pull, pullOne } from "./pull";
-import { ReturnShapeType, query, TypedRecords, TypedRecord, queryOne } from "./query";
+import { ReturnShape, query, TypedRecord, queryOne } from "./query";
 
 /** A Neo4j Transaction with some TechNotes-specific convenience methods */
 export interface WrappedTransaction extends Transaction {
-    query<ReturnShape extends ReturnShapeType>(
+    query<RS extends ReturnShape>(
         cypherQuery: Parameters<typeof query>[0],
         args: Parameters<typeof query>[1],
-        returnShape: ReturnShape,
-    ): Promise<TypedRecords<ReturnShape>>;
+        returnShape: RS,
+    ): Promise<TypedRecord<RS>[]>;
 
-    queryOne<ReturnShape extends ReturnShapeType>(
+    queryOne<RS extends ReturnShape>(
         cypherQuery: Parameters<typeof query>[0],
         args: Parameters<typeof query>[1],
-        returnShape: ReturnShape,
-    ): Promise<TypedRecord<ReturnShape>>;
+        returnShape: RS,
+    ): Promise<TypedRecord<RS>>;
 
     pull<Request extends DataRequest<any, any>>(
         request: Request,

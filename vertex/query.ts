@@ -1,19 +1,20 @@
 import { Transaction } from "neo4j-driver";
 import { VNodeType, isVNodeType, RawVNode } from "./vnode";
 
-export type FieldType = VNodeType | "string" | "number" | "any";
+export type FieldType = VNodeType | ReturnShape | "string" | "number" | "any";
 export type ReturnTypeFor<DT extends FieldType> = (
     DT extends VNodeType ? RawVNode<DT> :
+    DT extends ReturnShape ? TypedRecord<DT> :
     DT extends "string" ? string :
     DT extends "number" ? number :
+    DT extends "boolean" ? boolean :
     DT extends "any" ? any :
     never
 );
-export type ReturnShapeType = {[key: string]: FieldType};
-export type TypedRecord<ReturnShape extends ReturnShapeType> = {
-    [key in keyof ReturnShape]: ReturnTypeFor<ReturnShape[key]>;
+export type ReturnShape = {[key: string]: FieldType};
+export type TypedRecord<RS extends ReturnShape> = {
+    [key in keyof RS]: ReturnTypeFor<RS[key]>;
 };
-export type TypedRecords<ReturnShape extends ReturnShapeType> = TypedRecord<ReturnShape>[];
 
 /**
  * Run a query on the Neo4j graph database and return its result.
@@ -23,12 +24,12 @@ export type TypedRecords<ReturnShape extends ReturnShapeType> = TypedRecord<Retu
  * @param returnShape The expected shape of the result (e.g. {u: User, "count(*)": number})
  * @param tx The transaction to run the query in, if any
  */
-export async function query<ReturnShape extends ReturnShapeType>(
+export async function query<RS extends ReturnShape>(
     cypherQuery: string,
     args: {[key: string]: any},
-    returnShape: ReturnShape,
+    returnShape: RS,
     tx: Transaction
-): Promise<TypedRecords<ReturnShape>> {
+): Promise<TypedRecord<RS>[]> {
     // Syntactic sugar: (tn:VNode)::{$key} or {$key}::(tn:VNode) will get the VNode of the specified type
     // (label) having the UUID or shortId specified, even if the shortId is not the "current" shortId (it was changed).
     // Note that you must not connect any relationship to the "::{$key}" part!
@@ -88,12 +89,12 @@ export async function query<ReturnShape extends ReturnShapeType>(
  * @param returnShape The expected shape of the result (e.g. {u: User, "count(*)": number})
  * @param tx The transaction to run the query in, if any
  */
-export async function queryOne<ReturnShape extends ReturnShapeType>(
+export async function queryOne<RS extends ReturnShape>(
     cypherQuery: string,
     args: {[key: string]: any},
-    returnShape: ReturnShape,
+    returnShape: RS,
     tx: Transaction
-): Promise<TypedRecord<ReturnShape>> {
+): Promise<TypedRecord<RS>> {
     const result = await query(cypherQuery, args, returnShape, tx);
     if (result.length !== 1) {
         throw new Error(`Expected a single result, got ${result.length}`);
