@@ -35,66 +35,84 @@ const checkPRR4: AssertNotEqual<typeof partialPersonRequest.name, false> = true;
 const checkPRR5: AssertEqual<typeof partialPersonRequest.name, boolean> = true;
 
 // Runtime tests. /////////////////////////////////////////////////////////////////////////////////////////////////
-registerSuite("buildCypherQuery", {
-    tests: {
-        "Queries with requested raw properties: Partial Person request with no filter (get all people)"() {
-            const query = buildCypherQuery(partialPersonRequest);
-
-            assert.equal(query.query, dedent`
-                MATCH (_node:TestPerson)
-                
-                RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth
-            `);
-        },
-
-        "Queries with requested raw properties: Basic Person request matching by UUID"() {
-            const query = buildCypherQuery(basicPersonRequest, {key: "00000000-0000-0000-0000-000000001234"});
-
-            assert.equal(query.query, dedent`
-                MATCH (_node:TestPerson {uuid: $_nodeUuid})
-                
-                RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth
-            `);
-            assert.equal(query.params._nodeUuid, "00000000-0000-0000-0000-000000001234");
-        },
-
-        "Queries with requested raw properties: Movie request, keyed by shortId"() {
-            const query = buildCypherQuery(DataRequest(Movie, {shortId: true, title: true, year: true}), {key: "jumanji-2"});
-            assert.equal(query.query, dedent`
-                MATCH (_node:TestMovie)<-[:IDENTIFIES]-(:ShortId {path: "TestMovie/" + $_nodeShortid})
-                
-                RETURN _node.shortId AS shortId, _node.title AS title, _node.year AS year
-            `);
-            assert.equal(query.params._nodeShortid, "jumanji-2");
-        },
-
-        "Queries with requested raw properties: Basic Person request matching with WHERE filter"() {
-            const query = buildCypherQuery(basicPersonRequest, {where: "@.name = $nameMatch", params: {nameMatch: "Dwayne Johnson"}});
-
-            assert.equal(query.query, dedent`
-                MATCH (_node:TestPerson)
-                WHERE _node.name = $nameMatch
-                
-                RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth
-            `);
-            assert.equal(query.params.nameMatch, "Dwayne Johnson");
-        },
-    },
-});
-
 registerSuite("pull", {
-    tests: {
-        async "Queries with requested raw properties: Partial Person request with no filter (get all people)"() {
-            const people = await testGraph.pull(partialPersonRequest);
+    "buildCypherQuery": {
+        "Queries with requested raw properties": {
+            tests: {
+                "Partial Person request with no filter (get all people)"() {
+                    const query = buildCypherQuery(partialPersonRequest);
 
-            assert.equal(people.length, 3);
-            // TODO: database-level ordering
-            people.sort((a, b) => a.name.localeCompare(b.name));
-            assert.equal(people[0].name, "Chris Pratt");
-            assert.equal(people[0].dateOfBirth, "1979-06-21");
-            assert.equal(people[0].uuid, undefined);  // UUID was not requested
+                    assert.equal(query.query, dedent`
+                        MATCH (_node:TestPerson)
+                        
+                        RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth
+                    `);
+                },
+
+                "Basic Person request matching by UUID"() {
+                    const query = buildCypherQuery(basicPersonRequest, {key: "00000000-0000-0000-0000-000000001234"});
+
+                    assert.equal(query.query, dedent`
+                        MATCH (_node:TestPerson {uuid: $_nodeUuid})
+                        
+                        RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth
+                    `);
+                    assert.equal(query.params._nodeUuid, "00000000-0000-0000-0000-000000001234");
+                },
+
+                "Movie request, keyed by shortId"() {
+                    const query = buildCypherQuery(DataRequest(Movie, {shortId: true, title: true, year: true}), {key: "jumanji-2"});
+                    assert.equal(query.query, dedent`
+                        MATCH (_node:TestMovie)<-[:IDENTIFIES]-(:ShortId {path: "TestMovie/" + $_nodeShortid})
+                        
+                        RETURN _node.shortId AS shortId, _node.title AS title, _node.year AS year
+                    `);
+                    assert.equal(query.params._nodeShortid, "jumanji-2");
+                },
+
+                "Basic Person request matching with WHERE filter"() {
+                    const query = buildCypherQuery(basicPersonRequest, {where: "@.name = $nameMatch", params: {nameMatch: "Dwayne Johnson"}});
+
+                    assert.equal(query.query, dedent`
+                        MATCH (_node:TestPerson)
+                        WHERE _node.name = $nameMatch
+                        
+                        RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth
+                    `);
+                    assert.equal(query.params.nameMatch, "Dwayne Johnson");
+                },
+            },
         },
+    },
+    "pull": {
+        "Queries with requested raw properties": {
+            tests: {
+                async "Partial Person request with no filter (get all people)"() {
+                    const people = await testGraph.pull(partialPersonRequest);
+        
+                    assert.equal(people.length, 7);
+                    // TODO: database-level ordering
+                    people.sort((a, b) => a.name.localeCompare(b.name));
+                    assert.equal(people[0].name, "Chris Pratt");
+                    assert.equal(people[0].dateOfBirth, "1979-06-21");
+                    assert.equal(people[0].uuid, undefined);  // UUID was not requested
+                },
 
+                async "Partial Person request with name filter"() {
+                    const people = await testGraph.pull(partialPersonRequest, {
+                        where: "@.name STARTS WITH $nameStart",
+                        params: {nameStart: "Ka"},
+                    });
+        
+                    assert.equal(people.length, 2);
+                    // TODO: database-level ordering
+                    people.sort((a, b) => a.name.localeCompare(b.name));
+                    assert.equal(people[0].name, "Karen Gillan");
+                    assert.equal(people[1].name, "Kate McKinnon");
+                },
+
+
+            },
+        }
     },
 });
-
