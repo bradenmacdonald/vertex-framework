@@ -1,0 +1,28 @@
+{
+    "compilerOptions": {
+        "allowJs": false,
+        "checkJs": false,
+        "esModuleInterop": true,
+        "outDir": "./dist/",
+        "sourceMap": true,
+        "forceConsistentCasingInFileNames": true,
+        "module": "CommonJS",
+        "lib": [],
+        "moduleResolution": "Node",
+        "strict": true,
+        "target": "ES2019",
+        "typeRoots" : ["./node_modules/@types", "./typings"]
+    },
+    "include": [
+        "**/*.ts",
+        "**/*.tsx"
+    ],
+    "exclude": [
+        "backend/test-lib",
+        "frontend",
+        "integration",
+        "**/*-test.ts",
+        "**/*-test.tsx",
+        "node_modules"
+    ]
+}
