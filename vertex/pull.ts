@@ -57,6 +57,8 @@ export interface DataRequestFilter {
     where?: string;
     /** Params: Values that are referenced in the "where" predicate, if any. */
     params?: {[key: string]: any};
+    /** Order the results by one of the fields (e.g. "name" or "name DESC") */
+    orderBy?: string;
 }
 
 ////////////////////////////// VNode Data Result format /////////////////////////////////////////////////////////////
@@ -154,6 +156,11 @@ export function buildCypherQuery<Request extends DataRequest<VNodeType, any>>(re
     // used by virtual properties.
     query += `\nRETURN ${[...workingVars.slice(1), ...rawPropertiesIncluded].join(", ")}`;
 
+    const orderBy = filter.orderBy || nodeType.defaultOrderBy;
+    if (orderBy) {
+        query += ` ORDER BY ${orderBy}`;
+    }
+
     return {query, params};
 }
 
@@ -162,6 +169,7 @@ export async function pull<Request extends DataRequest<any, any>>(
     request: Request,
     filter: DataRequestFilter = {},
 ): Promise<DataResult<Request>[]> {
+    const requestFields = Object.keys(request);
     const query = buildCypherQuery(request, filter);
     log.debug(query.query);
 
@@ -169,7 +177,7 @@ export async function pull<Request extends DataRequest<any, any>>(
 
     return result.records.map(record => {
         const newRecord: any = {};
-        for (const field of Object.keys(request)) {
+        for (const field of requestFields) {
             if (request[field]) {
                 newRecord[field] = record.get(field);
             }

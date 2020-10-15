@@ -13,6 +13,7 @@ export class Movie extends VNodeType {
         title: Joi.string().required(),
         year: Joi.number().integer().min(1888).max(2200).required(),
     };
+    static readonly defaultOrderBy = "year DESC";
 }
 registerVNodeType(Movie);
 

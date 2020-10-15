@@ -37,7 +37,8 @@ export class Person extends VNodeType {
             query: `(@friend:TestPerson)-[rel:FRIEND_OF]-(@)`,
             gives: {friend: Person, rel: Person.relationshipsFrom.FRIEND_OF},
         },
-    }
+    };
+    static readonly defaultOrderBy = "name";
 }
 registerVNodeType(Person);
 

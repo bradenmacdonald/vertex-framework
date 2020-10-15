@@ -33,6 +33,8 @@ abstract class _VNodeType {
     static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
     static readonly relationshipsFrom: RelationshipsFromSchema = {};
     static readonly virtualProperties: VirtualPropsSchema = {};
+    /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
+    static readonly defaultOrderBy: string|undefined = undefined;
 
     static async validate(dbObject: RawVNode<any>, tx: Transaction): Promise<void> {
         const validation = await Joi.object(this.properties).keys({
@@ -55,6 +57,7 @@ export interface VNodeType {
     readonly properties: PropSchemaWithUuid;
     readonly relationshipsFrom: RelationshipsFromSchema;
     readonly virtualProperties: VirtualPropsSchema;
+    readonly defaultOrderBy: string|undefined;
     validate(dbObject: RawVNode<any>, tx: Transaction): Promise<void>;
 }
 

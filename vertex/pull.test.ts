@@ -58,7 +58,7 @@ registerSuite("pull", {
                     assert.equal(query.query, dedent`
                         MATCH (_node:TestPerson)
                         
-                        RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth
+                        RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY name
                     `);
                 },
 
@@ -68,7 +68,7 @@ registerSuite("pull", {
                     assert.equal(query.query, dedent`
                         MATCH (_node:TestPerson {uuid: $_nodeUuid})
                         
-                        RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth
+                        RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY name
                     `);
                     assert.equal(query.params._nodeUuid, "00000000-0000-0000-0000-000000001234");
                 },
@@ -78,7 +78,7 @@ registerSuite("pull", {
                     assert.equal(query.query, dedent`
                         MATCH (_node:TestMovie)<-[:IDENTIFIES]-(:ShortId {path: "TestMovie/" + $_nodeShortid})
                         
-                        RETURN _node.shortId AS shortId, _node.title AS title, _node.year AS year
+                        RETURN _node.shortId AS shortId, _node.title AS title, _node.year AS year ORDER BY year DESC
                     `);
                     assert.equal(query.params._nodeShortid, "jumanji-2");
                 },
@@ -90,7 +90,7 @@ registerSuite("pull", {
                         MATCH (_node:TestPerson)
                         WHERE _node.name = $nameMatch
                         
-                        RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth
+                        RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY name
                     `);
                     assert.equal(query.params.nameMatch, "Dwayne Johnson");
                 },
@@ -103,9 +103,7 @@ registerSuite("pull", {
                 async "Partial Person request with no filter (get all people)"() {
                     const people = await testGraph.pull(partialPersonRequest);
         
-                    assert.equal(people.length, 7);
-                    // TODO: database-level ordering
-                    people.sort((a, b) => a.name.localeCompare(b.name));
+                    // Note: request should be sorted by name by default, so Chris Pratt comes first
                     const firstPerson = people[0];
                     assert.equal(firstPerson.name, "Chris Pratt");
                     const checkNameType: AssertEqual<typeof firstPerson.name, string> = true;
@@ -122,14 +120,26 @@ registerSuite("pull", {
                         where: "@.name STARTS WITH $nameStart",
                         params: {nameStart: "Ka"},
                     });
-        
-                    assert.equal(people.length, 2);
-                    // TODO: database-level ordering
-                    people.sort((a, b) => a.name.localeCompare(b.name));
+
                     assert.equal(people[0].name, "Karen Gillan");
                     assert.equal(people[1].name, "Kate McKinnon");
                 },
 
+                async "Partial Person request with sorting"() {
+                    const peopleOldestFirst = await testGraph.pull(partialPersonRequest, {
+                        orderBy: "dateOfBirth"
+                    });
+
+                    assert.equal(peopleOldestFirst[0].name, "Robert Downey Jr.");
+                    assert.equal(peopleOldestFirst[0].dateOfBirth, "1965-04-04");
+                    
+                    const peopleYoungestFirst = await testGraph.pull(partialPersonRequest, {
+                        orderBy: "dateOfBirth DESC"
+                    });
+                    
+                    assert.equal(peopleYoungestFirst[0].name, "Karen Gillan");
+                    assert.equal(peopleYoungestFirst[0].dateOfBirth, "1987-11-28");
+                },
 
             },
         }
