@@ -177,7 +177,8 @@ registerSuite("pull", {
                     });
 
                     assert.equal(chrisPratt.name, "Chris Pratt");
-                    //assert.equal(chrisPratt.movies.length, 3);
+                    assert.equal(chrisPratt.movies.length, 3);
+                    assert.equal(typeof chrisPratt.movies[0].title, "string");
                 },
             },
         },

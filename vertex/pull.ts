@@ -61,24 +61,30 @@ export interface DataRequestFilter {
 
 export type DataResult<Request extends DataRequest<any, any>> = (
     Request extends DataRequest<infer T, infer Fields> ?
-        {[K in keyof Request]: ResultFieldFor<T, Fields, Request, K>}
+        {[K in keyof Fields]: ResultFieldFor<T, Fields, K>}
     :
         {"error": "DataResult<> Couldn't infer DataRequest type parameters"}
 );
 
-    type ResultFieldFor<T extends VNodeType, Fields extends DataRequestFields<T>, Request extends DataRequest<T, Fields>, K extends keyof Request> = (
+    type ResultFieldFor<T extends VNodeType, Fields extends DataRequestFields<T>, K extends keyof Fields> = (
         K extends keyof T["properties"] ? 
             (
-                boolean extends Request[K] ? PropertyDataType<T["properties"], K>|undefined :
-                true extends Request[K] ? PropertyDataType<T["properties"], K> :
+                boolean extends Fields[K] ? PropertyDataType<T["properties"], K>|undefined :
+                true extends Fields[K] ? PropertyDataType<T["properties"], K> :
                 undefined
             ) :
-        K extends keyof T["virtualProperties"] ? VirtualPropertyDataType<T["virtualProperties"][K], Request[K]> :
+        K extends keyof T["virtualProperties"] ? VirtualPropertyDataType<T["virtualProperties"][K], Fields[K]> :
         never
     );
 
         type VirtualPropertyDataType<VP extends VirtualPropertyDefinition, Request> = (
-            Request extends DataRequestValueForVirtualProp<VP> ? {[K in keyof Request]: any} :
+            Request extends DataRequestValueForVirtualProp<VP> ? (
+                VP extends VirtualManyRelationshipProperty ? (
+                    Request extends DataRequestFields<VP["target"]> ? {[K in keyof Request]: ResultFieldFor<VP["target"], Request, K>}[] :
+                    never
+                ) :
+                never
+            ) :
             never
         );
 
