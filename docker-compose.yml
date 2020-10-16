@@ -13,6 +13,9 @@ services:
       NEO4JLABS_PLUGINS: '["apoc"]'
       apoc.uuid.enabled: "true"
       apoc.trigger.enabled: "true"
+    ports:
+      - 7774:7474  # Browse on your host at http://localhost:7774/browser/?connectURL=neo4j://localhost:7777
+      - 7777:7687  # Bolt
 
   ################################################################
   # NodeJS container for tests
