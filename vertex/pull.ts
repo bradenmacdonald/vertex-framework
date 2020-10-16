@@ -6,6 +6,7 @@ import {
     VirtualManyRelationshipProperty,
     VirtualOneRelationshipProperty,
     VirtualPropertyDefinition,
+    VirtualPropType,
 } from "./vnode";
 import { WrappedTransaction } from "./transaction";
 
@@ -31,17 +32,10 @@ export type DataRequest<T extends VNodeType, Fields extends DataRequestFields<T>
     );
 
         type DataRequestValueForVirtualProp<VP extends VirtualPropertyDefinition> = (
-            VP extends VirtualManyRelationshipProperty ? {
-                [K in keyof VP["gives"]]?: FieldRequestValueForVirtualManyPropResult<VP, K>;
-            } :
+            VP extends VirtualManyRelationshipProperty ? DataRequestFields<VP["target"]> :
             VP extends VirtualOneRelationshipProperty ? {b: boolean} :
             {notAVirtualProp: VP}
         );
-
-            type FieldRequestValueForVirtualManyPropResult<VP extends VirtualManyRelationshipProperty, K extends keyof VP["gives"]> = (
-                VP["gives"][K] extends VNodeType ? DataRequest<VP["gives"][K], any> :
-                never
-            );
 
 export interface DataRequestFilter {
     /** Key: If specified, the main node must have a UUID or shortId that is equal to this. */
@@ -100,24 +94,35 @@ export function DataRequest<T extends VNodeType, Fields extends DataRequestField
  * @param request DataRequest, which determines the details and shape of the data being requested
  * @param args Arguments such as pimrary keys to filter by
  */
-export function buildCypherQuery<Request extends DataRequest<VNodeType, any>>(request: Request, filter: DataRequestFilter = {}): {query: string, params: {[key: string]: any}} {
-    const nodeType = request[vnodeType];
-    const label = nodeType.label;
+export function buildCypherQuery<Request extends DataRequest<VNodeType, any>>(rootRequest: Request, rootFilter: DataRequestFilter = {}): {query: string, params: {[key: string]: any}} {
+    const rootNodeType = rootRequest[vnodeType];
+    const label = rootNodeType.label;
     let query: string;
-    const params: {[key: string]: any} = filter.params || {};
-    const workingVars = ["_node"];
+    const params: {[key: string]: any} = rootFilter.params || {};
+    const workingVars = new Set(["_node"]);
 
-    if (filter.key === undefined) {
+    /** Generate a new variable name for the given node type that we can use in the Cypher query. */
+    const generateNameFor = (nodeType: VNodeType): string => {
+        let i = 1;
+        let name = "";
+        do {
+            name = `_${nodeType.name.toLowerCase()}${i}`;
+            i++;
+        } while (workingVars.has(name));
+        return name;
+    };
+
+    if (rootFilter.key === undefined) {
         query = `MATCH (_node:${label})\n`;
     } else {
-        const key = filter.key;
+        const key = rootFilter.key;
         if (key.length === 36) {
             // Look up by UUID.
             query = `MATCH (_node:${label} {uuid: $_nodeUuid})\n`;
             params._nodeUuid = key;
         } else if (key.length < 36) {
-            if (nodeType.properties.shortId === undefined) {
-                throw new Error(`The requested ${nodeType.name} VNode type doesn't use shortId.`);
+            if (rootNodeType.properties.shortId === undefined) {
+                throw new Error(`The requested ${rootNodeType.name} VNode type doesn't use shortId.`);
             }
             query = `MATCH (_node:${label})<-[:IDENTIFIES]-(:ShortId {path: "${label}/" + $_nodeShortid})\n`;
             params._nodeShortid = key;
@@ -125,40 +130,68 @@ export function buildCypherQuery<Request extends DataRequest<VNodeType, any>>(re
             throw new Error("shortId must be shorter than 36 characters; UUID must be exactly 36 characters.");
         }
     }
-    if (filter.where) {
-        query += `WHERE ${filter.where.replace("@", "_node")}\n`;
+    if (rootFilter.where) {
+        query += `WHERE ${rootFilter.where.replace("@", "_node")}\n`;
     }
 
-    // TODO: Build a query like:
-    // MATCH (_node:Device)::{$key}
-
-    // OPTIONAL MATCH (child:Device)-[rel:IS_A]->(_node)
-    // WITH _node, child {.shortId, .name, .description, .readinessLevel, weight: rel.weight}
-    // ORDER BY child.weight DESC
-    // WITH _node, collect(child) as children
-
-    // OPTIONAL MATCH (_node)-[rel:IS_A]->(parent:Device)
-    // WITH _node, children, parent {.shortId, .name, .description, .readinessLevel, weight: rel.weight}
-    // ORDER BY parent.weight DESC
-    // WITH _node, children, collect(parent) AS parents
-
-    // OPTIONAL MATCH (_node)-[:HAS_HERO_IMAGE]->(heroImage:Image)-[:HAS_DATA]->(heroImageData:DataFile)
-    // WITH _node, children, parents, heroImage {.shortId, .description, sha256Hash: heroImageData.sha256Hash}
     
+
+    // Build subqueries
+    const addManyRelationshipSubquery = (propName: string, virtProp: VirtualManyRelationshipProperty, parentNodeVariable: string, request: DataRequestFields<VNodeType>): void => {
+        const newTargetVar = generateNameFor(virtProp.target);
+        workingVars.add(newTargetVar);
+        query += `\nOPTIONAL MATCH ${virtProp.query.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
+        // TODO: ordering of the subquery (WITH _node, ..., rel1 ORDER BY ...)
+
+        // Add additional subqeries, if any:
+        addVirtualPropsForNode(virtProp.target, newTargetVar, request);
+
+        // Construct the WITH statement that ends this subquery
+        workingVars.delete(newTargetVar);
+        const rawPropertiesIncluded = (
+            Object.keys(virtProp.target.properties)
+            .filter(propName => request[propName] === true)
+            .map(propName => `.${propName}`)
+            .join(", ")
+        );
+        query += `WITH ${[...workingVars].join(", ")}, collect(${newTargetVar} {${rawPropertiesIncluded}}) AS ${propName}\n`;
+        workingVars.add(propName);
+    }
+
+    const addVirtualPropsForNode = <VNT extends VNodeType>(nodeType: VNT, parentNodeVariable: string, request: DataRequestFields<VNT>): void => {
+        // For each virtual prop:
+        Object.entries(nodeType.virtualProperties).forEach(([propName, virtProp]) => {
+            const thisRequest = request[propName];
+            if (!thisRequest) {
+                return;  // undefined or false - don't include this virtual property in the current data request
+            }
+            if (virtProp.type === VirtualPropType.ManyRelationship) {
+                addManyRelationshipSubquery(propName, virtProp, parentNodeVariable, thisRequest as any);
+            } else {
+                throw new Error("Not implemented yet.");
+                // TODO: Build computed virtual props, 1:1 virtual props
+            }
+        });
+    }
+
+    // Add subqueries:
+    addVirtualPropsForNode(rootNodeType, "_node", rootRequest);
+
     // Build the final RETURN statement
     const rawPropertiesIncluded = (
-        Object.keys(nodeType.properties)
-        .filter(propName => request[propName] === true)
+        Object.keys(rootNodeType.properties)
+        .filter(propName => rootRequest[propName] === true)
         .map(propName => `_node.${propName} AS ${propName}`)
     );
-    // Note re workingVars.slice(1): We remove _node (first one) from the workingVars because we never return _node
-    // directly, only the subset of its properties actually requested. But we've kept it around this long because it's
-    // used by virtual properties.
-    query += `\nRETURN ${[...workingVars.slice(1), ...rawPropertiesIncluded].join(", ")}`;
+    // We remove _node (first one) from the workingVars because we never return _node directly, only the subset of 
+    // its properties actually requested. But we've kept it around this long because it's used by virtual properties.
+    workingVars.delete("_node");
+    const finalVars = [...workingVars, ...rawPropertiesIncluded].join(", ") || "null";  // Or just return null if no variables are selected for return
+    query += `\nRETURN ${finalVars}`;
 
-    const orderBy = filter.orderBy || nodeType.defaultOrderBy;
+    const orderBy = rootFilter.orderBy || rootNodeType.defaultOrderBy;
     if (orderBy) {
-        query += ` ORDER BY ${orderBy}`;
+        query += ` ORDER BY _node.${orderBy}`;
     }
 
     return {query, params};

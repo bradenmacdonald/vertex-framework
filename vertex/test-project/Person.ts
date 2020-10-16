@@ -29,13 +29,14 @@ export class Person extends VNodeType {
     static readonly virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@movie:${Movie.label})<-[:ACTED_ID]-(@)`,
-            gives: {movie: Movie},
+            query: `(@this)-[:ACTED_IN]->(@target:${Movie.label})`,
+            target: Movie,
         },
         friends: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@friend:TestPerson)-[rel:FRIEND_OF]-(@)`,
-            gives: {friend: Person, rel: Person.relationshipsFrom.FRIEND_OF},
+            query: `(@this)-[:FRIEND_OF]-(@target:${Person.label})`,
+            //gives: {friend: Person, rel: Person.relationshipsFrom.FRIEND_OF},
+            target: Person,
         },
     };
     static readonly defaultOrderBy = "name";

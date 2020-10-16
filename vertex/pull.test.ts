@@ -58,7 +58,7 @@ registerSuite("pull", {
                     assert.equal(query.query, dedent`
                         MATCH (_node:TestPerson)
                         
-                        RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY name
+                        RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
                     `);
                 },
 
@@ -68,7 +68,7 @@ registerSuite("pull", {
                     assert.equal(query.query, dedent`
                         MATCH (_node:TestPerson {uuid: $_nodeUuid})
                         
-                        RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY name
+                        RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
                     `);
                     assert.equal(query.params._nodeUuid, "00000000-0000-0000-0000-000000001234");
                 },
@@ -78,7 +78,7 @@ registerSuite("pull", {
                     assert.equal(query.query, dedent`
                         MATCH (_node:TestMovie)<-[:IDENTIFIES]-(:ShortId {path: "TestMovie/" + $_nodeShortid})
                         
-                        RETURN _node.shortId AS shortId, _node.title AS title, _node.year AS year ORDER BY year DESC
+                        RETURN _node.shortId AS shortId, _node.title AS title, _node.year AS year ORDER BY _node.year DESC
                     `);
                     assert.equal(query.params._nodeShortid, "jumanji-2");
                 },
@@ -90,15 +90,34 @@ registerSuite("pull", {
                         MATCH (_node:TestPerson)
                         WHERE _node.name = $nameMatch
                         
-                        RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY name
+                        RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
                     `);
                     assert.equal(query.params.nameMatch, "Dwayne Johnson");
                 },
             },
         },
+        "Queries including virtual properties": {
+            tests: {
+                async "Get all Chris Pratt Movies"() {
+                    const query = await buildCypherQuery(DataRequest(Person, {movies: {title: true, year: true}}), {
+                        key: "chris-pratt",
+                    });
+                    assert.equal(query.query, dedent`
+                        MATCH (_node:TestPerson)<-[:IDENTIFIES]-(:ShortId {path: "TestPerson/" + $_nodeShortid})
+
+                        OPTIONAL MATCH (_node)-[:ACTED_IN]->(_movie1:TestMovie)
+                        WITH _node, collect(_movie1 {.title, .year}) AS movies
+
+                        RETURN movies ORDER BY _node.name
+                    `);
+                    assert.equal(query.params._nodeShortid, "chris-pratt");
+                },
+
+            },
+        },
     },
     "pull": {
-        "Queries with requested raw properties": {
+        "Queries with raw properties": {
             tests: {
                 async "Partial Person request with no filter (get all people)"() {
                     const people = await testGraph.pull(partialPersonRequest);
@@ -142,6 +161,25 @@ registerSuite("pull", {
                 },
 
             },
-        }
+        },
+        "Queries including virtual properties": {
+            tests: {
+                async "Get all Chris Pratt Movies"() {
+                    const chrisPratt = await testGraph.pullOne(DataRequest(Person, {
+                        name: true,
+                        movies: {
+                            shortId: true,
+                            title: true,
+                            year: true,
+                        },
+                    }), {
+                        key: "chris-pratt",
+                    });
+
+                    assert.equal(chrisPratt.name, "Chris Pratt");
+                    //assert.equal(chrisPratt.movies.length, 3);
+                },
+            },
+        },
     },
 });

@@ -132,11 +132,10 @@ export const VirtualPropType = {
 }
 
 export interface VirtualManyRelationshipProperty {
-    type: typeof VirtualPropType.ManyRelationship,
-    query: string,
-    gives: {
-        [variableName: string]: VNodeType|RelationshipDefinition,
-    },
+    type: typeof VirtualPropType.ManyRelationship;
+    query: string;
+    target: VNodeType;
+    //annotations?: {[K: string]: {cypher: string, }};
 }
 export interface VirtualOneRelationshipProperty {
     type: typeof VirtualPropType.OneRelationship,

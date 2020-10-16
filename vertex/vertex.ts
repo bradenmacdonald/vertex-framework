@@ -60,6 +60,16 @@ export class Vertex implements VertexCore {
     }
 
     /**
+     * Read data from the graph, outside of a transaction
+     */
+    public async pullOne<Request extends DataRequest<any, any>>(
+        request: Request,
+        filter: DataRequestFilter = {}
+    ): Promise<DataResult<Request>> {
+        return this.read(tx => tx.pullOne<Request>(request, filter));
+    }
+
+    /**
      * Run an action (or multiple actions) as the specified user.
      * Returns the result of the last action specified.
      * @param userUuid The UUID of the user running the action
