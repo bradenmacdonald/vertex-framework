@@ -1,6 +1,6 @@
 import { registerSuite, assert, dedent } from "./lib/intern-tests";
 
-import { buildCypherQuery, DataRequest, NewDataRequest, newPull, pull } from "./pull";
+import { buildCypherQuery, DataRequest, VNodeDataRequest, newPull, pull } from "./pull";
 import { AssertEqual, AssertNotEqual } from "./lib/ts-utils";
 import { Person } from "./test-project/Person";
 import { Movie } from "./test-project/Movie";
@@ -176,13 +176,13 @@ registerSuite("pull", {
                         key: "chris-pratt",
                     });
 
-                    const test = (NewDataRequest(Person)
+                    const test = (VNodeDataRequest(Person)
                         .name
                         .dateOfBirthIfFlag("testeroni")
                         .movies(m => m.title.year, {ifFlag: "test2"})
                         .friends(f => f.allProps)
                     );
-                    const otherTest = NewDataRequest(Person).allProps;
+                    const otherTest = VNodeDataRequest(Person).allProps;
 
                     const result = await newPull(test);
                     if (result.movies) {
