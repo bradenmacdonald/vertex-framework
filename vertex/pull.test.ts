@@ -180,7 +180,7 @@ registerSuite("pull", {
                         .name
                         .dateOfBirthIfFlag("testeroni")
                         .movies(m => m.title.year)
-                        .friends(f => f.name)
+                        .friends(f => f.allProps)
                     );
                     const otherTest = NewDataRequest(Person).allProps;
 
