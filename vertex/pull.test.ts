@@ -1,6 +1,6 @@
 import { registerSuite, assert, dedent } from "./lib/intern-tests";
 
-import { buildCypherQuery, DataRequest, pull } from "./pull";
+import { buildCypherQuery, DataRequest, NewDataRequest, pull } from "./pull";
 import { AssertEqual, AssertNotEqual } from "./lib/ts-utils";
 import { Person } from "./test-project/Person";
 import { Movie } from "./test-project/Movie";
@@ -168,17 +168,26 @@ registerSuite("pull", {
                     const chrisPratt = await testGraph.pullOne(DataRequest(Person, {
                         name: true,
                         movies: {
-                            shortId: true,
-                            title: true,
-                            year: true,
+                            shortId: true as const,
+                            title: true as const,
+                            //year: true,
                         },
                     }), {
                         key: "chris-pratt",
                     });
 
+                    const test = (NewDataRequest(Person)
+                        .name
+                        .dateOfBirthIfFlag("testeroni")
+                    );
+                    const otherTest = NewDataRequest(Person).allProps;
+
                     assert.equal(chrisPratt.name, "Chris Pratt");
                     assert.equal(chrisPratt.movies.length, 3);
-                    assert.equal(typeof chrisPratt.movies[0].title, "string");
+                    const firstTitle = chrisPratt.movies[0].title;
+                    // TODO: check actual titles etc. once sorting is added.
+                    assert.equal(firstTitle, "string");
+                    const checkTitleType: AssertEqual<typeof firstTitle, string> = true;
                 },
             },
         },

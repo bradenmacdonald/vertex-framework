@@ -12,6 +12,54 @@ import { WrappedTransaction } from "./transaction";
 
 ////////////////////////////// VNode Data Request format ////////////////////////////////////////////////////////////
 
+type NDR_AddAllProps<
+    VNT extends VNodeType,
+    rawProps extends keyof VNT["properties"],
+    maybeRawProps extends keyof VNT["properties"],
+> = {
+    allProps: NewDataRequest<VNT, keyof VNT["properties"], maybeRawProps>
+};
+
+type NDR_AddRawProp<
+    VNT extends VNodeType,
+    rawProps extends keyof VNT["properties"],
+    maybeRawProps extends keyof VNT["properties"],
+> = {
+    [K in keyof VNT["properties"]]: NewDataRequest<VNT, rawProps|K, maybeRawProps>
+};
+
+type NDR_AddFlags<
+    VNT extends VNodeType,
+    rawProps extends keyof VNT["properties"],
+    maybeRawProps extends keyof VNT["properties"],
+> = {
+    [K in keyof VNT["properties"] as `${K}IfFlag`]: (flagName: string) => NewDataRequest<VNT, rawProps, maybeRawProps|K>
+};
+
+type NewDataRequest<
+    VNT extends VNodeType,
+    rawProps extends keyof VNT["properties"],
+    maybeRawProps extends keyof VNT["properties"],
+> = (
+    NDR_AddAllProps<VNT, rawProps, maybeRawProps> &
+    NDR_AddRawProp<VNT, rawProps, maybeRawProps> &
+    NDR_AddFlags<VNT, rawProps, maybeRawProps>
+);
+
+
+
+export function NewDataRequest<VNT extends VNodeType>(vnt: VNT): NewDataRequest<VNT, never, never> {
+    return {} as any;
+}
+
+
+
+
+
+
+
+
+
 const vnodeType = Symbol("vnodeType");
 
 type FieldNameFor<T extends VNodeType> = keyof T["properties"] | keyof T["virtualProperties"];
