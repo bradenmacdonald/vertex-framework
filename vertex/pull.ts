@@ -12,38 +12,73 @@ import { WrappedTransaction } from "./transaction";
 
 ////////////////////////////// VNode Data Request format ////////////////////////////////////////////////////////////
 
+type RecursiveVirtualPropRequest<VNT extends VNodeType> = {
+    [K in keyof VNT["virtualProperties"]]?: (
+        K extends keyof VNT["virtualProperties"] ? {ifFlag: string|undefined, name: K} :
+        never
+    )
+}
+
 type NDR_AddAllProps<
     VNT extends VNodeType,
     rawProps extends keyof VNT["properties"],
     maybeRawProps extends keyof VNT["properties"],
+    virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
 > = {
-    allProps: NewDataRequest<VNT, keyof VNT["properties"], maybeRawProps>
+    allProps: NewDataRequest<VNT, keyof VNT["properties"], maybeRawProps, virtualPropSpec>
 };
 
 type NDR_AddRawProp<
     VNT extends VNodeType,
     rawProps extends keyof VNT["properties"],
     maybeRawProps extends keyof VNT["properties"],
+    virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
 > = {
-    [K in keyof VNT["properties"]]: NewDataRequest<VNT, rawProps|K, maybeRawProps>
+    [K in keyof VNT["properties"] as Exclude<K, rawProps|maybeRawProps>]: NewDataRequest<VNT, rawProps|K, maybeRawProps, virtualPropSpec>
 };
 
 type NDR_AddFlags<
     VNT extends VNodeType,
     rawProps extends keyof VNT["properties"],
     maybeRawProps extends keyof VNT["properties"],
+    virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
 > = {
-    [K in keyof VNT["properties"] as `${K}IfFlag`]: (flagName: string) => NewDataRequest<VNT, rawProps, maybeRawProps|K>
+    [K in keyof VNT["properties"] as `${K}IfFlag`]: (flagName: string) => NewDataRequest<VNT, rawProps, maybeRawProps|K, virtualPropSpec>
+};
+
+// type NDR_AddVirtualProp<
+//     VNT extends VNodeType,
+//     rawProps extends keyof VNT["properties"],
+//     maybeRawProps extends keyof VNT["properties"],
+//     virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
+// > = {
+//     [K in keyof VNT["virtualProperties"]]: NewDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{K: {ifFlag: undefined, name: K}}>
+// };
+
+type NDR_AddVirtualProp<
+    VNT extends VNodeType,
+    rawProps extends keyof VNT["properties"],
+    maybeRawProps extends keyof VNT["properties"],
+    virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
+> = {
+    [K in keyof VNT["virtualProperties"]]: (
+        VNT["virtualProperties"][K] extends VirtualManyRelationshipProperty ?
+            (subRequest: (emptyRequest: NewDataRequest<VNT["virtualProperties"][K]["target"]>) => NewDataRequest<VNT["virtualProperties"][K]["target"], any, any, any>)
+            => NewDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: undefined, name: K}}>
+        : never
+    )
 };
 
 type NewDataRequest<
     VNT extends VNodeType,
-    rawProps extends keyof VNT["properties"],
-    maybeRawProps extends keyof VNT["properties"],
+    rawProps extends keyof VNT["properties"] = never,
+    maybeRawProps extends keyof VNT["properties"] = never,
+    virtualPropSpec extends RecursiveVirtualPropRequest<VNT> = {}
 > = (
-    NDR_AddAllProps<VNT, rawProps, maybeRawProps> &
-    NDR_AddRawProp<VNT, rawProps, maybeRawProps> &
-    NDR_AddFlags<VNT, rawProps, maybeRawProps>
+    NDR_AddAllProps<VNT, rawProps, maybeRawProps, virtualPropSpec> &
+    NDR_AddRawProp<VNT, rawProps, maybeRawProps, virtualPropSpec> &
+    NDR_AddFlags<VNT, rawProps, maybeRawProps, virtualPropSpec> &
+    NDR_AddVirtualProp<VNT, rawProps, maybeRawProps, virtualPropSpec>
 );
 
 

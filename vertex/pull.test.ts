@@ -179,6 +179,8 @@ registerSuite("pull", {
                     const test = (NewDataRequest(Person)
                         .name
                         .dateOfBirthIfFlag("testeroni")
+                        .movies(m => m.title.year)
+                        .friends(f => f.name)
                     );
                     const otherTest = NewDataRequest(Person).allProps;
 
