@@ -60,9 +60,9 @@ type NDR_AddVirtualProp<
 > = {
     [K in keyof VNT["virtualProperties"]]: (
         VNT["virtualProperties"][K] extends VirtualManyRelationshipProperty ?
-            <SubSpec extends NewDataRequest<VNT["virtualProperties"][K]["target"]>>
-            (subRequest: (emptyRequest: NewDataRequest<VNT["virtualProperties"][K]["target"]>) => SubSpec)
-            => NewDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: undefined, name: K, spec: SubSpec}}>
+            <SubSpec extends NewDataRequest<VNT["virtualProperties"][K]["target"]>, FlagType extends string|undefined = undefined>
+            (subRequest: (emptyRequest: NewDataRequest<VNT["virtualProperties"][K]["target"]>) => SubSpec, options?: {ifFlag: FlagType})
+            => NewDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec}}>
         : never
     )
 };
@@ -73,9 +73,13 @@ type NewDataRequest<
     maybeRawProps extends keyof VNT["properties"] = never,
     virtualPropSpec extends RecursiveVirtualPropRequest<VNT> = {}
 > = (
+    // Each NewDataRequest has a .allProps attribute which requests all raw properties and returns the same request object
     NDR_AddAllProps<VNT, rawProps, maybeRawProps, virtualPropSpec> &
+    // For each raw field like "uuid", the data request has a .uuid attribute which requests that field and returns the same request object
     NDR_AddRawProp<VNT, rawProps, maybeRawProps, virtualPropSpec> &
+    // For each raw field like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that field
     NDR_AddFlags<VNT, rawProps, maybeRawProps, virtualPropSpec> &
+    // For each virtual property of the VNodeType, there is a .propName(p => p...) method for requesting it.
     NDR_AddVirtualProp<VNT, rawProps, maybeRawProps, virtualPropSpec>
 );
 
