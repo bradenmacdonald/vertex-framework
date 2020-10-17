@@ -1,6 +1,6 @@
 import { registerSuite, assert, dedent } from "./lib/intern-tests";
 
-import { buildCypherQuery, DataRequest, NewDataRequest, pull } from "./pull";
+import { buildCypherQuery, DataRequest, NewDataRequest, newPull, pull } from "./pull";
 import { AssertEqual, AssertNotEqual } from "./lib/ts-utils";
 import { Person } from "./test-project/Person";
 import { Movie } from "./test-project/Movie";
@@ -183,6 +183,12 @@ registerSuite("pull", {
                         .friends(f => f.allProps)
                     );
                     const otherTest = NewDataRequest(Person).allProps;
+
+                    const result = await newPull(test);
+                    if (result.movies) {
+                        result.movies[0].year
+                    }
+                    result.friends[0].uuid
 
                     assert.equal(chrisPratt.name, "Chris Pratt");
                     assert.equal(chrisPratt.movies.length, 3);

@@ -89,7 +89,21 @@ export function NewDataRequest<VNT extends VNodeType>(vnt: VNT): NewDataRequest<
     return {} as any;
 }
 
+type VNodeDataResponse<VNDR extends NewDataRequest<any, any, any, any>> = (
+    VNDR extends NewDataRequest<infer VNT, infer rawProps, infer maybeRawProps, infer virtualPropSpec> ? (
+        {[rawProp in rawProps]: PropertyDataType<VNT["properties"], rawProp>} &
+        {[conditionalRawProp in maybeRawProps]?: PropertyDataType<VNT["properties"], conditionalRawProp>} &
+        {[virtualProp in keyof virtualPropSpec]: (
+            virtualPropSpec[virtualProp] extends RecursiveVirtualPropRequestManySpec<any, infer Spec> ?
+                (virtualPropSpec[virtualProp]["ifFlag"] extends string ? VNodeDataResponse<Spec>[]|undefined : VNodeDataResponse<Spec>[])
+            : never
+        )}
+    ) : never
+);
 
+export async function newPull<VNDR extends NewDataRequest<any, any, any, any>>(vndr: VNDR): Promise<VNodeDataResponse<VNDR>> {
+    return {} as any;
+}
 
 
 
