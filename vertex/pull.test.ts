@@ -101,6 +101,7 @@ registerSuite("pull", {
                         MATCH (_node:TestPerson)<-[:IDENTIFIES]-(:ShortId {path: "TestPerson/" + $_nodeShortid})
 
                         OPTIONAL MATCH (_node)-[:ACTED_IN]->(_movie1:TestMovie)
+                        WITH _node, _movie1 ORDER BY _movie1.year DESC
                         WITH _node, collect(_movie1 {.title, .year}) AS movies
 
                         RETURN movies ORDER BY _node.name
@@ -192,16 +193,17 @@ registerSuite("pull", {
         "Queries including virtual properties": {
             tests: {
                 async "Get all Chris Pratt Movies"() {
-                    const chrisPratt = await testGraph.pullOne(
-                        VNodeDataRequest(Person).name.movies(m => m.shortId.title),
+                    const chrisPratt = await testGraph.pullOne(Person, p => p
+                        .name
+                        .movies(m => m.shortId.title),
                         {key: "chris-pratt"},
                     );
 
                     assert.equal(chrisPratt.name, "Chris Pratt");
                     assert.equal(chrisPratt.movies.length, 3);
+                    // Movies should be sorted newest first by default, so the first movie should be the newest one:
                     const firstTitle = chrisPratt.movies[0].title;
-                    // TODO: check actual titles etc. once sorting is added.
-                    assert.equal(typeof firstTitle, "string");
+                    assert.equal(firstTitle, "Avengers: Infinity War");
                     checkType<AssertEqual<typeof firstTitle, string>>();
                 },
             },

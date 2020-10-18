@@ -258,8 +258,8 @@ export interface DataRequestFilter {
 
 /**
  * Build a cypher query to load some data from the Neo4j graph database
- * @param request DataRequest, which determines the details and shape of the data being requested
- * @param args Arguments such as pimrary keys to filter by
+ * @param _rootRequest VNodeDataRequest, which determines the shape of the data being requested
+ * @param rootFilter Arguments such as primary keys to filter by, which determine what nodes are included in the response
  */
 export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any, any>>(_rootRequest: Request, rootFilter: DataRequestFilter = {}): {query: string, params: {[key: string]: any}} {
     const rootRequest: VNDRInternalData = getInternalData(_rootRequest);
@@ -309,7 +309,10 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         const newTargetVar = generateNameFor(virtProp.target);
         workingVars.add(newTargetVar);
         query += `\nOPTIONAL MATCH ${virtProp.query.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
-        // TODO: ordering of the subquery (WITH _node, ..., rel1 ORDER BY ...)
+        // Order the subquery:
+        if (virtProp.target.defaultOrderBy) {
+            query += `WITH ${[...workingVars].join(", ")} ORDER BY ${newTargetVar}.${virtProp.target.defaultOrderBy}\n`;
+        }
 
         // Add additional subqeries, if any:
         addVirtualPropsForNode(newTargetVar, request);
