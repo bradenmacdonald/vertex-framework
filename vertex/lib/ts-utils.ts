@@ -10,11 +10,27 @@ export type AssertEqual<Type, Expected> =
         ({foo: "bar"} extends Expected ? true : false) // Unless "any" was expected
     :
         Type extends Expected
-        ? (Expected extends Type ? true : void)
-        : never;
+        ? (Expected extends Type ? true : false)
+        : false;
 
 // Helper for asserting that types are equal
 export type AssertNotEqual<Type, Expected> =
     Type extends Expected
     ? true
-    : (Expected extends Type ? never : true);
+    : (Expected extends Type ? false : true);
+
+// Helper for asserting that an object has a specific property
+export type AssertPropertyPresent<Type, KeyName extends string, ValueType = any> =
+    Type extends {[K in KeyName]: ValueType} ? true : false;
+
+// Helper for asserting that an object has a specific property
+export type AssertPropertyOptional<Type, KeyName extends string, ValueType = any> =
+    Type extends {[K in KeyName]: ValueType} ? false :
+    Type extends {[K in KeyName]?: ValueType} ? true :
+    false;
+
+// Helper for asserting that an object doesn't have a specific property
+export type AssertPropertyAbsent<Type, KeyName extends string> =
+    Type extends {[K in KeyName]?: any} ? false : true;
+
+export function checkType<Assertion extends true>(): void {/* */}

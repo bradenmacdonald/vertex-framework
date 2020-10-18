@@ -2,7 +2,7 @@ import neo4j, { Transaction, Driver } from "neo4j-driver";
 import { ActionData, ActionResult } from "./action";
 import { runAction } from "./action-runner";
 import { UUID } from "./lib/uuid";
-import { DataRequest, DataRequestFilter, DataResult, pull } from "./pull";
+import { DataRequestFilter, PullNoTx, PullOneNoTx } from "./pull";
 import { migrations as coreMigrations, SYSTEM_UUID } from "./schema";
 import { WrappedTransaction, wrapTransaction } from "./transaction";
 import { Migration, VertexCore } from "./vertex-interface";
@@ -52,22 +52,12 @@ export class Vertex implements VertexCore {
     /**
      * Read data from the graph, outside of a transaction
      */
-    public async pull<Request extends DataRequest<any, any>>(
-        request: Request,
-        filter: DataRequestFilter = {}
-    ): Promise<DataResult<Request>[]> {
-        return this.read(tx => tx.pull<Request>(request, filter));
-    }
+    pull: PullNoTx = (arg1: any, ...args: any[]) => this.read(tx => tx.pull(arg1, ...args)) as any;
 
     /**
      * Read data from the graph, outside of a transaction
      */
-    public async pullOne<Request extends DataRequest<any, any>>(
-        request: Request,
-        filter: DataRequestFilter = {}
-    ): Promise<DataResult<Request>> {
-        return this.read(tx => tx.pullOne<Request>(request, filter));
-    }
+    pullOne: PullOneNoTx = (arg1: any, ...args: any[]) => this.read(tx => tx.pullOne(arg1, ...args)) as any;
 
     /**
      * Run an action (or multiple actions) as the specified user.

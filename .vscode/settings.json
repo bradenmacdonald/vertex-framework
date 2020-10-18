@@ -7,4 +7,5 @@
     ],
     "deno.enable": false,
     "debug.javascript.usePreview": true,
+    "typescript.tsdk": "node_modules/typescript/lib",
 }
