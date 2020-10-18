@@ -1,6 +1,6 @@
 import { registerSuite, assert, dedent } from "./lib/intern-tests";
 
-import { buildCypherQuery, DataRequest, VNodeDataRequest, newPull, pull } from "./pull";
+import { buildCypherQuery, DataRequest, VNodeDataRequest, newPull, newPull3, pull } from "./pull";
 import { AssertEqual, AssertNotEqual } from "./lib/ts-utils";
 import { Person } from "./test-project/Person";
 import { Movie } from "./test-project/Movie";
@@ -184,11 +184,13 @@ registerSuite("pull", {
                     );
                     const otherTest = VNodeDataRequest(Person).allProps;
 
-                    const result = await newPull(test);
+                    const result = await newPull3(test);
                     if (result.movies) {
                         result.movies[0].year
                     }
                     result.friends[0].uuid
+
+                    const otherResult = await newPull3(Person, p => p.allProps);
 
                     assert.equal(chrisPratt.name, "Chris Pratt");
                     assert.equal(chrisPratt.movies.length, 3);

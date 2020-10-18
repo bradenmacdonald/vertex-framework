@@ -195,7 +195,9 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
     },
 };
 
+// The full VNodeDataRequest<A, B, C, D> type is private and not exported, but it's necessary/useful to export the basic version:
 export type VNodeDataRequestBuilder<VNT extends VNodeType> = VNodeDataRequest<VNT>;
+
 /**
  * Base "constructor" for a VNodeDataRequest.
  *
@@ -226,7 +228,20 @@ type VNodeDataResponse<VNDR extends VNodeDataRequest<any, any, any, any>> = (
     ) : never
 );
 
-export async function newPull<VNDR extends VNodeDataRequest<any, any, any, any>>(vndr: VNDR): Promise<VNodeDataResponse<VNDR>> {
+
+export async function newPull<VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(vnt: VNT, vndr: VNDR|((builder: VNodeDataRequestBuilder<VNT>) => VNDR)): Promise<VNodeDataResponse<VNDR>> {
+    return {} as any;
+}
+
+export function newPull3<VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(vnt: VNT, vndr: ((builder: VNodeDataRequestBuilder<VNT>) => VNDR)): Promise<VNodeDataResponse<VNDR>>;
+export function newPull3<VNDR extends VNodeDataRequest<any, any, any, any>>(vndr: VNDR): Promise<VNodeDataResponse<VNDR>>;
+
+// export async function newPull3<VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(arg1: VNT|VNDR, arg2?: (builder: VNodeDataRequestBuilder<VNT>) => VNDR): Promise<VNodeDataResponse<VNDR>> {
+//     const request = arg2 === undefined ? arg1 : arg2(VNodeDataRequest(arg1 as VNT));
+//     return {} as any;
+// }
+export async function newPull3(arg1: any, arg2?: any): Promise<any> {
+    const request: VNodeDataRequest<any> = arg2 === undefined ? arg1 : arg2(VNodeDataRequest(arg1));
     return {} as any;
 }
 
