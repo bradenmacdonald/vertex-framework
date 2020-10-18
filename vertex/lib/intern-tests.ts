@@ -7,6 +7,7 @@ import { testGraph } from "../test-project/graph";
 import { createTestData } from "../test-project/test-data";
 
 export const { registerSuite } = intern.getPlugin("interface.object");
+export const { suite, test, before, beforeEach } = intern.getPlugin("interface.tdd");
 export const { assert } = intern.getPlugin("chai");
 
 export const assertRejects = async (what: Promise<any>, msg?: string): Promise<void> => {
