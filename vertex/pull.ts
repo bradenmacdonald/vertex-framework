@@ -1,4 +1,3 @@
-import { VertexCore } from "./vertex-interface";
 import { log } from "./lib/log";
 import {
     PropertyDataType,
@@ -104,14 +103,112 @@ type RecursiveVirtualPropRequestManySpec<propType extends VirtualManyRelationshi
     spec: Spec,
 };
 
+
+// Internal data stored in a VNodeDataRequest:
+const _vnodeType = Symbol("vnodeType");
+const _rawProperties = Symbol("rawProperties");
+const _virtualProperties = Symbol("virtualProperties");
+const _internalData = Symbol("internalData");
+
+/** Internal data in a VNodeDataRequest object */
+interface VNDRInternalData {
+    // The VNodeType that this data request is for
+    [_vnodeType]: VNodeType;
+    // Raw properties to pull from the database.
+    // Keys represent the property names; string values indicate they should only be pulled when a flag is set.
+    [_rawProperties]: {[propName: string]: true|string}
+    // Virtual properties (like related objects) to pull from the database, along with details such as what data to pull
+    // in turn for those VNodes
+    [_virtualProperties]: {[propName: string]: {ifFlag: string|undefined, shapeData?: VNDRInternalData}},
+}
+
+/** Proxy handler that works with the VNodeDataRequest() function to implement the VNodeDataRequest API. */
+const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
+    set: (internalData, propKey, value, requestObj) => false,  // Disallow setting properties on the VNodeDataRequest
+    get: (internalData, propKey, requestObj) => {
+        const vnodeType = internalData[_vnodeType];
+
+        if (propKey === _internalData) {
+            return internalData;
+        } else if (typeof propKey !== "string") {
+            throw new Error("Can't have non-string fields on a VNodeDataRequest");
+        }
+
+        // Note: in this handler code, "return requestObj" will return the Proxy, i.e. the VNodeDataRequest, so that
+        // multiple calls can be chained:
+        //     const r = VNodeDataRequest(type).field1.field2.field3IfFlag("flag").field4 etc.
+
+        if (vnodeType.properties[propKey] !== undefined) {
+            // Operation to include a raw property:
+            // "request.name" means add the "name" raw property to "request" and return "request"
+            internalData[_rawProperties][propKey] = true;
+            return requestObj;
+        }
+
+        if (propKey.endsWith("IfFlag")) {
+            // Operation to conditionally add a raw property
+            // "request.nameIfFlag('includeName')" means add the "name" raw property to "request" and return "request", but
+            // when executing the request, only fetch the "name" property if the "includeName" flag is set.
+            const actualPropKey = propKey.substr(0, propKey.length - 6);  // Remove "IfFlag"
+            if (vnodeType.properties[actualPropKey] !== undefined) {
+                // ...IfFlag requires an argument (the flag name), so return a function:
+                return (flagName: string) => {
+                    // The user is conditionally requesting a field, based on some flag.
+                    // Check if this property was already requested though.
+                    const oldRequest = internalData[_rawProperties][actualPropKey];
+                    if (oldRequest === undefined) {
+                        internalData[_rawProperties][actualPropKey] = flagName;
+                    } else if (oldRequest === true) {
+                        log.warn(`Cleanup needed: Property ${vnodeType.name}.${actualPropKey} was requested unconditionally and conditionally (${actualPropKey}IfFlag).`);
+                    } else {
+                        throw new Error(`Property ${vnodeType.name}.${actualPropKey} was requested based on two different flags (${flagName}, ${oldRequest}), which is unsupported.`);
+                    }
+                    return requestObj;
+                };
+            }
+        }
+
+        const virtualProp = vnodeType.virtualProperties[propKey];
+        if (virtualProp !== undefined) {
+            // Operation to add a virtual property:
+            if (virtualProp.type === VirtualPropType.ManyRelationship) {
+                // Return a method that can be used to build the request for this virtual property type
+                const targetVNodeType = virtualProp.target;
+                return (buildSubRequest: (subRequest: VNodeDataRequest<typeof targetVNodeType>) => VNodeDataRequest<typeof targetVNodeType>, options?: {ifFlag: string|undefined}) => {
+                    // Build the subrequest immediately, using the supplied code:
+                    const subRequest = buildSubRequest(VNodeDataRequest(targetVNodeType));
+                    // Save the request in our internal data:
+                    if (internalData[_virtualProperties][propKey] !== undefined) {
+                        throw new Error(`Virtual Property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
+                    }
+                    internalData[_virtualProperties][propKey] = {
+                        ifFlag: options?.ifFlag,
+                        shapeData: (subRequest as any)[_internalData],
+                    };
+                    // Return the same object so more operations can be chained on:
+                    return requestObj;
+                };
+            } else {
+                throw new Error(`That virtual property type (${virtualProp.type}) is not supported yet.`);
+            }
+        }
+    },
+};
+
+export type VNodeDataRequestBuilder<VNT extends VNodeType> = VNodeDataRequest<VNT>;
 /**
- * Base constructor for a VNodeRequest.
+ * Base "constructor" for a VNodeDataRequest.
  *
- * Returns an empty VNodeRequest for the specified VNode type, which can be used to build a complete request.
+ * Returns an empty VNodeDataRequest for the specified VNode type, which can be used to build a complete request.
  * @param vnt The VNode Type for which the request is being built
  */
-export function VNodeDataRequest<VNT extends VNodeType>(vnt: VNT): VNodeDataRequest<VNT> {
-    return {} as any;
+export function VNodeDataRequest<VNT extends VNodeType>(vnt: VNT): VNodeDataRequestBuilder<VNT> {
+    const data: VNDRInternalData = {
+        [_vnodeType]: vnt,
+        [_rawProperties]: {},
+        [_virtualProperties]: {},
+    };
+    return new Proxy(data, vndrProxyHandler) as any;
 }
 
 /**
