@@ -30,7 +30,7 @@ type VNodeDataRequest<
     VNT extends VNodeType,
     rawProps extends keyof VNT["properties"] = never,
     maybeRawProps extends keyof VNT["properties"] = never,
-    virtualPropSpec extends RecursiveVirtualPropRequest<VNT> = {}
+    virtualPropSpec extends RecursiveVirtualPropRequest<VNT> = {}  // eslint-disable-line @typescript-eslint/ban-types
 > = (
     // Each VNodeDataRequest has a .allProps attribute which requests all raw properties and returns the same request object
     VNDR_AddAllProps<VNT, rawProps, maybeRawProps, virtualPropSpec> &
@@ -69,7 +69,7 @@ type VNDR_AddFlags<
     maybeRawProps extends keyof VNT["properties"],
     virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
 > = {
-    [K in keyof VNT["properties"] as `${K}IfFlag`]: (flagName: string) => VNodeDataRequest<VNT, rawProps, maybeRawProps|K, virtualPropSpec>
+    [K in keyof VNT["properties"] as K extends string ? `${K}IfFlag` : never]: (flagName: string) => VNodeDataRequest<VNT, rawProps, maybeRawProps|K, virtualPropSpec>
 };
 
 /** For each virtual property of the VNodeType, there is a .propName(p => p...) method for requesting it. */
@@ -145,6 +145,11 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
             return requestObj;
         }
 
+        if (propKey === "allProps") {
+            Object.keys(vnodeType.properties).forEach(someProp => internalData[_rawProperties][someProp] = true);
+            return requestObj;
+        }
+
         if (propKey.endsWith("IfFlag")) {
             // Operation to conditionally add a raw property
             // "request.nameIfFlag('includeName')" means add the "name" raw property to "request" and return "request", but
@@ -183,7 +188,7 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
                     }
                     internalData[_virtualProperties][propKey] = {
                         ifFlag: options?.ifFlag,
-                        shapeData: (subRequest as any)[_internalData],
+                        shapeData: getInternalData(subRequest),
                     };
                     // Return the same object so more operations can be chained on:
                     return requestObj;
@@ -192,6 +197,8 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
                 throw new Error(`That virtual property type (${virtualProp.type}) is not supported yet.`);
             }
         }
+
+        throw new Error(`VNodeDataRequest(${internalData[_vnodeType].name}).${propKey} doesn't exist or is not implemented.`);
     },
 };
 
@@ -228,54 +235,6 @@ type VNodeDataResponse<VNDR extends VNodeDataRequest<any, any, any, any>> = (
     ) : never
 );
 
-
-export async function newPull<VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(vnt: VNT, vndr: VNDR|((builder: VNodeDataRequestBuilder<VNT>) => VNDR)): Promise<VNodeDataResponse<VNDR>> {
-    return {} as any;
-}
-
-export function newPull3<VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(vnt: VNT, vndr: ((builder: VNodeDataRequestBuilder<VNT>) => VNDR)): Promise<VNodeDataResponse<VNDR>>;
-export function newPull3<VNDR extends VNodeDataRequest<any, any, any, any>>(vndr: VNDR): Promise<VNodeDataResponse<VNDR>>;
-
-// export async function newPull3<VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(arg1: VNT|VNDR, arg2?: (builder: VNodeDataRequestBuilder<VNT>) => VNDR): Promise<VNodeDataResponse<VNDR>> {
-//     const request = arg2 === undefined ? arg1 : arg2(VNodeDataRequest(arg1 as VNT));
-//     return {} as any;
-// }
-export async function newPull3(arg1: any, arg2?: any): Promise<any> {
-    const request: VNodeDataRequest<any> = arg2 === undefined ? arg1 : arg2(VNodeDataRequest(arg1));
-    return {} as any;
-}
-
-
-
-
-
-
-
-const vnodeType = Symbol("vnodeType");
-
-type FieldNameFor<T extends VNodeType> = keyof T["properties"] | keyof T["virtualProperties"];
-
-export type DataRequestFields<T extends VNodeType> = (
-    {[K in keyof T["properties"]]?: DataRequestValue<T, K>} |
-    {[K2 in keyof T["virtualProperties"]]?: DataRequestValue<T, K2>}
-);
-
-export type DataRequest<T extends VNodeType, Fields extends DataRequestFields<T>> = {
-    [K2 in (keyof Fields)&FieldNameFor<T>]: DataRequestValue<T, K2, Fields[K2]>
-}&{[vnodeType]: T}
-
-    type DataRequestValue<T extends VNodeType, FieldName extends FieldNameFor<T>, boolType = true|false|boolean|undefined> = (
-        FieldName extends keyof T["properties"] ? boolType :
-        FieldName extends keyof T["virtualProperties"] ? DataRequestValueForVirtualProp<T["virtualProperties"][FieldName]> :
-        {invalidKey: FieldName}
-    );
-
-        type DataRequestValueForVirtualProp<VP extends VirtualPropertyDefinition> = (
-            VP extends VirtualManyRelationshipProperty ? DataRequestFields<VP["target"]> :
-            VP extends VirtualOneRelationshipProperty ? {b: boolean} :
-            {notAVirtualProp: VP}
-        );
-
 export interface DataRequestFilter {
     /** Key: If specified, the main node must have a UUID or shortId that is equal to this. */
     key?: string;
@@ -292,55 +251,19 @@ export interface DataRequestFilter {
     params?: {[key: string]: any};
     /** Order the results by one of the fields (e.g. "name" or "name DESC") */
     orderBy?: string;
+    /** Optional fields to include in the response */
+    flags?: string[];
 }
 
-////////////////////////////// VNode Data Result format /////////////////////////////////////////////////////////////
-
-
-
-export type DataResult<Request extends DataRequest<any, any>> = (
-    Request extends DataRequest<infer T, infer Fields> ?
-        {[K in keyof Fields]: ResultFieldFor<T, Fields, K>}
-    :
-        {"error": "DataResult<> Couldn't infer DataRequest type parameters"}
-);
-
-    type ResultFieldFor<T extends VNodeType, Fields extends DataRequestFields<T>, K extends keyof Fields> = (
-        K extends keyof T["properties"] ? 
-            (
-                boolean extends Fields[K] ? PropertyDataType<T["properties"], K>|undefined :
-                true extends Fields[K] ? PropertyDataType<T["properties"], K> :
-                undefined
-            ) :
-        K extends keyof T["virtualProperties"] ? VirtualPropertyDataType<T["virtualProperties"][K], Fields[K]> :
-        never
-    );
-
-        type VirtualPropertyDataType<VP extends VirtualPropertyDefinition, Request> = (
-            Request extends DataRequestValueForVirtualProp<VP> ? (
-                VP extends VirtualManyRelationshipProperty ? (
-                    Request extends DataRequestFields<VP["target"]> ? {[K in keyof Request]: ResultFieldFor<VP["target"], Request, K>}[] :
-                    never
-                ) :
-                never
-            ) :
-            never
-        );
-
-////////////////////////////// Load VNode data from the graph ///////////////////////////////////////////////////////
-
-/** Helper convenience function to create a fully typed DataRequest, which can be assigned to a variable */
-export function DataRequest<T extends VNodeType, Fields extends DataRequestFields<T>>(tn: T, rq: Fields): DataRequest<T, Fields> {
-    return {...rq, [vnodeType]: tn} as DataRequest<T, Fields>;
-}
 
 /**
  * Build a cypher query to load some data from the Neo4j graph database
  * @param request DataRequest, which determines the details and shape of the data being requested
  * @param args Arguments such as pimrary keys to filter by
  */
-export function buildCypherQuery<Request extends DataRequest<VNodeType, any>>(rootRequest: Request, rootFilter: DataRequestFilter = {}): {query: string, params: {[key: string]: any}} {
-    const rootNodeType = rootRequest[vnodeType];
+export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any, any>>(_rootRequest: Request, rootFilter: DataRequestFilter = {}): {query: string, params: {[key: string]: any}} {
+    const rootRequest: VNDRInternalData = getInternalData(_rootRequest);
+    const rootNodeType = rootRequest[_vnodeType];
     const label = rootNodeType.label;
     let query: string;
     const params: {[key: string]: any} = rootFilter.params || {};
@@ -382,36 +305,30 @@ export function buildCypherQuery<Request extends DataRequest<VNodeType, any>>(ro
     
 
     // Build subqueries
-    const addManyRelationshipSubquery = (propName: string, virtProp: VirtualManyRelationshipProperty, parentNodeVariable: string, request: DataRequestFields<VNodeType>): void => {
+    const addManyRelationshipSubquery = (propName: string, virtProp: VirtualManyRelationshipProperty, parentNodeVariable: string, request: VNDRInternalData): void => {
         const newTargetVar = generateNameFor(virtProp.target);
         workingVars.add(newTargetVar);
         query += `\nOPTIONAL MATCH ${virtProp.query.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
         // TODO: ordering of the subquery (WITH _node, ..., rel1 ORDER BY ...)
 
         // Add additional subqeries, if any:
-        addVirtualPropsForNode(virtProp.target, newTargetVar, request);
+        addVirtualPropsForNode(newTargetVar, request);
 
         // Construct the WITH statement that ends this subquery
         workingVars.delete(newTargetVar);
-        const rawPropertiesIncluded = (
-            Object.keys(virtProp.target.properties)
-            .filter(propName => request[propName] === true)
-            .map(propName => `.${propName}`)
-            .join(", ")
-        );
+        const rawPropertiesIncluded = getRawPropertiesIncludedIn(request, rootFilter).map(p => "." + p).join(", ");
         query += `WITH ${[...workingVars].join(", ")}, collect(${newTargetVar} {${rawPropertiesIncluded}}) AS ${propName}\n`;
         workingVars.add(propName);
     }
 
-    const addVirtualPropsForNode = <VNT extends VNodeType>(nodeType: VNT, parentNodeVariable: string, request: DataRequestFields<VNT>): void => {
+    const addVirtualPropsForNode = (parentNodeVariable: string, request: VNDRInternalData): void => {
         // For each virtual prop:
-        Object.entries(nodeType.virtualProperties).forEach(([propName, virtProp]) => {
-            const thisRequest = request[propName];
-            if (!thisRequest) {
-                return;  // undefined or false - don't include this virtual property in the current data request
-            }
+        getVirtualPropertiesIncludedIn(request, rootFilter).forEach(propName => {
+            const virtProp = request[_vnodeType].virtualProperties[propName];
+            const virtPropRequest = request[_virtualProperties][propName].shapeData;
             if (virtProp.type === VirtualPropType.ManyRelationship) {
-                addManyRelationshipSubquery(propName, virtProp, parentNodeVariable, thisRequest as any);
+                if (virtPropRequest === undefined) { throw new Error(`Missing sub-request for x:many virtProp "${propName}"!`); }
+                addManyRelationshipSubquery(propName, virtProp, parentNodeVariable, virtPropRequest);
             } else {
                 throw new Error("Not implemented yet.");
                 // TODO: Build computed virtual props, 1:1 virtual props
@@ -420,14 +337,10 @@ export function buildCypherQuery<Request extends DataRequest<VNodeType, any>>(ro
     }
 
     // Add subqueries:
-    addVirtualPropsForNode(rootNodeType, "_node", rootRequest);
+    addVirtualPropsForNode("_node", rootRequest);
 
     // Build the final RETURN statement
-    const rawPropertiesIncluded = (
-        Object.keys(rootNodeType.properties)
-        .filter(propName => rootRequest[propName] === true)
-        .map(propName => `_node.${propName} AS ${propName}`)
-    );
+    const rawPropertiesIncluded = getRawPropertiesIncludedIn(rootRequest, rootFilter).map(propName => `_node.${propName} AS ${propName}`);
     // We remove _node (first one) from the workingVars because we never return _node directly, only the subset of 
     // its properties actually requested. But we've kept it around this long because it's used by virtual properties.
     workingVars.delete("_node");
@@ -442,12 +355,26 @@ export function buildCypherQuery<Request extends DataRequest<VNodeType, any>>(ro
     return {query, params};
 }
 
-export async function pull<Request extends DataRequest<any, any>>(
+
+export function pull<VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
     tx: WrappedTransaction,
-    request: Request,
-    filter: DataRequestFilter = {},
-): Promise<DataResult<Request>[]> {
-    const requestFields = Object.keys(request);
+    vnt: VNT,
+    vndr: ((builder: VNodeDataRequestBuilder<VNT>) => VNDR),
+    filter?: DataRequestFilter,
+): Promise<VNodeDataResponse<VNDR>[]>;
+
+export function pull<VNDR extends VNodeDataRequest<any, any, any, any>>(
+    tx: WrappedTransaction,
+    vndr: VNDR,
+    filter?: DataRequestFilter,
+): Promise<VNodeDataResponse<VNDR>[]>;
+
+export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?: any): Promise<any> {
+    const request: VNodeDataRequest<VNodeType> = typeof arg2 === "function" ? arg2(VNodeDataRequest(arg1)) : arg1;
+    const requestData: VNDRInternalData = getInternalData(request);
+    const filter: DataRequestFilter = (typeof arg2 === "function" ? arg3 : arg2) || {};
+    const topLevelFields = getAllFieldsIncludedIn(requestData, filter);
+
     const query = buildCypherQuery(request, filter);
     log.debug(query.query);
 
@@ -455,22 +382,28 @@ export async function pull<Request extends DataRequest<any, any>>(
 
     return result.records.map(record => {
         const newRecord: any = {};
-        for (const field of requestFields) {
-            if (request[field]) {
-                newRecord[field] = record.get(field);
-            }
+        for (const field of topLevelFields) {
+            newRecord[field] = record.get(field);
         }
         return newRecord;
     });
 }
 
-export async function pullOne<Request extends DataRequest<any, any>>(
+export function pullOne<VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
     tx: WrappedTransaction,
-    request: Request,
-    filter: DataRequestFilter = {},
-): Promise<DataResult<Request>> {
-    
-    const result = await pull<Request>(tx, request, filter);
+    vnt: VNT,
+    vndr: ((builder: VNodeDataRequestBuilder<VNT>) => VNDR),
+    filter?: DataRequestFilter,
+): Promise<VNodeDataResponse<VNDR>>;
+
+export function pullOne<VNDR extends VNodeDataRequest<any, any, any, any>>(
+    tx: WrappedTransaction,
+    vndr: VNDR,
+    filter?: DataRequestFilter,
+): Promise<VNodeDataResponse<VNDR>>;
+
+export async function pullOne(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?: any): Promise<any> {
+    const result = await pull(tx, arg1, arg2, arg3);
 
     if (result.length !== 1) {
         throw new Error(`Expected a single result, got ${result.length}`);
@@ -478,3 +411,101 @@ export async function pullOne<Request extends DataRequest<any, any>>(
 
     return result[0];
 }
+
+// These types match the overload signature for pull(), but have no "tx" parameter; used in WrappedTransaction and Vertex for convenience.
+export type PullNoTx = (
+    (
+        <VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
+            vnt: VNT,
+            vndr: ((builder: VNodeDataRequestBuilder<VNT>) => VNDR),
+            filter?: DataRequestFilter,
+        ) => Promise<VNodeDataResponse<VNDR>[]>
+    ) & (
+        <VNDR extends VNodeDataRequest<any, any, any, any>>(
+            vndr: VNDR,
+            filter?: DataRequestFilter,
+        ) => Promise<VNodeDataResponse<VNDR>[]>
+    )
+);
+
+export type PullOneNoTx = (
+    (
+        <VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
+            vnt: VNT,
+            vndr: ((builder: VNodeDataRequestBuilder<VNT>) => VNDR),
+            filter?: DataRequestFilter,
+        ) => Promise<VNodeDataResponse<VNDR>>
+    ) & (
+        <VNDR extends VNodeDataRequest<any, any, any, any>>(
+            vndr: VNDR,
+            filter?: DataRequestFilter,
+        ) => Promise<VNodeDataResponse<VNDR>>
+    )
+);
+
+// Helper functions:
+
+function getInternalData(request: VNodeDataRequest<any, any, any, any>): VNDRInternalData {
+    return (request as any)[_internalData];
+}
+
+/**
+ * Helper function: given a VNodeDataRequest and filter options, lists all the raw (non-virtual) properties of the VNode
+ * that should be included in the data request. The properties will be returned in an ordered array, in the order that
+ * the properties were declared on the VNode type definition.
+ * @param request 
+ * @param filter 
+ */
+function getRawPropertiesIncludedIn(request: VNDRInternalData, filter: DataRequestFilter): string[] {
+    return Object.keys(request[_vnodeType].properties).filter(propName =>
+        // request[_rawProperties][propName] will be either undefined (exclude), true (include), or a string (include based on flag)
+        typeof request[_rawProperties][propName] === "string" ?
+            // Conditionally include this raw prop, if a flag is set in the filter:
+            filter.flags?.includes(request[_rawProperties][propName] as string)
+        :
+            request[_rawProperties][propName] === true
+    );
+}
+
+/**
+ * Helper function: given a VNodeDataRequest and filter options, lists all the virtual properties of the VNode
+ * that should be included in the data request. The properties will be returned in an ordered array, in the order that
+ * the virtual properties were declared on the VNode type definition.
+ * @param request 
+ * @param filter 
+ */
+function getVirtualPropertiesIncludedIn(request: VNDRInternalData, filter: DataRequestFilter): string[] {
+    Object.keys(request[_vnodeType].virtualProperties).forEach(propName => {
+        const cond = propName in request[_virtualProperties] && (
+            request[_virtualProperties][propName].ifFlag ?
+                // Conditionally include this virtual prop, if a flag is set in the filter:
+                filter.flags?.includes(request[_virtualProperties][propName].ifFlag as string)
+            :
+                true
+        );
+    });
+    return Object.keys(request[_vnodeType].virtualProperties).filter(propName =>
+        propName in request[_virtualProperties] && (
+            request[_virtualProperties][propName].ifFlag ?
+                // Conditionally include this virtual prop, if a flag is set in the filter:
+                filter.flags?.includes(request[_virtualProperties][propName].ifFlag as string)
+            :
+                true
+        )
+    );
+}
+
+/**
+ * Helper function: given a VNodeDataRequest and filter options, lists all the raw and virtual properties of the VNode
+ * that should be included in the data request. The properties will be returned in an ordered array, in the order that
+ * the properties were declared on the VNode type definition (first raw properties, then virtual properties).
+ * @param request 
+ * @param filter 
+ */
+function getAllFieldsIncludedIn(request: VNDRInternalData, filter: DataRequestFilter): string[] {
+    return [
+        ...getRawPropertiesIncludedIn(request, filter),
+        ...getVirtualPropertiesIncludedIn(request, filter),
+    ];
+}
+
