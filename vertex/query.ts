@@ -1,10 +1,12 @@
 import { Transaction } from "neo4j-driver";
+import { UUID } from "./lib/uuid";
 import { VNodeType, isVNodeType, RawVNode } from "./vnode";
 
-export type FieldType = VNodeType | ReturnShape | "string" | "number" | "any";
+export type FieldType = VNodeType | ReturnShape | "uuid" | "string" | "number" | "boolean" | "any";
 export type ReturnTypeFor<DT extends FieldType> = (
     DT extends VNodeType ? RawVNode<DT> :
     DT extends ReturnShape ? TypedRecord<DT> :
+    DT extends "uuid" ? UUID :
     DT extends "string" ? string :
     DT extends "number" ? number :
     DT extends "boolean" ? boolean :

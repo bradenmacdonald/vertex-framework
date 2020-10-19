@@ -1,5 +1,6 @@
 import { Vertex } from "../vertex";
 import { Movie } from "./Movie";
+import { MovieFranchise } from "./MovieFranchise";
 import { Person } from "./Person";
 
 export const testGraph = new Vertex({
@@ -16,6 +17,11 @@ export const testGraph = new Vertex({
         person: {
             forward: (dbWrite, declareModel, removeModel) => declareModel(Person.label, {shortId: true}),
             backward: (dbWrite, declareModel, removeModel) => removeModel(Person.label, {shortId: true}),
+            dependsOn: [],
+        },
+        moviefranchise: {
+            forward: (dbWrite, declareModel, removeModel) => declareModel(MovieFranchise.label, {shortId: true}),
+            backward: (dbWrite, declareModel, removeModel) => removeModel(MovieFranchise.label, {shortId: true}),
             dependsOn: [],
         },
     },

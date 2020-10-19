@@ -84,7 +84,12 @@ type VNDR_AddVirtualProp<
             // For each x:many virtual property, add a method for requesting that virtual property:
             <SubSpec extends VNodeDataRequest<VNT["virtualProperties"][K]["target"]>, FlagType extends string|undefined = undefined>
             (subRequest: (emptyRequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"]>) => SubSpec, options?: {ifFlag: FlagType})
-            => VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec}}>
+            => VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "many"}}>
+        : VNT["virtualProperties"][K] extends VirtualOneRelationshipProperty ?
+            // For each x:one virtual property, add a method for requesting that virtual property:
+            <SubSpec extends VNodeDataRequest<VNT["virtualProperties"][K]["target"]>, FlagType extends string|undefined = undefined>
+            (subRequest: (emptyRequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"]>) => SubSpec, options?: {ifFlag: FlagType})
+            => VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "one"}}>
         : never
     )
 };
@@ -94,6 +99,8 @@ type RecursiveVirtualPropRequest<VNT extends VNodeType> = {
     [K in keyof VNT["virtualProperties"]]?: (
         VNT["virtualProperties"][K] extends VirtualManyRelationshipProperty ?
             RecursiveVirtualPropRequestManySpec<VNT["virtualProperties"][K], any> :
+        VNT["virtualProperties"][K] extends VirtualOneRelationshipProperty ?
+            RecursiveVirtualPropRequestOneSpec<VNT["virtualProperties"][K], any> :
         never
     )
 }
@@ -101,6 +108,13 @@ type RecursiveVirtualPropRequest<VNT extends VNodeType> = {
 type RecursiveVirtualPropRequestManySpec<propType extends VirtualManyRelationshipProperty, Spec extends VNodeDataRequest<propType["target"], any, any, any>> = {
     ifFlag: string|undefined,
     spec: Spec,
+    type: "many",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish ...ManySpec from ...OneSpec
+};
+
+type RecursiveVirtualPropRequestOneSpec<propType extends VirtualOneRelationshipProperty, Spec extends VNodeDataRequest<propType["target"], any, any, any>> = {
+    ifFlag: string|undefined,
+    spec: Spec,
+    type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish ...ManySpec from ...OneSpec
 };
 
 
@@ -176,7 +190,7 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
         const virtualProp = vnodeType.virtualProperties[propKey];
         if (virtualProp !== undefined) {
             // Operation to add a virtual property:
-            if (virtualProp.type === VirtualPropType.ManyRelationship) {
+            if (virtualProp.type === VirtualPropType.ManyRelationship || virtualProp.type === VirtualPropType.OneRelationship) {
                 // Return a method that can be used to build the request for this virtual property type
                 const targetVNodeType = virtualProp.target;
                 return (buildSubRequest: (subRequest: VNodeDataRequest<typeof targetVNodeType>) => VNodeDataRequest<typeof targetVNodeType>, options?: {ifFlag: string|undefined}) => {
@@ -194,7 +208,7 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
                     return requestObj;
                 };
             } else {
-                throw new Error(`That virtual property type (${virtualProp.type}) is not supported yet.`);
+                throw new Error(`That virtual property type (${(virtualProp as any).type}) is not supported yet.`);
             }
         }
 
@@ -230,6 +244,8 @@ type VNodeDataResponse<VNDR extends VNodeDataRequest<any, any, any, any>> = (
         {[virtualProp in keyof virtualPropSpec]: (
             virtualPropSpec[virtualProp] extends RecursiveVirtualPropRequestManySpec<any, infer Spec> ?
                 VNodeDataResponse<Spec>[] | (virtualPropSpec[virtualProp]["ifFlag"] extends string ? undefined : never)
+            : virtualPropSpec[virtualProp] extends RecursiveVirtualPropRequestOneSpec<any, infer Spec> ?
+                VNodeDataResponse<Spec> | undefined  // 1:1 relationships are currently always optional at the DB level, so this may be undefined
             : never
         )}
     ) : never
@@ -306,6 +322,8 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
     
 
     // Build subqueries
+
+    /** Add an OPTIONAL MATCH clause to join each current node to many other nodes via some x:many relationship */
     const addManyRelationshipSubquery = (variableName: string, virtProp: VirtualManyRelationshipProperty, parentNodeVariable: string, request: VNDRInternalData): void => {
         const newTargetVar = generateNameFor(virtProp.target);
         workingVars.add(newTargetVar);
@@ -330,6 +348,34 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         workingVars.add(variableName);
     }
 
+    /** Add an subquery clause to join each current node to at most one other node via some x:one relationship */
+    const addOneRelationshipSubquery = (variableName: string, virtProp: VirtualOneRelationshipProperty, parentNodeVariable: string, request: VNDRInternalData): void => {
+        const newTargetVar = generateNameFor(virtProp.target);
+        workingVars.add(newTargetVar);
+
+        // Unfortunately, the database doesn't actually enforce that this is a 1:1 relationship, so we use this subquery
+        // to limit the OPTIONAL MATCH to one node at most. According to PROFILE, this way of doing it only adds 1 "db hit"
+        query += `\nCALL {\n`;
+        query += `    WITH ${parentNodeVariable}\n`;
+        query += `    OPTIONAL MATCH ${virtProp.query.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
+        query += `    RETURN ${newTargetVar} LIMIT 1\n`;
+        query += `}\n`;
+
+        // Add additional subqeries, if any:
+        const virtPropsMap = addVirtualPropsForNode(newTargetVar, request);
+
+        // Construct the WITH statement that ends this subquery
+        workingVars.delete(newTargetVar);
+        const variablesIncluded = getRawPropertiesIncludedIn(request, rootFilter).map(p => "." + p);
+        // Pull in the virtual properties included:
+        for (const [pName, varName] of Object.entries(virtPropsMap)) {
+            workingVars.delete(varName);
+            variablesIncluded.push(`${pName}: ${varName}`);  // This re-maps our temporary variable like "friends_1" into its final name like "friends"
+        }
+        query += `WITH ${[...workingVars].join(", ")}, ${newTargetVar} {${variablesIncluded.join(", ")}} AS ${variableName}\n`;
+        workingVars.add(variableName);
+    }
+
     type VirtualPropertiesMap = {[propName: string]: string};
     // Add subqueries for each of this node's virtual properties.
     // Returns a map that maps from the virtual property's name (e.g. "friends") to the variable name/placeholder used
@@ -345,6 +391,9 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
             if (virtProp.type === VirtualPropType.ManyRelationship) {
                 if (virtPropRequest === undefined) { throw new Error(`Missing sub-request for x:many virtProp "${propName}"!`); }
                 addManyRelationshipSubquery(variableName, virtProp, parentNodeVariable, virtPropRequest);
+            } else if (virtProp.type === VirtualPropType.OneRelationship) {
+                if (virtPropRequest === undefined) { throw new Error(`Missing sub-request for x:one virtProp "${propName}"!`); }
+                addOneRelationshipSubquery(variableName, virtProp, parentNodeVariable, virtPropRequest);
             } else {
                 throw new Error("Not implemented yet.");
                 // TODO: Build computed virtual props, 1:1 virtual props

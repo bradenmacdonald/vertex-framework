@@ -140,9 +140,7 @@ export interface VirtualManyRelationshipProperty {
 export interface VirtualOneRelationshipProperty {
     type: typeof VirtualPropType.OneRelationship,
     query: string,
-    gives: {
-        [variableName: string]: VNodeType|RelationshipDefinition,
-    },
+    target: VNodeType;
 }
 
 export type VirtualPropertyDefinition = (

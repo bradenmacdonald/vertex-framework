@@ -170,6 +170,7 @@ suite("pull", () => {
 
     suite("Queries including virtual properties", () => {
 
+        // Test a to-many virtual property/relationship:
         suite("Get all Chris Pratt Movies", () => {
             const request = VNodeDataRequest(Person).movies(m => m.title.year);
             const filter: DataRequestFilter = {key: "chris-pratt", };
@@ -208,6 +209,40 @@ suite("pull", () => {
                 const firstTitle = chrisPratt.movies[0].title;
                 assert.equal(firstTitle, "Avengers: Infinity War");
                 checkType<AssertEqual<typeof firstTitle, string>>();
+            });
+        });
+
+        // Test a to-one virtual property/relationship:
+        suite("Get a movie's franchise", () => {
+            const request = VNodeDataRequest(Movie).title.franchise(f => f.name);
+            // This filter will match two movies: "Avengers: Infinity War" (MCU franchise) and "The Spy Who Dumped Me" (no franchise)
+            const filter: DataRequestFilter = {where: "@.year = 2018"};
+            test("buildCypherQuery", () => {
+                const query = buildCypherQuery(request, filter);
+                assert.equal(query.query, dedent`
+                    MATCH (_node:TestMovie)
+                    WHERE _node.year = 2018
+                    
+                    CALL {
+                        WITH _node
+                        OPTIONAL MATCH (_node)-[:FRANCHISE_IS]->(_moviefranchise1:TestMovieFranchise)
+                        RETURN _moviefranchise1 LIMIT 1
+                    }
+                    WITH _node, _moviefranchise1 {.name} AS _franchise1
+                    
+                    RETURN _node.title AS title, _franchise1 AS franchise ORDER BY _node.year DESC
+                `);
+            });
+            test("pull", async () => {
+                const movies2018 = await testGraph.pull(request, filter);
+                assert.equal(movies2018.length, 2);
+                // Movies are sorted only by year, so we don't know the order of movies that are in the same year:
+                const infinityWar = movies2018.find(m => m.title === "Avengers: Infinity War");
+                assert.isDefined(infinityWar);
+                assert.equal(infinityWar?.franchise?.name, "Marvel Cinematic Universe");
+                const spyDumpedMe = movies2018.find(m => m.title === "The Spy Who Dumped Me");
+                assert.isDefined(spyDumpedMe);
+                assert.equal(spyDumpedMe?.franchise, undefined);
             });
         });
 
