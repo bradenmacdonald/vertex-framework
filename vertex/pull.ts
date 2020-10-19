@@ -269,12 +269,13 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
     const params: {[key: string]: any} = rootFilter.params || {};
     const workingVars = new Set(["_node"]);
 
-    /** Generate a new variable name for the given node type that we can use in the Cypher query. */
-    const generateNameFor = (nodeType: VNodeType): string => {
+    /** Generate a new variable name for the given node type or property that we can use in the Cypher query. */
+    const generateNameFor = (nodeTypeOrPropertyName: VNodeType|string): string => {
         let i = 1;
         let name = "";
+        const baseName = typeof nodeTypeOrPropertyName === "string" ? nodeTypeOrPropertyName : nodeTypeOrPropertyName.name.toLowerCase();
         do {
-            name = `_${nodeType.name.toLowerCase()}${i}`;
+            name = `_${baseName}${i}`;
             i++;
         } while (workingVars.has(name));
         return name;
@@ -305,7 +306,7 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
     
 
     // Build subqueries
-    const addManyRelationshipSubquery = (propName: string, virtProp: VirtualManyRelationshipProperty, parentNodeVariable: string, request: VNDRInternalData): void => {
+    const addManyRelationshipSubquery = (variableName: string, virtProp: VirtualManyRelationshipProperty, parentNodeVariable: string, request: VNDRInternalData): void => {
         const newTargetVar = generateNameFor(virtProp.target);
         workingVars.add(newTargetVar);
         query += `\nOPTIONAL MATCH ${virtProp.query.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
@@ -315,39 +316,57 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         }
 
         // Add additional subqeries, if any:
-        addVirtualPropsForNode(newTargetVar, request);
+        const virtPropsMap = addVirtualPropsForNode(newTargetVar, request);
 
         // Construct the WITH statement that ends this subquery
         workingVars.delete(newTargetVar);
-        const rawPropertiesIncluded = getRawPropertiesIncludedIn(request, rootFilter).map(p => "." + p).join(", ");
-        query += `WITH ${[...workingVars].join(", ")}, collect(${newTargetVar} {${rawPropertiesIncluded}}) AS ${propName}\n`;
-        workingVars.add(propName);
+        const variablesIncluded = getRawPropertiesIncludedIn(request, rootFilter).map(p => "." + p);
+        // Pull in the virtual properties included:
+        for (const [pName, varName] of Object.entries(virtPropsMap)) {
+            workingVars.delete(varName);
+            variablesIncluded.push(`${pName}: ${varName}`);  // This re-maps our temporary variable like "friends_1" into its final name like "friends"
+        }
+        query += `WITH ${[...workingVars].join(", ")}, collect(${newTargetVar} {${variablesIncluded.join(", ")}}) AS ${variableName}\n`;
+        workingVars.add(variableName);
     }
 
-    const addVirtualPropsForNode = (parentNodeVariable: string, request: VNDRInternalData): void => {
+    type VirtualPropertiesMap = {[propName: string]: string};
+    // Add subqueries for each of this node's virtual properties.
+    // Returns a map that maps from the virtual property's name (e.g. "friends") to the variable name/placeholder used
+    // in the query (e.g. "friends_1")
+    const addVirtualPropsForNode = (parentNodeVariable: string, request: VNDRInternalData): VirtualPropertiesMap => {
+        const virtPropsMap: VirtualPropertiesMap = {};
         // For each virtual prop:
         getVirtualPropertiesIncludedIn(request, rootFilter).forEach(propName => {
             const virtProp = request[_vnodeType].virtualProperties[propName];
             const virtPropRequest = request[_virtualProperties][propName].shapeData;
+            const variableName = generateNameFor(propName);
+            virtPropsMap[propName] = variableName;
             if (virtProp.type === VirtualPropType.ManyRelationship) {
                 if (virtPropRequest === undefined) { throw new Error(`Missing sub-request for x:many virtProp "${propName}"!`); }
-                addManyRelationshipSubquery(propName, virtProp, parentNodeVariable, virtPropRequest);
+                addManyRelationshipSubquery(variableName, virtProp, parentNodeVariable, virtPropRequest);
             } else {
                 throw new Error("Not implemented yet.");
                 // TODO: Build computed virtual props, 1:1 virtual props
             }
         });
+        return virtPropsMap;
     }
 
     // Add subqueries:
-    addVirtualPropsForNode("_node", rootRequest);
+    const virtPropMap = addVirtualPropsForNode("_node", rootRequest);
 
     // Build the final RETURN statement
     const rawPropertiesIncluded = getRawPropertiesIncludedIn(rootRequest, rootFilter).map(propName => `_node.${propName} AS ${propName}`);
+    const virtPropsIncluded = Object.entries(virtPropMap).map(([propName, varName]) => `${varName} AS ${propName}`);
+    Object.values(virtPropMap).forEach(varName => workingVars.delete(varName));
     // We remove _node (first one) from the workingVars because we never return _node directly, only the subset of 
     // its properties actually requested. But we've kept it around this long because it's used by virtual properties.
     workingVars.delete("_node");
-    const finalVars = [...workingVars, ...rawPropertiesIncluded].join(", ") || "null";  // Or just return null if no variables are selected for return
+    if (workingVars.size > 0) {
+        throw new Error(`Internal error in buildCypherQuery: working variable ${[...workingVars][0]} was not consumed.`);
+    }
+    const finalVars = [...rawPropertiesIncluded, ...virtPropsIncluded].join(", ") || "null";  // Or just return null if no variables are selected for return
     query += `\nRETURN ${finalVars}`;
 
     const orderBy = rootFilter.orderBy || rootNodeType.defaultOrderBy;

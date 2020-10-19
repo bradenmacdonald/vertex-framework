@@ -181,9 +181,9 @@ suite("pull", () => {
 
                     OPTIONAL MATCH (_node)-[:ACTED_IN]->(_movie1:TestMovie)
                     WITH _node, _movie1 ORDER BY _movie1.year DESC
-                    WITH _node, collect(_movie1 {.title, .year}) AS movies
+                    WITH _node, collect(_movie1 {.title, .year}) AS _movies1
 
-                    RETURN movies ORDER BY _node.name
+                    RETURN _movies1 AS movies ORDER BY _node.name
                 `);
                 assert.equal(query.params._nodeShortid, "chris-pratt");
             });
@@ -208,6 +208,53 @@ suite("pull", () => {
                 const firstTitle = chrisPratt.movies[0].title;
                 assert.equal(firstTitle, "Avengers: Infinity War");
                 checkType<AssertEqual<typeof firstTitle, string>>();
+            });
+        });
+
+        suite("deep pull", () => {
+            // Build a horribly deep query:
+            // For every person, find their friends, then find their friend's costars, then their costar's movies and friends' movies
+            const request = (VNodeDataRequest(Person)
+                .friends(f => f
+                    .name
+                    .costars(cs => cs
+                        .name
+                        .friends(f2 => f2.name.movies(m => m.title.year))
+                        .movies(m => m.title.year)
+                    )
+                )
+            );
+            test("buildCypherQuery", () => {
+                const query = buildCypherQuery(request, {});
+                assert.equal(query.query, dedent`
+                    MATCH (_node:TestPerson)
+
+                    OPTIONAL MATCH (_node)-[:FRIEND_OF]-(_person1:TestPerson)
+                    WITH _node, _person1 ORDER BY _person1.name
+
+                    OPTIONAL MATCH (_person1)-[:ACTED_IN]->(:TestMovie)<-[:ACTED_IN]-(_person2:TestPerson)
+                    WITH _node, _person1, _person2 ORDER BY _person2.name
+
+                    OPTIONAL MATCH (_person2)-[:ACTED_IN]->(_movie1:TestMovie)
+                    WITH _node, _person1, _person2, _movie1 ORDER BY _movie1.year DESC
+                    WITH _node, _person1, _person2, collect(_movie1 {.title, .year}) AS _movies1
+
+                    OPTIONAL MATCH (_person2)-[:FRIEND_OF]-(_person3:TestPerson)
+                    WITH _node, _person1, _person2, _movies1, _person3 ORDER BY _person3.name
+
+                    OPTIONAL MATCH (_person3)-[:ACTED_IN]->(_movie1:TestMovie)
+                    WITH _node, _person1, _person2, _movies1, _person3, _movie1 ORDER BY _movie1.year DESC
+                    WITH _node, _person1, _person2, _movies1, _person3, collect(_movie1 {.title, .year}) AS _movies2
+                    WITH _node, _person1, _person2, _movies1, collect(_person3 {.name, movies: _movies2}) AS _friends1
+                    WITH _node, _person1, collect(_person2 {.name, movies: _movies1, friends: _friends1}) AS _costars1
+                    WITH _node, collect(_person1 {.name, costars: _costars1}) AS _friends1
+
+                    RETURN _friends1 AS friends ORDER BY _node.name
+                `);
+            });
+            test("pull", async () => {
+                const result = await testGraph.pull(request, {});
+                // TODO: test
             });
         });
     });

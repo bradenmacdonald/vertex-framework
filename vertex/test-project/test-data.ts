@@ -1,6 +1,6 @@
 import { Vertex } from "../vertex";
 import { CreateMovie } from "./Movie";
-import { CreatePerson, ActedIn } from "./Person";
+import { CreatePerson, ActedIn, RecordFriends } from "./Person";
 
 /**
  * Create data that can be used for testing.
@@ -51,5 +51,12 @@ export async function createTestData(graph: Vertex): Promise<void> {
         ActedIn({personId: "karen-gillan", movieId: "jumanji-2"}),
         ActedIn({personId: "karen-gillan", movieId: "guardians-galaxy"}),
         ActedIn({personId: "karen-gillan", movieId: "infinity-war"}),
+
+        // Friendships (these are just made up)
+        RecordFriends({personId: "chris-pratt", otherPersonId: "the-rock"}),
+        RecordFriends({personId: "the-rock", otherPersonId: "karen-gillan"}),
+        RecordFriends({personId: "scarlett-johansson", otherPersonId: "karen-gillan"}),
+        RecordFriends({personId: "scarlett-johansson", otherPersonId: "rdj"}),
+        RecordFriends({personId: "kate-mckinnon", otherPersonId: "ilana-glazer"}),
     );
 }

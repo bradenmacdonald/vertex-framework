@@ -20,7 +20,7 @@ export class Person extends VNodeType {
             toLabels: [Movie.label],
             properties: {},
         },
-        /** This Person acted in a given movie */
+        /** This Person is a friend of the given person (non-directed relationship) */
         FRIEND_OF: {
             toLabels: [Person.label],
             properties: {},
@@ -31,6 +31,11 @@ export class Person extends VNodeType {
             type: VirtualPropType.ManyRelationship,
             query: `(@this)-[:ACTED_IN]->(@target:${Movie.label})`,
             target: Movie,
+        },
+        costars: {
+            type: VirtualPropType.ManyRelationship,
+            query: `(@this)-[:ACTED_IN]->(:${Movie.label})<-[:ACTED_IN]-(@target:${Person.label})`,
+            target: Person,
         },
         friends: {
             type: VirtualPropType.ManyRelationship,
@@ -62,6 +67,24 @@ export const ActedIn = defineAction<{personId: string, movieId: string}, {/* */}
         `, data, {p: Person});
         return {
             modifiedNodes: [result.p],
+            resultData: {},
+        };
+    },
+    invert: async (tx, data, resultData) => {
+        throw new Error("Not implemented.");
+    },
+});
+// Mark two people as being friends
+export const RecordFriends = defineAction<{personId: string, otherPersonId: string}, {/* */}>({
+    type: "RecordFriends",
+    apply: async (tx, data) => {
+        const result = await tx.queryOne(`
+            MATCH (p1:${Person.label})::{$personId}
+            MATCH (p2:${Person.label})::{$otherPersonId}
+            MERGE (p1)-[:FRIEND_OF]->(p2)
+        `, data, {p1: Person, p2: Person});
+        return {
+            modifiedNodes: [result.p1, result.p2],
             resultData: {},
         };
     },
