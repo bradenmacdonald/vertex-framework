@@ -230,31 +230,58 @@ suite("pull", () => {
                     MATCH (_node:TestPerson)
 
                     OPTIONAL MATCH (_node)-[:FRIEND_OF]-(_person1:TestPerson)
-                    WITH _node, _person1 ORDER BY _person1.name
-
+                    
                     OPTIONAL MATCH (_person1)-[:ACTED_IN]->(:TestMovie)<-[:ACTED_IN]-(_person2:TestPerson)
-                    WITH _node, _person1, _person2 ORDER BY _person2.name
-
+                    
                     OPTIONAL MATCH (_person2)-[:ACTED_IN]->(_movie1:TestMovie)
                     WITH _node, _person1, _person2, _movie1 ORDER BY _movie1.year DESC
                     WITH _node, _person1, _person2, collect(_movie1 {.title, .year}) AS _movies1
-
+                    
                     OPTIONAL MATCH (_person2)-[:FRIEND_OF]-(_person3:TestPerson)
-                    WITH _node, _person1, _person2, _movies1, _person3 ORDER BY _person3.name
-
+                    
                     OPTIONAL MATCH (_person3)-[:ACTED_IN]->(_movie1:TestMovie)
                     WITH _node, _person1, _person2, _movies1, _person3, _movie1 ORDER BY _movie1.year DESC
                     WITH _node, _person1, _person2, _movies1, _person3, collect(_movie1 {.title, .year}) AS _movies2
+                    WITH _node, _person1, _person2, _movies1, _person3, _movies2 ORDER BY _person3.name
                     WITH _node, _person1, _person2, _movies1, collect(_person3 {.name, movies: _movies2}) AS _friends1
+                    WITH _node, _person1, _person2, _movies1, _friends1 ORDER BY _person2.name
                     WITH _node, _person1, collect(_person2 {.name, movies: _movies1, friends: _friends1}) AS _costars1
+                    WITH _node, _person1, _costars1 ORDER BY _person1.name
                     WITH _node, collect(_person1 {.name, costars: _costars1}) AS _friends1
 
                     RETURN _friends1 AS friends ORDER BY _node.name
                 `);
             });
             test("pull", async () => {
-                const result = await testGraph.pull(request, {});
-                // TODO: test
+                // Test this horrible query, using Scarlett Johansson as a starting point:
+                const result = await testGraph.pullOne(request, {key: "scarlett-johansson"});
+                // Scarlett Johansson is friends with Robert Downey Jr. and Karen Gillan; results sorted alphabetically by name
+                assert.deepEqual(result.friends.map(f => f.name), ["Karen Gillan", "Robert Downey Jr."]);
+                // Robert Downey Jr.'s co-stars are Chris Pratt, Scarlett Johansson, and Karen Gillan
+                const sj_friends_rdj_costars = result.friends[1].costars;
+                assert.deepEqual(sj_friends_rdj_costars.map(costar => costar.name), ["Chris Pratt", "Karen Gillan", "Scarlett Johansson"]);
+                // Karen Gillan's friends are Dwayne Johnson and Scarlett Johansson:
+                const sj_friends_rdj_costars_kg_friends = sj_friends_rdj_costars[1].friends;
+                assert.deepEqual(sj_friends_rdj_costars_kg_friends.map(f => f.name), ["Dwayne Johnson", "Scarlett Johansson"]);
+                // The Rock's movies (in reverse chronological order) are Jumanji: The Next Level, Jumanji: Welcome to the Jungle, Jem and the Holograms
+                const sj_friends_rdj_costars_kg_friends_dj_movies = sj_friends_rdj_costars_kg_friends[0].movies;
+                assert.deepEqual(
+                    sj_friends_rdj_costars_kg_friends_dj_movies.map(m => m.title),
+                    ["Jumanji: The Next Level", "Jumanji: Welcome to the Jungle", "Jem and the Holograms"],
+                );
+                checkType<AssertPropertyPresent<typeof sj_friends_rdj_costars_kg_friends_dj_movies[0], "title", string>>();
+                checkType<AssertPropertyPresent<typeof sj_friends_rdj_costars_kg_friends_dj_movies[0], "year", number>>();
+                checkType<AssertPropertyAbsent<typeof sj_friends_rdj_costars_kg_friends_dj_movies[0], "foobar">>();
+                // And, stepping back a level, Karen Gillan's movies (in reverse chronological order) are
+                // "Jumanji: The Next Level", "Avengers: Infinity War", "Jumanji: Welcome to the Jungle", "Guardians of the Galaxy"
+                const sj_friends_rdj_costars_kg_movies = sj_friends_rdj_costars[1].movies;
+                assert.deepEqual(
+                    sj_friends_rdj_costars_kg_movies.map(m => m.title),
+                    ["Jumanji: The Next Level", "Avengers: Infinity War", "Jumanji: Welcome to the Jungle", "Guardians of the Galaxy"],
+                );
+                checkType<AssertPropertyPresent<typeof sj_friends_rdj_costars_kg_movies[0], "title", string>>();
+                checkType<AssertPropertyPresent<typeof sj_friends_rdj_costars_kg_movies[0], "year", number>>();
+                checkType<AssertPropertyAbsent<typeof sj_friends_rdj_costars_kg_movies[0], "foobar">>();
             });
         });
     });

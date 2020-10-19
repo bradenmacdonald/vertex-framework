@@ -26,7 +26,6 @@ export async function createTestData(graph: Vertex): Promise<void> {
         CreatePerson({shortId: "the-rock", name: "Dwayne Johnson", props: {dateOfBirth: "1972-05-02"}}),
         ActedIn({personId: "the-rock", movieId: "jumanji-2017"}),
         ActedIn({personId: "the-rock", movieId: "jumanji-2"}),
-        ActedIn({personId: "the-rock", movieId: "jumanji-2"}),
         ActedIn({personId: "the-rock", movieId: "jem-holograms"}),
 
         CreatePerson({shortId: "chris-pratt", name: "Chris Pratt", props: {dateOfBirth: "1979-06-21"}}),

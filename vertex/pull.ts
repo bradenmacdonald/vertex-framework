@@ -310,15 +310,15 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         const newTargetVar = generateNameFor(virtProp.target);
         workingVars.add(newTargetVar);
         query += `\nOPTIONAL MATCH ${virtProp.query.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
-        // Order the subquery:
-        if (virtProp.target.defaultOrderBy) {
-            query += `WITH ${[...workingVars].join(", ")} ORDER BY ${newTargetVar}.${virtProp.target.defaultOrderBy}\n`;
-        }
 
         // Add additional subqeries, if any:
         const virtPropsMap = addVirtualPropsForNode(newTargetVar, request);
 
-        // Construct the WITH statement that ends this subquery
+        // Order the results of this subquery (has to happen immediately before the WITH...collect() line):
+        if (virtProp.target.defaultOrderBy) {
+            query += `WITH ${[...workingVars].join(", ")} ORDER BY ${newTargetVar}.${virtProp.target.defaultOrderBy}\n`;
+        }
+        // Construct the WITH statement that ends this subquery, collect()ing many related nodes into a single array property
         workingVars.delete(newTargetVar);
         const variablesIncluded = getRawPropertiesIncludedIn(request, rootFilter).map(p => "." + p);
         // Pull in the virtual properties included:
