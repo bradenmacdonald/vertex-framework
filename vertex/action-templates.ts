@@ -43,7 +43,7 @@ export async function updateOneToOneRelationship<VNT extends VNodeType>({fromTyp
             MERGE (self)-[rel:${relName}]->(target)
 
             WITH self, target
-            OPTIONAL MATCH (self)-[oldRel:${relName}]->(oldTarget:${targetLabel}) WHERE oldTarget <> target
+            OPTIONAL MATCH (self)-[oldRel:${relName}]->(oldTarget) WHERE oldTarget <> target
             DELETE oldRel
 
             WITH collect(oldTarget {.uuid}) AS oldTargets
