@@ -7,7 +7,7 @@ import { testGraph } from "../test-project/graph";
 import { createTestData } from "../test-project/test-data";
 
 export const { registerSuite } = intern.getPlugin("interface.object");
-export const { suite, test, before, beforeEach } = intern.getPlugin("interface.tdd");
+export const { suite, test, before, beforeEach, after, afterEach } = intern.getPlugin("interface.tdd");
 export const { assert } = intern.getPlugin("chai");
 
 export const assertRejects = async (what: Promise<any>, msg?: string): Promise<void> => {
@@ -32,6 +32,20 @@ intern.on("beforeRun", async () => {
 intern.on("afterRun", async () => {
     await testGraph.shutdown();
 });
+
+/**
+ * Call this function within a test suite to set up a form of test isolation, so that changes made to the graph database
+ * will be rolled back after each test.
+ */
+export function isolateTestWrites(): void {
+    let doneTest: () => void;
+    beforeEach(() => {
+        doneTest = testGraph.startOuterTransactionForTest().done;
+    });
+    afterEach(() => {
+        doneTest();
+    });
+}
 
 // Template string helper for comparing strings, dedenting a multiline string.
 // This is modified from Desmond Brand's MIT licensed implementation https://github.com/dmnd/dedent
@@ -78,4 +92,4 @@ export function dedent(strings: TemplateStringsArray, ...values: string[]): stri
         .trim()
         // handle escaped newlines at the end to ensure they don't get stripped too
         .replace(/\\n/g, "\n");
-  }
+}

@@ -1,12 +1,12 @@
-import neo4j, { Transaction, Driver } from "neo4j-driver";
+import neo4j, { Driver } from "neo4j-driver";
 import { ActionData, ActionResult } from "./action";
 import { runAction } from "./action-runner";
+import { log } from "./lib/log";
 import { UUID } from "./lib/uuid";
-import { DataRequestFilter, PullNoTx, PullOneNoTx } from "./pull";
+import { PullNoTx, PullOneNoTx } from "./pull";
 import { migrations as coreMigrations, SYSTEM_UUID } from "./schema";
 import { WrappedTransaction, wrapTransaction } from "./transaction";
 import { Migration, VertexCore } from "./vertex-interface";
-import { VNodeType } from "./vnode";
 
 export interface InitArgs {
     neo4jUrl: string; // e.g. "bolt://neo4j"
@@ -19,6 +19,7 @@ export interface InitArgs {
 export class Vertex implements VertexCore {
     private readonly driver: Driver;
     public readonly migrations: {[name: string]: Migration};
+    private outerTransactionForTests: WrappedTransaction|undefined;
 
     constructor(config: InitArgs) {
         this.driver = neo4j.driver(
@@ -38,6 +39,9 @@ export class Vertex implements VertexCore {
      * Create a database read transaction, for reading data from the graph DB.
      */
     public async read<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T> {
+        if (this.outerTransactionForTests) {
+            return code(this.outerTransactionForTests);
+        }
         const session = this.driver.session({defaultAccessMode: "READ"});
         let result: T;
         try {
@@ -90,6 +94,9 @@ export class Vertex implements VertexCore {
      * writes to the database should only happen via Actions.
      */
     public async _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T> {
+        if (this.outerTransactionForTests) {
+            return code(this.outerTransactionForTests);
+        }
         const session = this.driver.session({defaultAccessMode: "WRITE"});
         let result: T;
         try {
@@ -99,5 +106,45 @@ export class Vertex implements VertexCore {
             session.close();
         }
         return result;
+    }
+
+    /**
+     * For test isolation, test cases that run actions (write to the database) can use this method to wrap test code in
+     * an outer transaction.
+     *
+     * Note that this turns the "inner" transactions (any transactions created inside this one) into "placebo"
+     * transactions, because Neo4j doesn't support nested transactions. So you can't use this to test code that depends
+     * on rolling back a transaction.
+     * 
+     * This method returns a done() function that you MUST call in the "afterEach" function to clean up the session and
+     * roll back the transaction.
+     */
+    public startOuterTransactionForTest(): {done: () => void} {
+        if (this.outerTransactionForTests !== undefined) {
+            throw new Error("startOuterTransactionForTest was called while another outer transaction was left open.");
+        }
+        const session = this.driver.session({defaultAccessMode: "WRITE"});
+        let done: () => void = () => {/* This empty method is to make typescript happy; the promise below will immediately and synchronously replace it. */};
+        const testPromise = new Promise<void>((resolve) => { done = resolve; });
+
+        session.writeTransaction(async (tx) => {
+            this.outerTransactionForTests = wrapTransaction(tx);
+            tx.commit = async () => {
+                // Overwrite the commit() method to ensure this transaction cannot be committed.
+                log.warn("Committing the outer transaction in a test case is a no-op.");
+            }
+            try {
+                await testPromise;
+            } catch {}
+            this.outerTransactionForTests = undefined;
+            if (tx.isOpen()) {
+                await tx.rollback();
+            }
+        }).finally(() => {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            session.close();
+        });
+
+        return {done, };
     }
 }
