@@ -95,8 +95,13 @@ export class Vertex implements VertexCore {
      */
     public async _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T> {
         if (this.outerTransactionForTests) {
-            return code(this.outerTransactionForTests);
+            // In an isolated test case, we use an existing outer transaction instead of opening a new one:
+            const result = await code(this.outerTransactionForTests);
+            // Since we didn't just commit the transaction, we need to fake some triggers:
+            await this.fakeCommitForInnerTestTransaction();
+            return result;
         }
+        // Normal flow: create a new write transaction
         const session = this.driver.session({defaultAccessMode: "WRITE"});
         let result: T;
         try {
@@ -146,5 +151,28 @@ export class Vertex implements VertexCore {
         });
 
         return {done, };
+    }
+
+    /**
+     * Normally, when an Action is applied (in a write transaction), our pre-commit "createShortIdRelation" trigger
+     * will update the ShortId nodes pointing to it, so we can query for any node by any shortId it has ever used, and
+     * not just its current one. However, during test cases, we use nested transactions, so triggers don't get run when
+     * the inner transactions "commit" (placebo commit), and the ShortId nodes don't get created as expected. To work
+     * around that, we use this method to fake trigger after every inner write transaction closes.
+     */
+    private async fakeCommitForInnerTestTransaction(): Promise<void> {
+        // This only runs when a test suite uses isolateTestWrites()
+        // This is *very* inefficient as it scans essentially all VNodes in the database.
+        // The "normal" version that uses a trigger is much more efficient.
+        if (this.outerTransactionForTests === undefined) {
+            throw new Error(`fakeCommitForInnerTestTransaction() can only be used as part of startOuterTransactionForTest()`);
+        }
+        await this.outerTransactionForTests.run(`
+            MATCH (n) WHERE NOT n:ShortId AND NOT n:Action AND n.shortId IS NOT NULL
+            UNWIND labels(n) AS label
+            MERGE (n)<-[:IDENTIFIES]-(s:ShortId {path: label + '/' + n.shortId})
+            ON CREATE SET s.timestamp = datetime()
+            RETURN null
+        `);
     }
 }
