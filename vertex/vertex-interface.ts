@@ -7,7 +7,12 @@ import { WrappedTransaction } from "./transaction";
  */
 export interface VertexCore {
     read<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
+    isTriggerInstalled(name: string): Promise<boolean>;
     _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
+    _restrictedAllowWritesWithoutAction(someCode: () => Promise<any>): Promise<void>;
+
+    snapshotDataForTesting(): Promise<VertextTestDataSnapshot>;
+    resetDBToSnapshot(snapshot: VertextTestDataSnapshot): Promise<void>;
 
     readonly migrations: {[name: string]: Migration};
 }
@@ -19,4 +24,8 @@ export interface Migration {
     forward: (dbWrite: dbWriteType, declareModel: declareModelType, removeModel: declareModelType) => Promise<any>;
     backward: (dbWrite: dbWriteType, declareModel: declareModelType, removeModel: declareModelType) => Promise<any>;
     dependsOn: string[];
+}
+
+export interface VertextTestDataSnapshot {
+    cypherSnapshot: string;
 }

@@ -2,12 +2,7 @@ import { log } from "./lib/log";
 import { VertexCore, Migration } from "./vertex-interface";
 
 
-/** Helper function to check if a trigger with the given name is installed in the Neo4j database */
-async function isTriggerInstalled(graph: VertexCore, name: string): Promise<boolean> {
-    // For some reason, this counts as a write operation so won't work with dbRead()
-    const triggers = await graph._restrictedWrite(tx => tx.run(`CALL apoc.trigger.list() yield name`));
-    return triggers.records.find(x => x.get("name") === name) !== undefined;
-}
+
 
 /**
  * Declare a standard unique, auto-generated UUID schema, used by most TechNotes graph nodes.
@@ -41,34 +36,6 @@ async function removeModel(graph: VertexCore, modelName: string, opts: {shortId?
         await graph._restrictedWrite(tx => tx.run(`DROP CONSTRAINT ${shortIdConstraintName}`));
     }
 }
-
-/**
- * Allow code to write to the database without the trackActionChanges trigger.
- *
- * Normally, for any write transaction, the trackActionChanges trigger will check that the
- * write was done alongside the creation of an "Action" node in the database; for schema migrations
- * we don't use Actions, so we need to pause the trigger during migrations or the trigger
- * will throw an exception and prevent the migration transactions from committing.
- */
-async function runWithoutAction(graph: VertexCore, someCode: () => Promise<any>): Promise<void> {
-    try {
-        if (await isTriggerInstalled(graph, "trackActionChanges")) {
-            log.debug("Trigger is installed - pausing");
-            await graph._restrictedWrite(tx => tx.run(`CALL apoc.trigger.pause("trackActionChanges")`));
-        } else {
-            log.debug("Trigger is not installed");
-        }
-        await someCode();
-    } finally {
-        // We must check again if the trigger is installed since someCode() may have changed it.
-        if (await isTriggerInstalled(graph, "trackActionChanges")) {
-            log.debug("Resuming trigger");
-            await graph._restrictedWrite(tx => tx.run(`CALL apoc.trigger.resume("trackActionChanges")`));
-        }
-    }
-}
-
-
 
 /**
  * Get an ordered list of the migration IDs that have been applied to this database already,
@@ -105,7 +72,7 @@ export async function runMigrations(graph: VertexCore): Promise<void> {
             });
             // Apply the migration
             log(`Applying migration "${migrationId}"`);
-            await runWithoutAction(graph, async () => {
+            await graph._restrictedAllowWritesWithoutAction(async () => {
                 await migration.forward(graph._restrictedWrite.bind(graph), declareModel.bind(null, graph), removeModel.bind(null, graph));
                 await graph._restrictedWrite(tx =>
                     tx.run(`
@@ -134,7 +101,7 @@ export async function reverseMigration(graph: VertexCore, id: string): Promise<v
     }
     // Reverse the migration
     log(`Reversing migration "${id}"`);
-    await runWithoutAction(graph, async () => {
+    await graph._restrictedAllowWritesWithoutAction(async () => {
         await migration.backward(graph._restrictedWrite.bind(graph), declareModel.bind(null, graph), removeModel.bind(null, graph));
         await graph._restrictedWrite(tx => tx.run(`MATCH (m:Migration {id: $id}) DETACH DELETE m`, {id, }));
     });

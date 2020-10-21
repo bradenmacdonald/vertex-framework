@@ -9,8 +9,9 @@ services:
     environment:
       # Set default password to "vertex"
       NEO4J_AUTH: neo4j/vertex
-      # Enable automatic UUID creation on nodes
+      # We need APOC functionality like triggers:
       NEO4JLABS_PLUGINS: '["apoc"]'
+      # Enable automatic UUID creation on nodes:
       apoc.uuid.enabled: "true"
       apoc.trigger.enabled: "true"
     ports:

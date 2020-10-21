@@ -35,5 +35,20 @@
             "args": ["exec", "tester", "npm", "test"],
             "problemMatcher": []
         },
+        {
+            "label": "Destroy Neo4j Test Database",
+            "type": "shell",
+            "command": "docker-compose",
+            "args": ["rm", "--stop", "--force", "-v", "neo4j"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Reset Neo4j Test Database",
+            "type": "shell",
+            "command": "docker-compose",
+            "args": ["up", "-d", "neo4j"],
+            "problemMatcher": [],
+            "dependsOn": ["Destroy Neo4j Test Database"]
+        },
     ]
 }

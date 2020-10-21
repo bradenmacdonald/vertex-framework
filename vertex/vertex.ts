@@ -6,7 +6,7 @@ import { UUID } from "./lib/uuid";
 import { PullNoTx, PullOneNoTx } from "./pull";
 import { migrations as coreMigrations, SYSTEM_UUID } from "./schema";
 import { WrappedTransaction, wrapTransaction } from "./transaction";
-import { Migration, VertexCore } from "./vertex-interface";
+import { Migration, VertexCore, VertextTestDataSnapshot } from "./vertex-interface";
 
 export interface InitArgs {
     neo4jUrl: string; // e.g. "bolt://neo4j"
@@ -19,7 +19,6 @@ export interface InitArgs {
 export class Vertex implements VertexCore {
     private readonly driver: Driver;
     public readonly migrations: {[name: string]: Migration};
-    private outerTransactionForTests: WrappedTransaction|undefined;
 
     constructor(config: InitArgs) {
         this.driver = neo4j.driver(
@@ -39,9 +38,6 @@ export class Vertex implements VertexCore {
      * Create a database read transaction, for reading data from the graph DB.
      */
     public async read<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T> {
-        if (this.outerTransactionForTests) {
-            return code(this.outerTransactionForTests);
-        }
         const session = this.driver.session({defaultAccessMode: "READ"});
         let result: T;
         try {
@@ -94,13 +90,6 @@ export class Vertex implements VertexCore {
      * writes to the database should only happen via Actions.
      */
     public async _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T> {
-        if (this.outerTransactionForTests) {
-            // In an isolated test case, we use an existing outer transaction instead of opening a new one:
-            const result = await code(this.outerTransactionForTests);
-            // Since we didn't just commit the transaction, we need to fake some triggers:
-            await this.fakeCommitForInnerTestTransaction();
-            return result;
-        }
         // Normal flow: create a new write transaction
         const session = this.driver.session({defaultAccessMode: "WRITE"});
         let result: T;
@@ -114,65 +103,84 @@ export class Vertex implements VertexCore {
     }
 
     /**
-     * For test isolation, test cases that run actions (write to the database) can use this method to wrap test code in
-     * an outer transaction.
+     * Allow code to write to the database without the trackActionChanges trigger.
      *
-     * Note that this turns the "inner" transactions (any transactions created inside this one) into "placebo"
-     * transactions, because Neo4j doesn't support nested transactions. So you can't use this to test code that depends
-     * on rolling back a transaction.
-     * 
-     * This method returns a done() function that you MUST call in the "afterEach" function to clean up the session and
-     * roll back the transaction.
+     * Normally, for any write transaction, the trackActionChanges trigger will check that the
+     * write was done alongside the creation of an "Action" node in the database; for schema migrations
+     * we don't use Actions, so we need to pause the trigger during migrations or the trigger
+     * will throw an exception and prevent the migration transactions from committing.
      */
-    public startOuterTransactionForTest(): {done: () => void} {
-        if (this.outerTransactionForTests !== undefined) {
-            throw new Error("startOuterTransactionForTest was called while another outer transaction was left open.");
+    public async _restrictedAllowWritesWithoutAction(someCode: () => Promise<any>): Promise<void> {
+        try {
+            if (await this.isTriggerInstalled("trackActionChanges")) {
+                await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.pause("trackActionChanges")`));
+            }
+            await someCode();
+        } finally {
+            // We must check again if the trigger is installed since someCode() may have changed it.
+            if (await this.isTriggerInstalled("trackActionChanges")) {
+                await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.resume("trackActionChanges")`));
+            }
         }
-        const session = this.driver.session({defaultAccessMode: "WRITE"});
-        let done: () => void = () => {/* This empty method is to make typescript happy; the promise below will immediately and synchronously replace it. */};
-        const testPromise = new Promise<void>((resolve) => { done = resolve; });
+    }
 
-        session.writeTransaction(async (tx) => {
-            this.outerTransactionForTests = wrapTransaction(tx);
-            tx.commit = async () => {
-                // Overwrite the commit() method to ensure this transaction cannot be committed.
-                log.warn("Committing the outer transaction in a test case is a no-op.");
-            }
-            try {
-                await testPromise;
-            } catch {}
-            this.outerTransactionForTests = undefined;
-            if (tx.isOpen()) {
-                await tx.rollback();
-            }
-        }).finally(() => {
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            session.close();
-        });
-
-        return {done, };
+    /** Helper function to check if a trigger with the given name is installed in the Neo4j database */
+    public async isTriggerInstalled(name: string): Promise<boolean> {
+        // For some reason, this counts as a write operation?
+        const triggers = await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.list() yield name`));
+        return triggers.records.find(x => x.get("name") === name) !== undefined;
     }
 
     /**
-     * Normally, when an Action is applied (in a write transaction), our pre-commit "createShortIdRelation" trigger
-     * will update the ShortId nodes pointing to it, so we can query for any node by any shortId it has ever used, and
-     * not just its current one. However, during test cases, we use nested transactions, so triggers don't get run when
-     * the inner transactions "commit" (placebo commit), and the ShortId nodes don't get created as expected. To work
-     * around that, we use this method to fake trigger after every inner write transaction closes.
+     * Snapshot whatever data is in the graph database, so that after a test runs,
+     * the database can be reset to this snapshot.
+     * 
+     * This is not very efficient and should only be used for testing, and only
+     * to snapshot relatively small amounts of data (i.e. any data created by
+     * your migrations and/or shared test fixtures.)
+     *
+     * This assumes that tests will not attempt any schema changes, which
+     * should never be done outside of migrations anyways.
      */
-    private async fakeCommitForInnerTestTransaction(): Promise<void> {
-        // This only runs when a test suite uses isolateTestWrites()
-        // This is *very* inefficient as it scans essentially all VNodes in the database.
-        // The "normal" version that uses a trigger is much more efficient.
-        if (this.outerTransactionForTests === undefined) {
-            throw new Error(`fakeCommitForInnerTestTransaction() can only be used as part of startOuterTransactionForTest()`);
-        }
-        await this.outerTransactionForTests.run(`
-            MATCH (n) WHERE NOT n:ShortId AND NOT n:Action AND n.shortId IS NOT NULL
-            UNWIND labels(n) AS label
-            MERGE (n)<-[:IDENTIFIES]-(s:ShortId {path: label + '/' + n.shortId})
-            ON CREATE SET s.timestamp = datetime()
-            RETURN null
-        `);
+    public async snapshotDataForTesting(): Promise<VertextTestDataSnapshot> {
+        const result = await this.read(tx => tx.run(`CALL apoc.export.cypher.all(null, {format: "plain"}) YIELD cypherStatements`));
+        let cypherSnapshot: string = result.records[0].get("cypherStatements");
+        // We only want the data, not the schema, which is fixed:
+        cypherSnapshot = cypherSnapshot.replace(/CREATE CONSTRAINT[^;]+;/g, "");
+        cypherSnapshot = cypherSnapshot.replace(/CREATE INDEX[^;]+;/g, "");
+        return {cypherSnapshot};
+    }
+
+    /**
+     * Reset the graph database to the specified snapshot. This should only be used
+     * for tests. This should be called after each test case, not before, or otherwise
+     * the last test that runs will leave its data in the database.
+     */
+    public async resetDBToSnapshot(snapshot: VertextTestDataSnapshot): Promise<void> {
+        await await this._restrictedAllowWritesWithoutAction(async () => {
+            // Disable the shortId auto-creation trigger since it'll conflict with the ShortId nodes already in the data snapshot
+            await this._restrictedWrite(async tx => {
+                await tx.run(`CALL apoc.trigger.pause("createShortIdRelation")`);
+            });
+            try {
+                await this._restrictedWrite(async tx => {
+                    await tx.run(`MATCH (n) DETACH DELETE n`);
+                    // For some annoying reason, this silently fails:
+                    //  await tx.run(`CALL apoc.cypher.runMany($cypher, {})`, {cypher: snapshot.cypherSnapshot});
+                    // So we have to split up the statements ourselves and run each one via tx.run()
+                    for (const statement of snapshot.cypherSnapshot.split(";\n")) {
+                        if (statement.trim() === "") {
+                            continue;
+                        }
+                        // log.warn(statement);
+                        await tx.run(statement);
+                    }
+                });
+            } finally {
+                await this._restrictedWrite(async tx => {
+                    await tx.run(`CALL apoc.trigger.resume("createShortIdRelation")`);
+                });
+            }
+        });
     }
 }

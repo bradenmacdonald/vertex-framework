@@ -5,6 +5,7 @@ export { intern };
 import { reverseAllMigrations, runMigrations } from "../migrator";
 import { testGraph } from "../test-project/graph";
 import { createTestData } from "../test-project/test-data";
+import { VertextTestDataSnapshot } from "../vertex-interface";
 
 export const { registerSuite } = intern.getPlugin("interface.object");
 export const { suite, test, before, beforeEach, after, afterEach } = intern.getPlugin("interface.tdd");
@@ -20,6 +21,8 @@ export const assertRejects = async (what: Promise<any>, msg?: string): Promise<v
     });
 }
 
+let dataSnapshot: VertextTestDataSnapshot;
+
 intern.on("beforeRun", async () => {
     // Wipe out all existing Neo4j data
     await reverseAllMigrations(testGraph);
@@ -27,23 +30,22 @@ intern.on("beforeRun", async () => {
     await runMigrations(testGraph);
     // Create test data
     await createTestData(testGraph);
+    // Take a snapshot, for test isolation
+    dataSnapshot = await testGraph.snapshotDataForTesting();
 });
 
 intern.on("afterRun", async () => {
     await testGraph.shutdown();
 });
 
+
 /**
  * Call this function within a test suite to set up a form of test isolation, so that changes made to the graph database
  * will be rolled back after each test.
  */
 export function isolateTestWrites(): void {
-    let doneTest: () => void;
-    beforeEach(() => {
-        doneTest = testGraph.startOuterTransactionForTest().done;
-    });
-    afterEach(() => {
-        doneTest();
+    afterEach(async () => {
+        await testGraph.resetDBToSnapshot(dataSnapshot);
     });
 }
 
