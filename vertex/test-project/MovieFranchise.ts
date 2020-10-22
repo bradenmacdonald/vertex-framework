@@ -1,6 +1,12 @@
 import Joi from "@hapi/joi";
-import { registerVNodeType, VNodeType, ShortIdProperty, VirtualPropType } from "../vnode";
-import { defaultUpdateActionFor, defaultCreateFor } from "../action-templates";
+import {
+    registerVNodeType,
+    VNodeType,
+    ShortIdProperty,
+    VirtualPropType,
+    defaultUpdateActionFor,
+    defaultCreateFor,
+} from "../";
 import { Movie, MovieLabel } from "./Movie";
 
 /**

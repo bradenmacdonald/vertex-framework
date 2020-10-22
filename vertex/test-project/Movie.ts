@@ -1,7 +1,13 @@
 import Joi from "@hapi/joi";
-import { registerVNodeType, VNodeType, ShortIdProperty, VirtualPropType } from "../vnode";
-import { defaultUpdateActionFor, defaultCreateFor } from "../action-templates";
-import { updateOneToOneRelationship } from "../action-templates";
+import {
+    defaultUpdateActionFor,
+    defaultCreateFor,
+    updateOneToOneRelationship,
+    registerVNodeType,
+    VNodeType,
+    ShortIdProperty,
+    VirtualPropType,
+} from "../";
 
 export const MovieLabel = "TestMovie";
 import { MovieFranchise } from "./MovieFranchise";

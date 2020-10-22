@@ -1,4 +1,4 @@
-import { Vertex } from "../vertex";
+import { Vertex } from "../";
 import { Movie } from "./Movie";
 import { MovieFranchise } from "./MovieFranchise";
 import { Person } from "./Person";
