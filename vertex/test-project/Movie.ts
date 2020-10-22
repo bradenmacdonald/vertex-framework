@@ -40,20 +40,20 @@ interface UpdateArgs {
     shortId?: string;
     title?: string;
     year?: number;
-    franchiseId?: string|undefined;
+    franchiseId?: string|null;
 }
 export const UpdateMovie = defaultUpdateActionFor<UpdateArgs>(Movie, {
     mutableProperties: ["shortId", "title", "year"],
     otherUpdates: async ({tx, data, nodeSnapshot}) => {
         const previousValues: Partial<UpdateArgs> = {};
-        if ("franchiseId" in data) {
+        if (data.franchiseId !== undefined) {
             const {previousUuid} = await updateOneToOneRelationship({
                 fromType: Movie,
                 uuid: nodeSnapshot.uuid,
                 tx,
                 relName: "FRANCHISE_IS",
                 newId: data.franchiseId,
-                allowUndefined: true,
+                allowNull: true,
             });
             previousValues.franchiseId = previousUuid;
         }

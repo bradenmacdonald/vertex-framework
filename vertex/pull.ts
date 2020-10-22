@@ -245,7 +245,8 @@ type VNodeDataResponse<VNDR extends VNodeDataRequest<any, any, any, any>> = (
             virtualPropSpec[virtualProp] extends RecursiveVirtualPropRequestManySpec<any, infer Spec> ?
                 VNodeDataResponse<Spec>[] | (virtualPropSpec[virtualProp]["ifFlag"] extends string ? undefined : never)
             : virtualPropSpec[virtualProp] extends RecursiveVirtualPropRequestOneSpec<any, infer Spec> ?
-                VNodeDataResponse<Spec> | undefined  // 1:1 relationships are currently always optional at the DB level, so this may be undefined
+                // 1:1 relationships are currently always optional at the DB level, so this may be null
+                VNodeDataResponse<Spec> | null | (virtualPropSpec[virtualProp]["ifFlag"] extends string ? undefined : never)
             : never
         )}
     ) : never

@@ -49,6 +49,17 @@ suite("action", () => {
             assert.equal(userResult.u.properties.uuid, SYSTEM_UUID);
         });
 
+        test("Running an action with a non-existent user ID will raise an error", async () => {
+            await assertRejects(testGraph.runAs(
+                normalizeUUID("6996ddbf-6cd0-4541-9ee9-3c37f8028941"),
+                CreatePerson({shortId: "ash", name: "Ash", props: {}}),
+            ), `Invalid user ID - unable to apply action.`);
+            assert.equal(
+                (await testGraph.pull(Person, p => p.shortId, {key: "ash"})).length,
+                0
+            )
+        });
+
         suite("Graph data cannot be modified outside of an action", () => {
 
             test("from a read transaction", async () => {
@@ -150,7 +161,25 @@ suite("action", () => {
             assert.equal(starWars.franchise?.name, "Star Wars");
         });
 
-        // TODO - test undo
+        test("it can be undone", async () => {
+            await testGraph.runAsSystem(
+                CreateMovieFranchise({shortId: "star-wars", name: "Star Wars", props: {}}),
+            );
+            // Create a movie - this is the action that we will soon undo:
+            const createResult = await testGraph.runAsSystem(
+                CreateMovie({shortId: "star-wars-4", title: "Star Wars: Episode IV – A New Hope", year: 1977, props: {
+                    franchiseId: "star-wars",
+                }}),
+            );
+            // Check that it was created:
+            const orig = await testGraph.pullOne(Movie, m => m.title.franchise(f => f.name), {key: "star-wars-4"});
+            assert.equal(orig.title, "Star Wars: Episode IV – A New Hope")
+            assert.equal(orig.franchise?.name, "Star Wars");
+            // Now undo it
+            const undoResult = await testGraph.undoAction({actionUuid: createResult.actionUuid, asUserId: undefined});
+            const newResult = await testGraph.pull(Movie, m => m.title.franchise(f => f.name), {key: "star-wars-4"});
+            assert.equal(newResult.length, 0);
+        });
     });
 
     suite("Default Update Action Template", () => {

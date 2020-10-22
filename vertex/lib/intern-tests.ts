@@ -6,6 +6,7 @@ import { reverseAllMigrations, runMigrations } from "../migrator";
 import { testGraph } from "../test-project/graph";
 import { createTestData } from "../test-project/test-data";
 import { VertextTestDataSnapshot } from "../vertex-interface";
+import { log } from "./log";
 
 export const { registerSuite } = intern.getPlugin("interface.object");
 export const { suite, test, before, beforeEach, after, afterEach } = intern.getPlugin("interface.tdd");
@@ -24,14 +25,21 @@ export const assertRejects = async (what: Promise<any>, msg?: string): Promise<v
 let dataSnapshot: VertextTestDataSnapshot;
 
 intern.on("beforeRun", async () => {
-    // Wipe out all existing Neo4j data
-    await reverseAllMigrations(testGraph);
-    // Apply pending migrations
-    await runMigrations(testGraph);
-    // Create test data
-    await createTestData(testGraph);
-    // Take a snapshot, for test isolation
-    dataSnapshot = await testGraph.snapshotDataForTesting();
+    try {
+        // Wipe out all existing Neo4j data
+        await reverseAllMigrations(testGraph);
+        // Apply pending migrations
+        await runMigrations(testGraph);
+        // Create test data
+        await createTestData(testGraph);
+        // Take a snapshot, for test isolation
+        dataSnapshot = await testGraph.snapshotDataForTesting();
+    } catch (err) {
+        // No point in running the test sutie if beforeRun failed, but we don't have any good way to bail :-/
+        log.error(err);
+        void testGraph.shutdown();
+        process.exit(1);
+    }
 });
 
 intern.on("afterRun", async () => {
@@ -46,6 +54,15 @@ intern.on("afterRun", async () => {
 export function isolateTestWrites(): void {
     afterEach(async () => {
         await testGraph.resetDBToSnapshot(dataSnapshot);
+        try {
+            if (dataSnapshot === undefined) {
+                throw new Error("beforeRun did not complete - cannot isolate data.");
+            }
+            await testGraph.resetDBToSnapshot(dataSnapshot);
+        } catch (err) {
+            log.error(err);
+            throw err;
+        }
     });
 }
 

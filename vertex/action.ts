@@ -6,10 +6,11 @@
 import Joi from "@hapi/joi";
 
 import { NominalType } from "./lib/ts-utils";
-import { VNodeType, RawVNode, ValidationError, registerVNodeType } from "./vnode";
+import { VNodeType, RawVNode, ValidationError, registerVNodeType, VirtualPropType } from "./vnode";
 import { WrappedTransaction } from "./transaction";
 import { UUID } from "./lib/uuid";
 import { Transaction } from "neo4j-driver";
+import { log } from "./lib/log";
 
 
 // A type of action, e.g. 'createUser'
@@ -62,7 +63,7 @@ interface TypedActionData<ExtraArgsType, ReturnType> extends ActionData {}  // e
 /** TypeScript helper: given an ActionData type, this gets the action's apply() return value, if known */
 export type ActionResult<T extends ActionData> = (
     T extends TypedActionData<infer ExtraArgsType, infer ReturnType> ? ReturnType : any
-);
+)&{actionUuid: UUID};
 
 
 /** Base class for an Action, defining the interface that all actions must adhere to. */
@@ -71,8 +72,11 @@ export interface ActionImplementation {
 
     apply(tx: WrappedTransaction, data: ActionData): Promise<ApplyResult>;
 
-    // TODO: can we remove the 'tx' parameter from invert() ?
-    invert(tx: WrappedTransaction, data: ActionData, resultData: any): Promise<ActionData|null>;
+    /**
+     * "Invert" an applied action, creating a new undo action that will exactly undo the original.
+     * Return null if the action does not support undo.
+     **/
+    invert(data: ActionData, resultData: any): ActionData|null;
 }
 /**
  * Internal extension of ActionImplementation
@@ -98,7 +102,7 @@ export function defineAction<ExtraArgsType, ReturnType = undefined>(
     {type, apply, invert}: {
         type: string|ActionType;
         apply: (tx: WrappedTransaction, data: ActionData & ExtraArgsType) => Promise<ApplyResult<ReturnType>>;
-        invert: (tx: WrappedTransaction, data: ActionData & ExtraArgsType, resultData: ReturnType) => Promise<ActionData|null>;
+        invert: (data: ActionData & ExtraArgsType, resultData: ReturnType) => ActionData|null;
     }
 ): ActionImplementationFull<ExtraArgsType, ReturnType> {
     const actionType = type as ActionType;
@@ -143,6 +147,30 @@ export class Action extends VNodeType {
             throw new ValidationError("Invalid JSON in Action data.");
         }
     }
+    static readonly relationshipsFrom = {
+        /** What VNodes were modified by this action */
+        MODIFIED: {
+            toLabels: ["*"],
+            properties: {},
+        },
+        /** This Action reverted another one */
+        REVERTED: {
+            toLabels: ["Action"],
+            properties: {},
+        },
+    };
+    static readonly virtualProperties = {
+        revertedBy: {
+            type: VirtualPropType.OneRelationship,
+            query: `(@target:Action)-[:REVERTED]->(@this)`,
+            target: Action,
+        },
+        revertedAction: {
+            type: VirtualPropType.OneRelationship,
+            query: `(@this)-[:REVERTED]->(@target:Action)`,
+            target: Action,
+        },
+    };
 }
 registerVNodeType(Action);
 
@@ -226,7 +254,7 @@ export function defaultUpdateActionFor<UpdateArgs extends {[K: string]: any}>(
                 modifiedNodes: [result.t],
             };
         },
-        invert: async (tx, data, resultData): Promise<ActionData> => {
+        invert: (data, resultData): ActionData => {
             return UpdateAction({key: data.key, ...resultData.prevValues});
         },
     });
@@ -259,36 +287,36 @@ export function defaultCreateFor<RequiredArgs, UpdateArgs>(
                 modifiedNodes: [result.tn, ...updateResult.modifiedNodes],
             };
         },
-        invert: async (tx, data, resultData) => {
-            return UndoCreateAction({key: resultData.uuid, updateResult: resultData.updateResult});
+        invert: (data, resultData) => {
+            return UndoCreateAction({uuid: resultData.uuid, updateResult: resultData.updateResult});
         },
     });
 
-    const UndoCreateAction = defineAction<{key: string, updateResult: any}, null>({
+    const UndoCreateAction = defineAction<{uuid: string, updateResult: any}, Record<string, unknown>>({
         type: `UndoCreate${label}`,
         apply: async (tx, data) => {
             // First undo the update that may have been part of the create, since it may have created relationships
             // Or updated external systems, etc.
-            const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: data.key, ...data.updateResult});
+            const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: data.uuid, ...data.updateResult.prevValues});
             // Delete the node and its expected relationships. We don't use DETACH DELETE because that would hide errors
             // such as relationships that we should have undone but didn't.
             await tx.run(`
-                MATCH (tn:${label})::{$key}
+                MATCH (tn:${label} {uuid: $uuid})
                 WITH tn
                 OPTIONAL MATCH (s:ShortId)-[rel:IDENTIFIES]->(tn)
                 DELETE rel, s
                 WITH tn
-                OPTIONAL MATCH (a:Action)-[rel:MODIFIES]->(tn)
+                OPTIONAL MATCH (a:Action)-[rel:MODIFIED]->(tn)
                 DELETE rel
                 WITH tn
                 DELETE tn
-            `, {key: data.key });
+            `, {uuid: data.uuid });
             return {
-                resultData: null,
+                resultData: {},
                 modifiedNodes: updateResult.modifiedNodes,
             };
         },
-        invert: async (tx, data, resultData) => null,
+        invert: (data, resultData) => null,
     });
 
     return CreateAction;
@@ -309,7 +337,7 @@ export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementat
             const modifiedNodes = [result.tn];
             return {resultData: undefined, modifiedNodes};
         },
-        invert: async (tx, data, resultData) => {
+        invert: (data, resultData) => {
             return UnDeleteAction({key: data.key});
         },
     });
@@ -326,7 +354,7 @@ export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementat
             const modifiedNodes = [result.tn];
             return {resultData: undefined, modifiedNodes};
         },
-        invert: async (tx, data): Promise<ActionData> => {
+        invert: (data): ActionData => {
             return DeleteAction({key: data.key});
         },
     });

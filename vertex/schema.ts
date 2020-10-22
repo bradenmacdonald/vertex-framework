@@ -141,7 +141,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
 
                         UNWIND (createdNodes + modifiedProps + createdOrDeletedRelationships) AS change
                             WITH action, change.node AS node, change.reason AS reason
-                                WHERE node <> action
+                                WHERE node <> action AND none(x IN $deletedNodes WHERE id(x) = id(node))
                                 OPTIONAL MATCH (action)-[rel:MODIFIED]->(node)
                                 CALL apoc.util.validate(
                                     rel IS NULL,

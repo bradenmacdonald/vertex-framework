@@ -70,9 +70,7 @@ export const ActedIn = defineAction<{personId: string, movieId: string}, {/* */}
             resultData: {},
         };
     },
-    invert: async (tx, data, resultData) => {
-        throw new Error("Not implemented.");
-    },
+    invert: (data, resultData) => null,  // Not implemented
 });
 // Mark two people as being friends
 export const RecordFriends = defineAction<{personId: string, otherPersonId: string}, {/* */}>({
@@ -88,7 +86,5 @@ export const RecordFriends = defineAction<{personId: string, otherPersonId: stri
             resultData: {},
         };
     },
-    invert: async (tx, data, resultData) => {
-        throw new Error("Not implemented.");
-    },
+    invert: (data, resultData) => null,  // Not implemented
 });
