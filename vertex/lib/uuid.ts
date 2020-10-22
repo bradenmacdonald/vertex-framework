@@ -5,8 +5,12 @@ const inspect = Symbol.for("nodejs.util.inspect.custom");
 
 /**
  * A simple TypeScript UUIDv4 implementation for NodeJS
- * Can parse any UUID version, including the nil UUID,
- * but only generates new v4 UUIDs.
+ *
+ * Can parse any UUID version, including the nil UUID, but only generates new v4 UUIDs.
+ *
+ * This class is memory-efficient and stores its value as a Uint8Array. For general
+ * purpose use and interopability, you probably want to use the UUID() function below
+ * instead.
  */
 export class UUIDv4 {
     /** The internal UUID value (16 bytes, 128 bits) */
@@ -69,12 +73,10 @@ export class UUIDv4 {
 /** A UUID-string, which is kind of like a subclass of string */
 export type UUID = NominalType<string, "UUID">;
 
-/** Generate a new UUIDv4 as a UUID-string */
-export function UUID(): UUID {
-    return new UUIDv4().toString() as UUID;
-}
-
-/** Normalize a UUID into standard form (lowercase, with hyphens) as a UUID-string. Throw an error if invalid. */
-export function normalizeUUID(uuidStr: string): UUID {
+/**
+ * Generate a new UUIDv4 as a UUID-string, or normalize/validate a UUID and convert it into standard form (lowercase,
+ * with hyphens) as a UUID-string. Throw an error if a string is given that is not a valid UUID.
+ */
+export function UUID(uuidStr?: string): UUID {
     return new UUIDv4(uuidStr).toString() as UUID;
 }

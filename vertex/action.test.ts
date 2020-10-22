@@ -2,7 +2,7 @@ import { suite, test, assertRejects, isolateTestWrites, assert } from "./lib/int
 
 import { CreatePerson, Person } from "./test-project/Person";
 import { testGraph } from "./test-project/graph";
-import { normalizeUUID, UUID } from "./lib/uuid";
+import { UUID } from "./lib/uuid";
 import { SYSTEM_UUID } from "./schema";
 import { log } from "./lib/log";
 import { CreateMovieFranchise } from "./test-project/MovieFranchise";
@@ -51,7 +51,7 @@ suite("action", () => {
 
         test("Running an action with a non-existent user ID will raise an error", async () => {
             await assertRejects(testGraph.runAs(
-                normalizeUUID("6996ddbf-6cd0-4541-9ee9-3c37f8028941"),
+                UUID("6996ddbf-6cd0-4541-9ee9-3c37f8028941"),
                 CreatePerson({shortId: "ash", name: "Ash", props: {}}),
             ), `Invalid user ID - unable to apply action.`);
             assert.equal(

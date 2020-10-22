@@ -1,10 +1,10 @@
 import * as Joi from "@hapi/joi";
 import { Transaction } from "neo4j-driver";
-import { normalizeUUID, UUID } from "./lib/uuid";
+import { UUID } from "./lib/uuid";
 
 /** Strict UUID Validator for Joi */
 export const uuidValidator: Joi.CustomValidator = (stringValue, helpers) => {
-    if (stringValue !== normalizeUUID(stringValue)) {
+    if (stringValue !== UUID(stringValue)) {
         throw new Error("UUID is not in standard form.");
     }
     return stringValue;

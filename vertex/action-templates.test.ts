@@ -2,7 +2,7 @@ import { suite, test, assertRejects, isolateTestWrites, assert } from "./lib/int
 
 import { CreatePerson, Person } from "./test-project/Person";
 import { testGraph } from "./test-project/graph";
-import { normalizeUUID, UUID } from "./lib/uuid";
+import { UUID } from "./lib/uuid";
 import { SYSTEM_UUID } from "./schema";
 import { log } from "./lib/log";
 import { CreateMovieFranchise } from "./test-project/MovieFranchise";
@@ -44,7 +44,7 @@ suite("action templates", () => {
             );
             const uuidAsh = createAsh.uuid;
             assert.isString(uuidAsh);
-            assert.equal(uuidAsh, normalizeUUID(uuidAsh));  // UUID must be in standard form
+            assert.equal(uuidAsh, UUID(uuidAsh));  // UUID must be in standard form
             const p = await testGraph.pullOne(Person, p => p.uuid, {key: "ash"});
             assert.equal(p.uuid, uuidAsh);
 
@@ -53,7 +53,7 @@ suite("action templates", () => {
             );
             const uuidBailey = createBailey.uuid;
             assert.isString(uuidBailey);
-            assert.equal(uuidBailey, normalizeUUID(uuidBailey));
+            assert.equal(uuidBailey, UUID(uuidBailey));
             const p2 = await testGraph.pullOne(Person, p => p.uuid, {key: "bailey"});
             assert.equal(p2.uuid, uuidBailey);
 

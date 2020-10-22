@@ -2,10 +2,10 @@
  * The core database Schema for a Vertex Framework application
  */
 import { Migration } from "./vertex-interface";
-import { UUID, normalizeUUID } from "./lib/uuid";
+import { UUID } from "./lib/uuid";
 
 // The UUID of the system user.
-export const SYSTEM_UUID: UUID = normalizeUUID("00000000-0000-0000-0000-000000000000");
+export const SYSTEM_UUID: UUID = UUID("00000000-0000-0000-0000-000000000000");
 
 export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
     // ES6 objects preserve string key order, so these migrations don't need numbers, only string IDs.
