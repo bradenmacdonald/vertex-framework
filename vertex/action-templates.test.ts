@@ -17,7 +17,7 @@ suite("action templates", () => {
 
         test("can create a VNode", async () => {
             const result = await testGraph.runAsSystem(
-                CreatePerson({shortId: "ash", name: "Ash", props: {}}),
+                CreatePerson({shortId: "ash", name: "Ash"}),
             );
             assert.isString(result.uuid);
             // Get and check the new node in various ways:
@@ -40,7 +40,7 @@ suite("action templates", () => {
 
         test("gives VNodes unique, valid UUIDs", async () => {
             const createAsh = await testGraph.runAsSystem(
-                CreatePerson({shortId: "ash", name: "Ash", props: {}}),
+                CreatePerson({shortId: "ash", name: "Ash"}),
             );
             const uuidAsh = createAsh.uuid;
             assert.isString(uuidAsh);
@@ -49,7 +49,7 @@ suite("action templates", () => {
             assert.equal(p.uuid, uuidAsh);
 
             const createBailey = await testGraph.runAsSystem(
-                CreatePerson({shortId: "bailey", name: "Bailey", props: {}}),
+                CreatePerson({shortId: "bailey", name: "Bailey"}),
             );
             const uuidBailey = createBailey.uuid;
             assert.isString(uuidBailey);
@@ -62,11 +62,11 @@ suite("action templates", () => {
 
         test("doesn't allow creating invalid VNodes", async () => {
             await assertRejects(testGraph.runAsSystem(
-                CreatePerson({shortId: "ash", name: 17 as any, props: {}}),
+                CreatePerson({shortId: "ash", name: 17 as any}),
             ), `"name" must be a string`);
             // shortId must be short:
             await assertRejects(testGraph.runAsSystem(
-                CreatePerson({shortId: "this-is-a-very-long-short-ID-and-will-not-be-allowed", name: "Ash", props: {}}),
+                CreatePerson({shortId: "this-is-a-very-long-short-ID-and-will-not-be-allowed", name: "Ash"}),
             ), `"shortId"`);
             // required props missing:
             await assertRejects(testGraph.runAsSystem(
@@ -76,7 +76,7 @@ suite("action templates", () => {
 
         test("it can set properties and relationships via the Update action", async () => {
             await testGraph.runAsSystem(
-                CreateMovieFranchise({shortId: "star-wars", name: "Star Wars", props: {}}),
+                CreateMovieFranchise({shortId: "star-wars", name: "Star Wars"}),
                 CreateMovie({shortId: "star-wars-4", title: "Star Wars: Episode IV – A New Hope", year: 1977, props: {
                     franchiseId: "star-wars",
                 }}),
@@ -90,7 +90,7 @@ suite("action templates", () => {
 
         test("it can be undone", async () => {
             await testGraph.runAsSystem(
-                CreateMovieFranchise({shortId: "star-wars", name: "Star Wars", props: {}}),
+                CreateMovieFranchise({shortId: "star-wars", name: "Star Wars"}),
             );
             // Create a movie - this is the action that we will soon undo:
             const createResult = await testGraph.runAsSystem(

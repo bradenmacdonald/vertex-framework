@@ -102,20 +102,27 @@ export function defaultUpdateActionFor<UpdateArgs extends {[K: string]: any}>(
 export function defaultCreateFor<RequiredArgs, UpdateArgs>(
     VNodeType: VNodeType,
     updateAction: ActionImplementation<{key: string}&Omit<UpdateArgs, keyof RequiredArgs>, {prevValues: any}>
-): ActionImplementation<RequiredArgs&{props: Omit<UpdateArgs, keyof RequiredArgs>}, {uuid: string, updateResult: any}> {
+): ActionImplementation<RequiredArgs&{props?: Omit<UpdateArgs, keyof RequiredArgs>}, {uuid: string, updateResult: any}> {
     const label = VNodeType.label;
 
-    const CreateAction = defineAction<RequiredArgs&{props: Omit<UpdateArgs, keyof RequiredArgs>}, {uuid: UUID, updateResult: any}>({
+    const CreateAction = defineAction<RequiredArgs&{props?: Omit<UpdateArgs, keyof RequiredArgs>}, {uuid: UUID, updateResult: any}>({
         type: `Create${label}`,
         apply: async (tx, data) => {
             const uuid = UUID();
             const {props, type, ...requiredProps} = data;
             const result = await tx.queryOne(`CREATE (tn:${label} {uuid: $uuid}) SET tn += $requiredProps`, {uuid, requiredProps, }, {tn: VNodeType});
-            const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: uuid, ...props});
-            return {
-                resultData: { uuid, updateResult: updateResult.resultData },
-                modifiedNodes: [result.tn, ...updateResult.modifiedNodes],
-            };
+            if (props !== undefined) {
+                const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: uuid, ...props});
+                return {
+                    resultData: { uuid, updateResult: updateResult.resultData },
+                    modifiedNodes: [result.tn, ...updateResult.modifiedNodes],
+                };
+            } else {
+                return {
+                    resultData: { uuid, updateResult: null },
+                    modifiedNodes: [result.tn],
+                };
+            }
         },
         invert: (data, resultData) => {
             return UndoCreateAction({uuid: resultData.uuid, updateResult: resultData.updateResult});
@@ -127,7 +134,11 @@ export function defaultCreateFor<RequiredArgs, UpdateArgs>(
         apply: async (tx, data) => {
             // First undo the update that may have been part of the create, since it may have created relationships
             // Or updated external systems, etc.
-            const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: data.uuid, ...data.updateResult.prevValues});
+            let modifiedNodes: RawVNode<any>[] = [];
+            if (data.updateResult !== null) {
+                const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: data.uuid, ...data.updateResult.prevValues});
+                modifiedNodes = updateResult.modifiedNodes;
+            }
             // Delete the node and its expected relationships. We don't use DETACH DELETE because that would hide errors
             // such as relationships that we should have undone but didn't.
             await tx.run(`
@@ -143,7 +154,7 @@ export function defaultCreateFor<RequiredArgs, UpdateArgs>(
             `, {uuid: data.uuid });
             return {
                 resultData: {},
-                modifiedNodes: updateResult.modifiedNodes,
+                modifiedNodes,
             };
         },
         invert: (data, resultData) => null,
