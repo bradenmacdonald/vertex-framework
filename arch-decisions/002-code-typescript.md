@@ -1,8 +1,6 @@
-# TechNotes Coding Standards
+# Vertex Framework Coding Standards
 
-The "backend" is the application which reads and writes the [graph database](./002-graph-data.md) and provides a REST API for interacting with it.
-
-The backend is implemented as a Node.js application written in TypeScript.
+Vertex Framework is written in TypeScript for the Node.js runtime.
 
 * Node.js is stable, production-proven, and performant.
 * TypeScript is a modern, strongly-typed language that is enjoyable to work with.
