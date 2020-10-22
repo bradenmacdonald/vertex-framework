@@ -1,5 +1,6 @@
 import Joi from "@hapi/joi";
-import { defaultCreateFor, defaultUpdateActionFor, defineAction } from "../action";
+import { defineAction } from "../action";
+import { defaultCreateFor, defaultUpdateActionFor } from "../action-templates";
 import { registerVNodeType, ShortIdProperty, VirtualPropType, VNodeType } from "../vnode";
 import { Movie } from "./Movie";
 

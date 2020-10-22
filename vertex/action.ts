@@ -27,21 +27,21 @@ export function ActionType<T extends string>(value: T): ActionSubType<T> { retur
  *         newTitle: "This is the new title",
  *     }
  */
-export interface ActionData {
+export type ActionData<Parameters extends Record<string, any> = {}, ResultData extends Record<string, any> = {}> = {  // eslint-disable-line @typescript-eslint/ban-types
     type: ActionType;
-}
+} & Parameters;
 
 /**
  * The data returned by an action implementation's apply() method.
  * For example, when creating a new user, this returns the user's UUID.
  */
-interface ApplyResult<T = any> {
+interface ApplyResult<ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
     /**
      * Any result data that the action wants to pass back. Importantly, this must also include enough information to
      * reverse the action, if it's a reversable action (e.g. if this was a "Delete" action, this should contain enough
      * data to reconstruct the deleted object.)
      */
-    resultData: T;
+    resultData: ResultData;
     /**
      * A list of Neo4j node objects for any nodes that were modified by this action, so that the (:Action)-[:MODIFIED]->
      * relationship can be created, giving us a change history for every node in the graph.
@@ -49,42 +49,26 @@ interface ApplyResult<T = any> {
     modifiedNodes: RawVNode<any>[];
 }
 
-/**
- * Internal extension of ActionData that also includes related types
- * like ReturnType.
- * This TypeScript magic allows
- *     const result = await runAction(
- *         CreateDevice({name, shortId}),
- *     );
- * to have fully typed return information (in result)
- */
-interface TypedActionData<ExtraArgsType, ReturnType> extends ActionData {}  // eslint-disable-line @typescript-eslint/no-empty-interface
-
 /** TypeScript helper: given an ActionData type, this gets the action's apply() return value, if known */
 export type ActionResult<T extends ActionData> = (
-    T extends TypedActionData<infer ExtraArgsType, infer ReturnType> ? ReturnType : any
+    T extends ActionData<infer Parameters, infer ResultData> ? ResultData : any
 )&{actionUuid: UUID};
 
 
 /** Base class for an Action, defining the interface that all actions must adhere to. */
-export interface ActionImplementation {
+export interface ActionImplementation<Parameters extends Record<string, any> = any, ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
     readonly type: ActionType;
 
-    apply(tx: WrappedTransaction, data: ActionData): Promise<ApplyResult>;
+    // Generate the ActionData for this action:
+    (args: Parameters): ActionData<Parameters, ResultData>;
+
+    apply(tx: WrappedTransaction, data: ActionData<Parameters, ResultData>): Promise<ApplyResult<ResultData>>;
 
     /**
      * "Invert" an applied action, creating a new undo action that will exactly undo the original.
      * Return null if the action does not support undo.
      **/
-    invert(data: ActionData, resultData: any): ActionData|null;
-}
-/**
- * Internal extension of ActionImplementation
- */
-interface ActionImplementationFull<Args, ReturnType> extends ActionImplementation {
-    // Given arguments, create an ActionData structure defining this action as data
-    (args: Args): TypedActionData<Args, ReturnType>;
-    apply: (tx: WrappedTransaction, data: ActionData & Args) => Promise<ApplyResult<ReturnType>>;
+    invert(data: ActionData<Parameters, ResultData>, resultData: ResultData): ActionData|null;
 }
 
 /**
@@ -98,18 +82,18 @@ const actions: Map<ActionType, ActionImplementation> = new Map();
  * Returns an ActionImplementation which can be used to run actions of this type, and which
  * can be called to generate a data structure which represents a specific action of this type.
  */
-export function defineAction<ExtraArgsType, ReturnType = undefined>(
+export function defineAction<Parameters extends Record<string, any>, ResultData>(
     {type, apply, invert}: {
         type: string|ActionType;
-        apply: (tx: WrappedTransaction, data: ActionData & ExtraArgsType) => Promise<ApplyResult<ReturnType>>;
-        invert: (data: ActionData & ExtraArgsType, resultData: ReturnType) => ActionData|null;
+        apply: (tx: WrappedTransaction, data: ActionData<Parameters, ResultData>) => Promise<ApplyResult<ResultData>>;
+        invert: (data: ActionData & Parameters, resultData: ResultData) => ActionData|null;
     }
-): ActionImplementationFull<ExtraArgsType, ReturnType> {
+): ActionImplementation<Parameters, ResultData> {
     const actionType = type as ActionType;
     if (actions.get(actionType) !== undefined) {
         throw new Error(`Action ${actionType} already registered.`)
     }
-    const impl = function(args: ExtraArgsType): TypedActionData<ExtraArgsType, ReturnType> { return {type: actionType, ...args}; }
+    const impl = function(args: Parameters): ActionData<Parameters, ResultData> { return {type: actionType, ...args}; }
     impl.type = actionType;
     impl.apply = apply;
     impl.invert = invert;
@@ -173,191 +157,3 @@ export class Action extends VNodeType {
     };
 }
 registerVNodeType(Action);
-
-// Useful action generators to reduce boilerplate
-
-type UpdateImplementationDetails<UpdateArgs extends {[K: string]: any}, TNT extends VNodeType> = {
-    mutableProperties: Array<keyof TNT["properties"] & keyof UpdateArgs>,
-    /** If there is a need to clean any properties, this function can mutate "changes" and "previousValues" */
-    clean?: (args: {
-        data: {key: string} & UpdateArgs,
-        nodeSnapshot: RawVNode<TNT>,
-        changes: Partial<UpdateArgs>,
-        previousValues: Partial<UpdateArgs>,
-    }) => void,
-    /** If there is a need to update relationships or complex properties, this method can do so */
-    otherUpdates?: (args: {
-        tx: WrappedTransaction,
-        data: {key: string} & UpdateArgs,
-        nodeSnapshot: RawVNode<TNT>,
-    }) => Promise<{previousValues: Partial<UpdateArgs>, additionalModifiedNodes?: RawVNode<any>[]}>,
-};
-
-/**
- * Build a useful "Update" action that can apply updates to basic property values of a VNode.
- * For example, if the VNode type is "User", a default update action could be used to change
- * the username, real name, birth date, etc.
- * @param type The VNode Type that this update is for.
- * @param details Implementation details: specify which properties can be changed by the update action,
- *                and optionally provide functions to clean the property data before saving, or to
- *                do additional changes on update, such as updating relationships to other nodes.
- */
-export function defaultUpdateActionFor<UpdateArgs extends {[K: string]: any}>(
-    type: VNodeType,
-    {mutableProperties, clean, otherUpdates}: UpdateImplementationDetails<UpdateArgs, typeof type>,
-): ActionImplementationFull<{key: string} & UpdateArgs, {prevValues: UpdateArgs}> 
-{
-    const label = type.label;
-
-    const UpdateAction = defineAction<{key: string} & UpdateArgs, {prevValues: UpdateArgs}>({
-        type: `Update${label}`,
-        apply: async (tx, data) => {
-            // Load the current value of the VNode from the graph
-            const nodeSnapshot = (await tx.queryOne(`MATCH (node:${label})::{$key}`, {key: data.key}, {node: type})).node;
-            // Prepare to store the previous values of any changed properties/relationships
-            let previousValues: Partial<UpdateArgs> = {};
-            // Store the new values (properties that are being changed):
-            const changes: any = {};
-    
-            // Simple Property Updates
-            for (const propertyName of mutableProperties) {
-                if (propertyName in data) {
-                    // Do a poor man's deep comparison to see if this value is different, in case it's an array value or similar:
-                    const isChanged = JSON.stringify(data[propertyName]) !== JSON.stringify(nodeSnapshot[propertyName]);
-                    if (isChanged) {
-                        changes[propertyName] = data[propertyName];
-                        previousValues[propertyName] = nodeSnapshot[propertyName];
-                    }
-                }
-            }
-            // If there is a need to clean any properties, this function can mutate "changes" and "previousValues"
-            if (clean) {
-                clean({data, nodeSnapshot, changes, previousValues});
-            }
-            const result = await tx.queryOne(`
-                MATCH (t:${label})::{$key}
-                SET t += $changes
-            `, {key: data.key, changes}, {t: type});
-            let modifiedNodes: RawVNode<any>[] = [result.t];
-
-            if (otherUpdates) {
-                // Update relationships etc.
-                const result = await otherUpdates({tx, data, nodeSnapshot});
-                previousValues = {...previousValues, ...result.previousValues};
-                if (result.additionalModifiedNodes) {
-                    modifiedNodes = [...modifiedNodes, ...result.additionalModifiedNodes];
-                }
-            }
-    
-            return {
-                resultData: {prevValues: previousValues as any},
-                modifiedNodes: [result.t],
-            };
-        },
-        invert: (data, resultData): ActionData => {
-            return UpdateAction({key: data.key, ...resultData.prevValues});
-        },
-    });
-
-    return UpdateAction;
-}
-
-/**
- * Build a useful "Create" action, which creates a new VNode of the specified type, along with its required
- * properties. Use <RequiredArgs> to specify the types of all required properties.
- * @param type The VNode Type to create
- * @param updateAction The Update Action, used to set any non-required properties that get specified during creation;
- *             this is just a convenience to avoid having to do a Create followed by an Update.
- */
-export function defaultCreateFor<RequiredArgs, UpdateArgs>(
-    VNodeType: VNodeType,
-    updateAction: ActionImplementationFull<{key: string}&Omit<UpdateArgs, keyof RequiredArgs>, {prevValues: any}>
-): ActionImplementationFull<RequiredArgs&{props: Omit<UpdateArgs, keyof RequiredArgs>}, {uuid: string, updateResult: any}> {
-    const label = VNodeType.label;
-
-    const CreateAction = defineAction<RequiredArgs&{props: Omit<UpdateArgs, keyof RequiredArgs>}, {uuid: UUID, updateResult: any}>({
-        type: `Create${label}`,
-        apply: async (tx, data) => {
-            const uuid = UUID();
-            const {props, type, ...requiredProps} = data;
-            const result = await tx.queryOne(`CREATE (tn:${label} {uuid: $uuid}) SET tn += $requiredProps`, {uuid, requiredProps, }, {tn: VNodeType});
-            const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: uuid, ...props});
-            return {
-                resultData: { uuid, updateResult: updateResult.resultData },
-                modifiedNodes: [result.tn, ...updateResult.modifiedNodes],
-            };
-        },
-        invert: (data, resultData) => {
-            return UndoCreateAction({uuid: resultData.uuid, updateResult: resultData.updateResult});
-        },
-    });
-
-    const UndoCreateAction = defineAction<{uuid: string, updateResult: any}, Record<string, unknown>>({
-        type: `UndoCreate${label}`,
-        apply: async (tx, data) => {
-            // First undo the update that may have been part of the create, since it may have created relationships
-            // Or updated external systems, etc.
-            const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: data.uuid, ...data.updateResult.prevValues});
-            // Delete the node and its expected relationships. We don't use DETACH DELETE because that would hide errors
-            // such as relationships that we should have undone but didn't.
-            await tx.run(`
-                MATCH (tn:${label} {uuid: $uuid})
-                WITH tn
-                OPTIONAL MATCH (s:ShortId)-[rel:IDENTIFIES]->(tn)
-                DELETE rel, s
-                WITH tn
-                OPTIONAL MATCH (a:Action)-[rel:MODIFIED]->(tn)
-                DELETE rel
-                WITH tn
-                DELETE tn
-            `, {uuid: data.uuid });
-            return {
-                resultData: {},
-                modifiedNodes: updateResult.modifiedNodes,
-            };
-        },
-        invert: (data, resultData) => null,
-    });
-
-    return CreateAction;
-}
-
-export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementationFull<{key: string}, undefined>, ActionImplementationFull<{key: string}, undefined>] {
-    const label = type.label;
-
-    const DeleteAction = defineAction<{key: string}, undefined>({
-        type: `Delete${label}`,
-        apply: async (tx, data) => {
-            const result = await tx.queryOne(`
-                MATCH (tn:${label})::{$key}
-                SET tn:Deleted${label}
-                REMOVE tn:${label}
-                RETURN tn
-            `, {key: data.key}, {tn: type});
-            const modifiedNodes = [result.tn];
-            return {resultData: undefined, modifiedNodes};
-        },
-        invert: (data, resultData) => {
-            return UnDeleteAction({key: data.key});
-        },
-    });
-
-    const UnDeleteAction = defineAction<{key: string}, undefined>({
-        type: `UnDelete${label}`,
-        apply: async (tx, data) => {
-            const result = await tx.queryOne(`
-                MATCH (tn:Deleted${label})::{$key}
-                SET tn:${label}
-                REMOVE tn:Deleted${label}
-                RETURN tn
-            `, {key: data.key}, {tn: type});
-            const modifiedNodes = [result.tn];
-            return {resultData: undefined, modifiedNodes};
-        },
-        invert: (data): ActionData => {
-            return DeleteAction({key: data.key});
-        },
-    });
-
-    return [DeleteAction, UnDeleteAction];
-}

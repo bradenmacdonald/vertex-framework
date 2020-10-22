@@ -61,33 +61,33 @@ export class Vertex implements VertexCore {
 
     /**
      * Run an action (or multiple actions) as the specified user.
-     * Returns the result of the last action specified.
+     * Returns the result of the first action specified.
      * @param userUuid The UUID of the user running the action
      * @param action The action to run
      * @param otherActions Additional actions to run, if desired.
      */
-    public async runAs<T extends ActionData>(userUuid: UUID, action: T, ...otherActions: T[]): Promise<ActionResult<T>> {
-        let result: ActionResult<T> = await runAction(this, action, userUuid);
+    public async runAs<T extends ActionData>(userUuid: UUID, action: T, ...otherActions: ActionData[]): Promise<ActionResult<T>> {
+        const result: ActionResult<T> = await runAction(this, action, userUuid);
         for (const action of otherActions) {
-            result = await runAction(this, action, userUuid);
+            await runAction(this, action, userUuid);
         }
         return result;
     }
 
     /**
      * Run an action (or multiple actions) as the "system user".
-     * Returns the result of the last action specified.
+     * Returns the result of the first action specified.
      * @param action The action to run
      * @param otherActions Additional actions to run, if desired.
      */
-    public async runAsSystem<T extends ActionData>(action: T, ...otherActions: T[]): Promise<ActionResult<T>> {
+    public async runAsSystem<T extends ActionData>(action: T, ...otherActions: ActionData[]): Promise<ActionResult<T>> {
         return this.runAs(SYSTEM_UUID, action, ...otherActions);
     }
 
     public async undoAction(args: {actionUuid: UUID, asUserId: UUID|undefined}): Promise<ActionResult<any>> {
         // Get the result and data from the previous action that we want to undo:
         const prevAction = await this.pullOne(Action, a => a.type.data, {key: args.actionUuid});
-        const prevActionImpl = getActionImplementation(prevAction.type as ActionType);
+        const prevActionImpl = getActionImplementation(ActionType(prevAction.type));
         if (prevActionImpl === undefined) {
             throw new Error(`Action type ${prevAction.type} is no longer defined.`);
         }
