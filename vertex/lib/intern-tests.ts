@@ -53,7 +53,6 @@ intern.on("afterRun", async () => {
  */
 export function isolateTestWrites(): void {
     afterEach(async () => {
-        await testGraph.resetDBToSnapshot(dataSnapshot);
         try {
             if (dataSnapshot === undefined) {
                 throw new Error("beforeRun did not complete - cannot isolate data.");
