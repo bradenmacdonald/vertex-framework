@@ -77,9 +77,7 @@ suite("action templates", () => {
         test("it can set properties and relationships via the Update action", async () => {
             await testGraph.runAsSystem(
                 CreateMovieFranchise({shortId: "star-wars", name: "Star Wars"}),
-                CreateMovie({shortId: "star-wars-4", title: "Star Wars: Episode IV – A New Hope", year: 1977, props: {
-                    franchiseId: "star-wars",
-                }}),
+                CreateMovie({shortId: "star-wars-4", title: "Star Wars: Episode IV – A New Hope", year: 1977, franchiseId: "star-wars"}),
             );
             // Note that we only call the CreateMovie action (not UpdateMovie), and the logic for how to set the
             // franchise from the "franchiseId" argument is only defined in UpdateMovie, but this still works,
@@ -94,9 +92,7 @@ suite("action templates", () => {
             );
             // Create a movie - this is the action that we will soon undo:
             const createResult = await testGraph.runAsSystem(
-                CreateMovie({shortId: "star-wars-4", title: "Star Wars: Episode IV – A New Hope", year: 1977, props: {
-                    franchiseId: "star-wars",
-                }}),
+                CreateMovie({shortId: "star-wars-4", title: "Star Wars: Episode IV – A New Hope", year: 1977, franchiseId: "star-wars"}),
             );
             // Check that it was created:
             const orig = await testGraph.pullOne(Movie, m => m.title.franchise(f => f.name), {key: "star-wars-4"});

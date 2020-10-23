@@ -41,24 +41,20 @@ export class Movie extends VNodeType {
 }
 registerVNodeType(Movie);
 
-// Parameters for the "UpdateMovie" Action
-interface UpdateArgs {
-    shortId?: string;
-    title?: string;
-    year?: number;
+interface UpdateMovieExtraArgs {
     franchiseId?: string|null;
 }
-export const UpdateMovie = defaultUpdateActionFor<UpdateArgs>(Movie, {
-    mutableProperties: ["shortId", "title", "year"],
-    otherUpdates: async ({tx, data, nodeSnapshot}) => {
-        const previousValues: Partial<UpdateArgs> = {};
-        if (data.franchiseId !== undefined) {
+
+export const UpdateMovie = defaultUpdateActionFor(Movie, ["shortId", "title", "year"], {
+    otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot, changes) => {
+        const previousValues: Partial<UpdateMovieExtraArgs> = {};
+        if (args.franchiseId !== undefined) {
             const {previousUuid} = await updateOneToOneRelationship({
                 fromType: Movie,
                 uuid: nodeSnapshot.uuid,
                 tx,
                 relName: "FRANCHISE_IS",
-                newId: data.franchiseId,
+                newId: args.franchiseId,
                 allowNull: true,
             });
             previousValues.franchiseId = previousUuid;
@@ -70,4 +66,4 @@ export const UpdateMovie = defaultUpdateActionFor<UpdateArgs>(Movie, {
     },
 });
 
-export const CreateMovie = defaultCreateFor<{shortId: string, title: string, year: number}, UpdateArgs>(Movie, UpdateMovie);
+export const CreateMovie = defaultCreateFor(Movie, ["shortId", "title", "year"], UpdateMovie);

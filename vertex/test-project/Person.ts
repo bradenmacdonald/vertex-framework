@@ -55,15 +55,11 @@ export class Person extends VNodeType {
 }
 registerVNodeType(Person);
 
-// Parameters for the "UpdatePerson" Action
-interface UpdateArgs {
-    shortId?: string;
-    name?: string;
-    dateOfBirth?: string;
-}
 
-export const UpdatePerson = defaultUpdateActionFor<UpdateArgs>(Person, {mutableProperties: ["name", "dateOfBirth"], });
-export const CreatePerson = defaultCreateFor<{shortId: string, name: string}, UpdateArgs>(Person, UpdatePerson);
+export const UpdatePerson = defaultUpdateActionFor(Person, ["name", "dateOfBirth"]);
+
+export const CreatePerson = defaultCreateFor(Person, ["shortId", "name"], UpdatePerson);
+
 export const ActedIn = defineAction<{personId: string, movieId: string}, {/* */}>({
     type: "ActedIn",
     apply: async (tx, data) => {

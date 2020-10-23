@@ -15,7 +15,7 @@ suite("action", () => {
 
     suite("test isolation", () => {
         // Test that our test cases have sufficient test isolation, via isolateTestWrites()
-        const createJamie = CreatePerson({shortId: "jamie", name: "Jamie", props: {}});
+        const createJamie = CreatePerson({shortId: "jamie", name: "Jamie"});
         test("create a person", async () => {
             await testGraph.runAsSystem(createJamie);
         });
@@ -39,7 +39,7 @@ suite("action", () => {
 
         test("Actions are performed by the system user by default", async () => {
             const result = await testGraph.runAsSystem(
-                CreatePerson({shortId: "ash", name: "Ash", props: {}}),
+                CreatePerson({shortId: "ash", name: "Ash"}),
             );
             const userResult = await testGraph.read(tx => tx.queryOne(`
                 MATCH (u:User)-[:PERFORMED]->(a:Action {type: $type})-[:MODIFIED]->(:${Person.label})::{$key}
@@ -52,7 +52,7 @@ suite("action", () => {
         test("Running an action with a non-existent user ID will raise an error", async () => {
             await assertRejects(testGraph.runAs(
                 UUID("6996ddbf-6cd0-4541-9ee9-3c37f8028941"),
-                CreatePerson({shortId: "ash", name: "Ash", props: {}}),
+                CreatePerson({shortId: "ash", name: "Ash"}),
             ), `Invalid user ID - unable to apply action.`);
             assert.equal(
                 (await testGraph.pull(Person, p => p.shortId, {key: "ash"})).length,

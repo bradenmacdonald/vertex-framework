@@ -1,4 +1,4 @@
-import { Transaction } from "neo4j-driver";
+import { Node, Transaction } from "neo4j-driver";
 import { UUID } from "./lib/uuid";
 import { VNodeType, isVNodeType, RawVNode } from "./vnode";
 
@@ -17,6 +17,17 @@ export type ReturnShape = {[key: string]: FieldType};
 export type TypedRecord<RS extends ReturnShape> = {
     [key in keyof RS]: ReturnTypeFor<RS[key]>;
 };
+
+export function neoNodeToRawVNode<VNT extends VNodeType = any>(fieldValue: Node<number>, fieldName: string): RawVNode<VNT> {
+    if (!(fieldValue as any).__isNode__) { // would be nice if isNode() were exported from neo4j-driver
+        throw new Error(`Field in record (${fieldName}) is of type ${typeof fieldValue}, not a Node.`);
+    }
+    return {
+        ...fieldValue.properties,
+        _identity: fieldValue.identity,
+        _labels: fieldValue.labels,
+    } as RawVNode<VNT>;
+}
 
 /**
  * Run a query on the Neo4j graph database and return its result.
@@ -65,15 +76,7 @@ export async function query<RS extends ReturnShape>(
         for (const key of Object.keys(returnShape)) {
             const fieldValue = record.get(key);
             if (isVNodeType(returnShape[key])) { // This is a node (VNode)
-                if (!fieldValue.__isNode__) { // would be nice if isNode() were exported from neo4j-driver
-                    throw new Error(`Field ${key} in record is of type ${typeof fieldValue}, not a Node.`);
-                }
-                const node: RawVNode<any> = {
-                    ...fieldValue.properties,
-                    _identity: fieldValue.identity,
-                    _labels: fieldValue.labels,
-                };
-                newRecord[key] = node;
+                newRecord[key] = neoNodeToRawVNode(fieldValue, key);
             } else {
                 // This is some plain value like "MATCH (u:User) RETURN u.name"
                 // e.g. newRecord["u.name"] = fieldValue

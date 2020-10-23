@@ -1,51 +1,92 @@
 import { ActionImplementation, defineAction, ActionData } from "./action";
 import { UUID } from "./lib/uuid";
+import { ReturnTypeFor } from "./query";
 import { WrappedTransaction } from "./transaction";
-import { RawVNode, VNodeType } from "./vnode";
+import { PropertyDataType, RawVNode, VNodeType } from "./vnode";
 
 
 // Useful action generators to reduce boilerplate
 
-type UpdateImplementationDetails<UpdateArgs extends {[K: string]: any}, TNT extends VNodeType> = {
-    mutableProperties: Array<keyof TNT["properties"] & keyof UpdateArgs>,
-    /** If there is a need to clean any properties, this function can mutate "changes" and "previousValues" */
+/** Helper to type the parameters in an auto-generated Update action */
+type PropertyValuesForUpdate<VNT extends VNodeType, keys extends keyof VNT["properties"]> = {
+    [K in keys]?: PropertyDataType<VNT["properties"], K>
+}
+/** Helper to get a union of the value types of an array, if known at compile time */
+type ElementType < T extends ReadonlyArray < unknown > > = (
+    T extends ReadonlyArray<infer ElementType> ? ElementType
+    : never
+);
+
+type UpdateImplementationDetails<VNT extends VNodeType, MutPropsArrayType extends ReadonlyArray<keyof VNT["properties"]>, OtherArgs extends Record<string, any> = {}> = {  // eslint-disable-line @typescript-eslint/ban-types
+    // The data argument passed into this action contains:
+    //   key: the UUID or shortId of this node
+    //   zero or more of the raw property values for the properties specified in "mutableProperties" (MutPropsArrayType)
+    //   zero or more of the OtherArgs used by otherUpdates
     clean?: (args: {
-        data: {key: string} & UpdateArgs,
-        nodeSnapshot: RawVNode<TNT>,
-        changes: Partial<UpdateArgs>,
-        previousValues: Partial<UpdateArgs>,
+        data: {key: string} & PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>> & OtherArgs,
+        nodeSnapshot: RawVNode<VNT>,
+        changes: PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>>,
+        previousValues: PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>>,
     }) => void,
     /** If there is a need to update relationships or complex properties, this method can do so */
-    otherUpdates?: (args: {
+    otherUpdates?: (
+        args: OtherArgs,
         tx: WrappedTransaction,
-        data: {key: string} & UpdateArgs,
-        nodeSnapshot: RawVNode<TNT>,
-    }) => Promise<{previousValues: Partial<UpdateArgs>, additionalModifiedNodes?: RawVNode<any>[]}>,
+        nodeSnapshot: RawVNode<VNT>,
+        changes: Readonly<PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>>>,
+    ) => Promise<{previousValues: Partial<PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>> & OtherArgs>, additionalModifiedNodes?: RawVNode<any>[]}>,
 };
+
+/** Detailed type specification for an Update action created by the defaultUpdateActionFor() template */
+interface UpdateActionImplementation<
+    // The VNode type that is being updated
+    VNT extends VNodeType,
+    // Which of the VNode's raw properties can be updated
+    SelectedProps extends keyof VNT["properties"],
+    // Optional custom parameters that can (or must) be specified, which get used by the custom otherUpdates() method
+    // (if any), to do things like update this VNode's relationships.
+    OtherArgs extends Record<string, any>,
+> extends ActionImplementation<
+    // The parameters that can/must be passed to this action to run it:
+    {key: string} & PropertyValuesForUpdate<VNT, SelectedProps> & OtherArgs,
+    // The result of running this action will be "prevValues" which stores the previous values so the action can be
+    // undone.
+    {prevValues: PropertyValuesForUpdate<VNT, SelectedProps> & OtherArgs}
+> {
+    // Because Update actions are designed to work together with the Create action template, we need to store the list
+    // of what properties the Update action can mutate:
+    mutableProperties: ReadonlyArray<SelectedProps>;
+}
 
 /**
  * Build a useful "Update" action that can apply updates to basic property values of a VNode.
  * For example, if the VNode type is "User", a default update action could be used to change
  * the username, real name, birth date, etc.
  * @param type The VNode Type that this update is for.
- * @param details Implementation details: specify which properties can be changed by the update action,
- *                and optionally provide functions to clean the property data before saving, or to
- *                do additional changes on update, such as updating relationships to other nodes.
+ * @param mutableProperties Specify which properties can be changed by the update action.
+ * @param clean Optionally provide a function to clean the property data before saving
+ * @param otherUpdates Optionally provide a function to do additional changes on update, such as updating relationships
+ *                     to other nodes.
  */
-export function defaultUpdateActionFor<UpdateArgs extends {[K: string]: any}>(
-    type: VNodeType,
-    {mutableProperties, clean, otherUpdates}: UpdateImplementationDetails<UpdateArgs, typeof type>,
-): ActionImplementation<{key: string} & UpdateArgs, {prevValues: UpdateArgs}> 
+export function defaultUpdateActionFor<VNT extends VNodeType, SelectedProps extends keyof VNT["properties"], OtherArgs extends Record<string, any> = {}>(  // eslint-disable-line @typescript-eslint/ban-types
+    type: VNT,
+    mutableProperties: ReadonlyArray<SelectedProps>,
+    {clean, otherUpdates}: UpdateImplementationDetails<VNT, typeof mutableProperties, OtherArgs> = {},
+): UpdateActionImplementation<VNT, ElementType<typeof mutableProperties>, OtherArgs>
 {
+    type PropertyArgs = PropertyValuesForUpdate<VNT, ElementType<typeof mutableProperties>>;
+    type Args = PropertyArgs & OtherArgs;
+
     const label = type.label;
 
-    const UpdateAction = defineAction<{key: string} & UpdateArgs, {prevValues: UpdateArgs}>({
+    const UpdateAction = defineAction<{key: string} & Args, {prevValues: Args}>({
         type: `Update${label}`,
         apply: async (tx, data) => {
             // Load the current value of the VNode from the graph
-            const nodeSnapshot = (await tx.queryOne(`MATCH (node:${label})::{$key}`, {key: data.key}, {node: type})).node;
-            // Prepare to store the previous values of any changed properties/relationships
-            let previousValues: Partial<UpdateArgs> = {};
+            // TODO: why is "as RawVNode<VNT>" required on the next line here?
+            const nodeSnapshot: RawVNode<VNT> = (await tx.queryOne(`MATCH (node:${label})::{$key}`, {key: data.key}, {node: type})).node as RawVNode<VNT>;
+            // Prepare to store the previous values of any changed properties/relationships (so we can undo this update)
+            let previousValues: PropertyArgs = {};
             // Store the new values (properties that are being changed):
             const changes: any = {};
     
@@ -56,7 +97,7 @@ export function defaultUpdateActionFor<UpdateArgs extends {[K: string]: any}>(
                     const isChanged = JSON.stringify(data[propertyName]) !== JSON.stringify(nodeSnapshot[propertyName]);
                     if (isChanged) {
                         changes[propertyName] = data[propertyName];
-                        previousValues[propertyName] = nodeSnapshot[propertyName];
+                        (previousValues as any)[propertyName] = nodeSnapshot[propertyName];
                     }
                 }
             }
@@ -72,7 +113,7 @@ export function defaultUpdateActionFor<UpdateArgs extends {[K: string]: any}>(
 
             if (otherUpdates) {
                 // Update relationships etc.
-                const result = await otherUpdates({tx, data, nodeSnapshot});
+                const result = await otherUpdates(data, tx, nodeSnapshot, changes);
                 previousValues = {...previousValues, ...result.previousValues};
                 if (result.additionalModifiedNodes) {
                     modifiedNodes = [...modifiedNodes, ...result.additionalModifiedNodes];
@@ -81,7 +122,7 @@ export function defaultUpdateActionFor<UpdateArgs extends {[K: string]: any}>(
     
             return {
                 resultData: {prevValues: previousValues as any},
-                modifiedNodes: [result.t],
+                modifiedNodes,
             };
         },
         invert: (data, resultData): ActionData => {
@@ -89,38 +130,87 @@ export function defaultUpdateActionFor<UpdateArgs extends {[K: string]: any}>(
         },
     });
 
-    return UpdateAction;
+    (UpdateAction as any).mutableProperties = mutableProperties;
+
+    return UpdateAction as any;
 }
+
+/** Helper to type the parameters in an auto-generated Create action */
+type RequiredArgsForCreate<VNT extends VNodeType, keys extends keyof VNT["properties"]> = {
+    [K in keys]: PropertyDataType<VNT["properties"], K>
+}
+
+/** Helper to get the (optional) arguments that can be used for an Update action */
+type ArgsForUpdateAction<UAI extends UpdateActionImplementation<VNodeType, any, any>|undefined> = (
+    UAI extends UpdateActionImplementation<infer VNT, infer SelectedProps, infer OtherArgs> ?
+        PropertyValuesForUpdate<VNT, SelectedProps> & OtherArgs
+    : {/* If there's no update action, we don't accept any additional arguments */}
+);
 
 /**
  * Build a useful "Create" action, which creates a new VNode of the specified type, along with its required
- * properties. Use <RequiredArgs> to specify the types of all required properties.
+ * properties. If an updateAction is specified (recommended), it will be used during the creation process, so that it
+ * can clean values and also do things like create relationships at the same time.
  * @param type The VNode Type to create
- * @param updateAction The Update Action, used to set any non-required properties that get specified during creation;
- *             this is just a convenience to avoid having to do a Create followed by an Update.
+ * @param updateAction The Update Action, created by defaultUpdateActionFor() (optional)
  */
-export function defaultCreateFor<RequiredArgs, UpdateArgs>(
-    VNodeType: VNodeType,
-    updateAction: ActionImplementation<{key: string}&Omit<UpdateArgs, keyof RequiredArgs>, {prevValues: any}>
-): ActionImplementation<RequiredArgs&{props?: Omit<UpdateArgs, keyof RequiredArgs>}, {uuid: string, updateResult: any}> {
+export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends keyof VNT["properties"], UAI extends UpdateActionImplementation<VNT, any, any>|undefined = undefined>(  // eslint-disable-line @typescript-eslint/ban-types
+    VNodeType: VNT,
+    requiredProperties: ReadonlyArray<RequiredProps>,
+    updateAction?: UAI
+): ActionImplementation<
+    // This Create action _requires_ the following properties:
+    RequiredArgsForCreate<VNT, RequiredProps>
+    // And accepts any _optional_ properties that the Update action understands:
+    & ArgsForUpdateAction<UAI>
+    // And it returns the UUID of the newly created node, and whatever the Update action returned, if any
+, {uuid: string, updateResult: null|{prevValues: any}}> {
+
+    type Args = RequiredArgsForCreate<VNT, RequiredProps> & ArgsForUpdateAction<UAI>;
     const label = VNodeType.label;
 
-    const CreateAction = defineAction<RequiredArgs&{props?: Omit<UpdateArgs, keyof RequiredArgs>}, {uuid: UUID, updateResult: any}>({
+    const CreateAction = defineAction<Args, {uuid: UUID, updateResult: null|{prevValues: any}}>({
         type: `Create${label}`,
         apply: async (tx, data) => {
             const uuid = UUID();
-            const {props, type, ...requiredProps} = data;
-            const result = await tx.queryOne(`CREATE (tn:${label} {uuid: $uuid}) SET tn += $requiredProps`, {uuid, requiredProps, }, {tn: VNodeType});
-            if (props !== undefined) {
-                const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: uuid, ...props});
+            // This Create Action also runs an Update at the same time (if configured that way).
+            // If there is a linked Update Action, we want _it_ to set the props, so that its "clean" and "otherUpdates"
+            // methods can be used. However, there may be some properties that can be set on create but never changed;
+            // if so, we need to handle those now.
+            const propsToSetOnCreate: any = {};
+            const propsToSetViaUpdate: any = {};
+            for (const [propName, value] of Object.entries(data)) {
+                if (propName === "type") {
+                    continue;
+                }
+                if (updateAction) {
+                    if (requiredProperties.includes(propName as any) && !updateAction.mutableProperties.includes(propName)) {
+                        // This is a raw property but updateAction doesn't accept it as a parameter; we'll have to set it now.
+                        propsToSetOnCreate[propName] = value;
+                    } else {
+                        // This is a property or argument that updateAction can handle:
+                        propsToSetViaUpdate[propName] = value;
+                    }
+                } else {
+                    propsToSetOnCreate[propName] = value;
+                }
+            }
+            // Create the new node, assigning its UUID, as well as setting any props that the upcoming Update can't handle
+            const result = await tx.queryOne(
+                `CREATE (node:${label} {uuid: $uuid}) SET node += $propsToSetOnCreate`,
+                {uuid, propsToSetOnCreate, },
+                {node: VNodeType},
+            );
+            if (updateAction && Object.keys(propsToSetViaUpdate).length > 0) {
+                const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: uuid, ...propsToSetViaUpdate});
                 return {
                     resultData: { uuid, updateResult: updateResult.resultData },
-                    modifiedNodes: [result.tn, ...updateResult.modifiedNodes],
+                    modifiedNodes: [result.node, ...updateResult.modifiedNodes],
                 };
             } else {
                 return {
                     resultData: { uuid, updateResult: null },
-                    modifiedNodes: [result.tn],
+                    modifiedNodes: [result.node],
                 };
             }
         },
@@ -135,7 +225,7 @@ export function defaultCreateFor<RequiredArgs, UpdateArgs>(
             // First undo the update that may have been part of the create, since it may have created relationships
             // Or updated external systems, etc.
             let modifiedNodes: RawVNode<any>[] = [];
-            if (data.updateResult !== null) {
+            if (updateAction && data.updateResult !== null) {
                 const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: data.uuid, ...data.updateResult.prevValues});
                 modifiedNodes = updateResult.modifiedNodes;
             }

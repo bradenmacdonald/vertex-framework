@@ -30,13 +30,5 @@ export class MovieFranchise extends VNodeType {
 }
 registerVNodeType(MovieFranchise);
 
-// Parameters for the "UpdateMovieFranchise" Action
-interface UpdateArgs {
-    shortId?: string;
-    name?: string;
-}
-export const UpdateMovieFranchise = defaultUpdateActionFor<UpdateArgs>(MovieFranchise, {
-    mutableProperties: ["shortId", "name"],
-});
-
-export const CreateMovieFranchise = defaultCreateFor<{shortId: string, name: string}, UpdateArgs>(MovieFranchise, UpdateMovieFranchise);
+// Note: for MovieFranchise, we test having only a Create action; no update.
+export const CreateMovieFranchise = defaultCreateFor(MovieFranchise, ["shortId", "name"]);

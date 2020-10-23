@@ -4,6 +4,8 @@ import { SYSTEM_UUID } from "./schema";
 import { log } from "./lib/log";
 import { getVNodeType, RawVNode } from "./vnode";
 import { VertexCore } from "./vertex-interface";
+import { Node } from "neo4j-driver";
+import { neoNodeToRawVNode } from "./query";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
@@ -42,18 +44,34 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
             throw err;
         }
 
-        // Then, validate all nodes that had changes:
-        // Prototype
-        for (const node of modifiedNodes) {
-            if (node._labels.length > 1) {
-                log.warn(`node ${node.toString()} has multiple labels: ${node._labels.join(",")}`);
-            }
-            const nodeType = getVNodeType(node._labels[0]);
-            try {
-                await nodeType.validate(node, tx);
-            } catch (err) {
-                log.error(`${type} action failed during transaction validation: ${err}`);
-                throw err;
+        if (modifiedNodes) {
+            // Mark the Action as having :MODIFIED any affects nodes, and also retrieve the current version of them.
+            // (If a node was deleted, this will ignore it.)
+            const result = await tx.run(`
+                MERGE (a:Action {uuid: $actionUuid})
+                WITH a
+                MATCH (n) WHERE id(n) IN $modifiedIds
+                MERGE (a)-[:MODIFIED]->(n)
+                RETURN n
+            `, {
+                actionUuid,
+                modifiedIds: [...new Set(modifiedNodes.map(n => n._identity))],
+            });
+            // Then, validate all nodes that had changes:
+            for (const resultRow of result.records) {
+                const node: Node<number> = resultRow.get("n");
+                for (const label of node.labels) {
+                    if (label.startsWith("Deleted")) {
+                        continue;  // Don't validate nodes that have been "deleted" by re-labelling to a "Deleted____" label
+                    }
+                    const nodeType = getVNodeType(label);
+                    try {
+                        await nodeType.validate(neoNodeToRawVNode(node, "n"), tx);
+                    } catch (err) {
+                        log.error(`${type} action failed during transaction validation: ${err}`);
+                        throw err;
+                    }
+                }
             }
         }
 
@@ -87,19 +105,6 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
         // This user ID validation happens very late but saves us a separate query.
         if (actionUpdate.records.length === 0) {
             throw new Error("Invalid user ID - unable to apply action.");
-        }
-
-        if (modifiedNodes) {
-            // Mark the Action as having :MODIFIED certain nodes.
-            await tx.run(`
-                MATCH (a:Action {uuid: $actionUuid})
-                MATCH (n) WHERE id(n) IN $modifiedIds
-                MERGE (a)-[:MODIFIED]->(n)
-            `, {
-                actionUuid,
-                modifiedIds: modifiedNodes.map(n => n._identity),
-            });
-            // If a node was deleted, this will ignore it.
         }
 
         return [resultData, tookMs];
