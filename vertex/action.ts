@@ -43,10 +43,10 @@ interface ApplyResult<ResultData extends Record<string, any> = {}> {  // eslint-
      */
     resultData: ResultData;
     /**
-     * A list of Neo4j node objects for any nodes that were modified by this action, so that the (:Action)-[:MODIFIED]->
-     * relationship can be created, giving us a change history for every node in the graph.
+     * A list of node UUIDs for any nodes that were modified by this action, so that the nodes can be validated, and
+     * the (:Action)-[:MODIFIED]-> relationship can be created, giving us a change history for every node in the graph.
      */
-    modifiedNodes: RawVNode<any>[];
+    modifiedNodes: UUID[];
 }
 
 /** TypeScript helper: given an ActionData type, this gets the action's apply() return value, if known */

@@ -33,29 +33,29 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
         }
 
         // First, apply the action:
-        let modifiedNodes: RawVNode<any>[];
+        let modifiedNodeUUIDs: UUID[];
         let resultData: any;
         try {
             const x = await actionImplementation.apply(tx, actionData/*, context */);
-            modifiedNodes = x.modifiedNodes;
+            modifiedNodeUUIDs = x.modifiedNodes;
             resultData = x.resultData;
         } catch (err) {
             log.error(`${type} action failed during apply() method.`);
             throw err;
         }
 
-        if (modifiedNodes) {
+        if (modifiedNodeUUIDs.length > 0) {
             // Mark the Action as having :MODIFIED any affects nodes, and also retrieve the current version of them.
             // (If a node was deleted, this will ignore it.)
             const result = await tx.run(`
                 MERGE (a:Action:VNode {uuid: $actionUuid})
                 WITH a
-                MATCH (n:VNode) WHERE id(n) IN $modifiedIds
+                MATCH (n:VNode) WHERE n.uuid IN $modifiedNodeUUIDs
                 MERGE (a)-[:MODIFIED]->(n)
                 RETURN n
             `, {
                 actionUuid,
-                modifiedIds: [...new Set(modifiedNodes.map(n => n._identity))],
+                modifiedNodeUUIDs,
             });
             // Then, validate all nodes that had changes:
             for (const resultRow of result.records) {

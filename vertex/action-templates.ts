@@ -33,7 +33,7 @@ type UpdateImplementationDetails<VNT extends VNodeType, MutPropsArrayType extend
         tx: WrappedTransaction,
         nodeSnapshot: RawVNode<VNT>,
         changes: Readonly<PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>>>,
-    ) => Promise<{previousValues: Partial<PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>> & OtherArgs>, additionalModifiedNodes?: RawVNode<any>[]}>,
+    ) => Promise<{previousValues: Partial<PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>> & OtherArgs>, additionalModifiedNodes?: UUID[]}>,
 };
 
 /** Detailed type specification for an Update action created by the defaultUpdateActionFor() template */
@@ -107,8 +107,8 @@ export function defaultUpdateActionFor<VNT extends VNodeType, SelectedProps exte
             const result = await tx.queryOne(`
                 MATCH (t:${label}:VNode)::{$key}
                 SET t += $changes
-            `, {key: data.key, changes}, {t: type});
-            let modifiedNodes: RawVNode<any>[] = [result.t];
+            `, {key: data.key, changes}, {"null": "any"});
+            let modifiedNodes: UUID[] = [nodeSnapshot.uuid];
 
             if (otherUpdates) {
                 // Update relationships etc.
@@ -198,18 +198,18 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
             const result = await tx.queryOne(
                 `CREATE (node:${label}:VNode {uuid: $uuid}) SET node += $propsToSetOnCreate`,
                 {uuid, propsToSetOnCreate, },
-                {node: VNodeType},
+                {"null": "any"},
             );
             if (updateAction && Object.keys(propsToSetViaUpdate).length > 0) {
                 const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: uuid, ...propsToSetViaUpdate});
                 return {
                     resultData: { uuid, updateResult: updateResult.resultData },
-                    modifiedNodes: [result.node, ...updateResult.modifiedNodes],
+                    modifiedNodes: [uuid, ...updateResult.modifiedNodes],
                 };
             } else {
                 return {
                     resultData: { uuid, updateResult: null },
-                    modifiedNodes: [result.node],
+                    modifiedNodes: [uuid],
                 };
             }
         },
@@ -223,7 +223,7 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
         apply: async (tx, data) => {
             // First undo the update that may have been part of the create, since it may have created relationships
             // Or updated external systems, etc.
-            let modifiedNodes: RawVNode<any>[] = [];
+            let modifiedNodes: UUID[] = [];
             if (updateAction && data.updateResult !== null) {
                 const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: data.uuid, ...data.updateResult.prevValues});
                 modifiedNodes = updateResult.modifiedNodes;
@@ -263,9 +263,8 @@ export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementat
                 MATCH (tn:${label}:VNode)::{$key}
                 SET tn:DeletedVNode
                 REMOVE tn:VNode
-                RETURN tn
-            `, {key: data.key}, {tn: type});
-            const modifiedNodes = [result.tn];
+            `, {key: data.key}, {"tn.uuid": "uuid"});
+            const modifiedNodes = [result["tn.uuid"]];
             return {resultData: {}, modifiedNodes};
         },
         invert: (data, resultData) => {
@@ -280,9 +279,8 @@ export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementat
                 MATCH (tn:${label}:DeletedVNode)::{$key}
                 SET tn:VNode
                 REMOVE tn:DeletedVNode
-                RETURN tn
-            `, {key: data.key}, {tn: type});
-            const modifiedNodes = [result.tn];
+            `, {key: data.key}, {"tn.uuid": "uuid"});
+            const modifiedNodes = [result["tn.uuid"]];
             return {resultData: {}, modifiedNodes};
         },
         invert: (data): ActionData => {

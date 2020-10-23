@@ -67,9 +67,9 @@ export const ActedIn = defineAction<{personId: string, movieId: string}, {/* */}
             MATCH (p:${Person.label}:VNode)::{$personId}
             MATCH (m:${Movie.label}:VNode)::{$movieId}
             MERGE (p)-[:ACTED_IN]->(m)
-        `, data, {p: Person});
+        `, data, {"p.uuid": "uuid"});
         return {
-            modifiedNodes: [result.p],
+            modifiedNodes: [result["p.uuid"]],
             resultData: {},
         };
     },
@@ -83,9 +83,9 @@ export const RecordFriends = defineAction<{personId: string, otherPersonId: stri
             MATCH (p1:${Person.label}:VNode)::{$personId}
             MATCH (p2:${Person.label}:VNode)::{$otherPersonId}
             MERGE (p1)-[:FRIEND_OF]->(p2)
-        `, data, {p1: Person, p2: Person});
+        `, data, {"p1.uuid": "uuid", "p2.uuid": "uuid"});
         return {
-            modifiedNodes: [result.p1, result.p2],
+            modifiedNodes: [result["p1.uuid"], result["p2.uuid"]],
             resultData: {},
         };
     },
