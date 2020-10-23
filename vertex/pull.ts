@@ -299,18 +299,18 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
     };
 
     if (rootFilter.key === undefined) {
-        query = `MATCH (_node:${label})\n`;
+        query = `MATCH (_node:${label}:VNode)\n`;
     } else {
         const key = rootFilter.key;
         if (key.length === 36) {
             // Look up by UUID.
-            query = `MATCH (_node:${label} {uuid: $_nodeUuid})\n`;
+            query = `MATCH (_node:${label}:VNode {uuid: $_nodeUuid})\n`;
             params._nodeUuid = key;
         } else if (key.length < 36) {
             if (rootNodeType.properties.shortId === undefined) {
                 throw new Error(`The requested ${rootNodeType.name} VNode type doesn't use shortId.`);
             }
-            query = `MATCH (_node:${label})<-[:IDENTIFIES]-(:ShortId {path: "${label}/" + $_nodeShortid})\n`;
+            query = `MATCH (_node:${label}:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})\n`;
             params._nodeShortid = key;
         } else {
             throw new Error("shortId must be shorter than 36 characters; UUID must be exactly 36 characters.");

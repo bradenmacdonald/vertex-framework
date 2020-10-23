@@ -18,11 +18,10 @@ export interface VertexCore {
 }
 
 type dbWriteType = <T>(code: (tx: Transaction) => Promise<T>) => Promise<T>;
-type declareModelType = (modelName: string, opts?: {shortId?: boolean}) => Promise<void>;
 
 export interface Migration {
-    forward: (dbWrite: dbWriteType, declareModel: declareModelType, removeModel: declareModelType) => Promise<any>;
-    backward: (dbWrite: dbWriteType, declareModel: declareModelType, removeModel: declareModelType) => Promise<any>;
+    forward: (dbWrite: dbWriteType) => Promise<any>;
+    backward: (dbWrite: dbWriteType) => Promise<any>;
     dependsOn: string[];
 }
 

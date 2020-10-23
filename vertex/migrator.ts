@@ -1,29 +1,6 @@
 import { log } from "./lib/log";
 import { VertexCore, Migration } from "./vertex-interface";
 
-
-
-
-/**
- * Declare a standard unique, auto-generated UUID schema, used by most TechNotes graph nodes.
- * @param tx The current Neo4j write transaction
- * @param modelName The label of the new model / node type
- */
-async function declareModel(graph: VertexCore, modelName: string, opts: {shortId?: boolean} = {}): Promise<void> {
-    const constraintName = modelName.toLowerCase() + "_uuid_uniq";
-    await graph._restrictedWrite(async tx => {
-        await tx.run(`CREATE CONSTRAINT ${constraintName} ON (m:${modelName}) ASSERT m.uuid IS UNIQUE`);
-        if (opts.shortId) {
-            const shortIdConstraintName = modelName.toLowerCase() + "_shortid_uniq";
-            await tx.run(`CREATE CONSTRAINT ${shortIdConstraintName} ON (m:${modelName}) ASSERT m.shortId IS UNIQUE`)
-        }
-    });
-    // The following gives each node an auto-generated UUID on creation:
-    await graph._restrictedWrite(async tx => {
-        await tx.run(`CALL apoc.uuid.install("${modelName}")`)
-    });
-}
-
 /** Reverse of declareModel() */
 async function removeModel(graph: VertexCore, modelName: string, opts: {shortId?: boolean} = {}): Promise<void> {
     const constraintName = modelName.toLowerCase() + "_uuid_uniq";
@@ -59,6 +36,7 @@ export async function getAppliedMigrationIds(graph: VertexCore): Promise<string[
 
 export async function runMigrations(graph: VertexCore): Promise<void> {
     const appliedMigrationIds = new Set(await getAppliedMigrationIds(graph));
+    const dbWrite = graph._restrictedWrite.bind(graph);
     for (const migrationId in graph.migrations) {
         if (appliedMigrationIds.has(migrationId)) {
             log.debug(`"${migrationId}" is already applied.`);
@@ -73,8 +51,8 @@ export async function runMigrations(graph: VertexCore): Promise<void> {
             // Apply the migration
             log(`Applying migration "${migrationId}"`);
             await graph._restrictedAllowWritesWithoutAction(async () => {
-                await migration.forward(graph._restrictedWrite.bind(graph), declareModel.bind(null, graph), removeModel.bind(null, graph));
-                await graph._restrictedWrite(tx =>
+                await migration.forward(dbWrite);
+                await dbWrite(tx =>
                     tx.run(`
                         CREATE (m:Migration {id: $migrationId})
                         WITH m as m2
@@ -90,6 +68,7 @@ export async function runMigrations(graph: VertexCore): Promise<void> {
 }
 
 export async function reverseMigration(graph: VertexCore, id: string): Promise<void> {
+    const dbWrite = graph._restrictedWrite.bind(graph);
     const migration: Migration = graph.migrations[id];
     if (migration === undefined) {
         throw new Error(`Unknown migration: "${id}"`);
@@ -102,8 +81,8 @@ export async function reverseMigration(graph: VertexCore, id: string): Promise<v
     // Reverse the migration
     log(`Reversing migration "${id}"`);
     await graph._restrictedAllowWritesWithoutAction(async () => {
-        await migration.backward(graph._restrictedWrite.bind(graph), declareModel.bind(null, graph), removeModel.bind(null, graph));
-        await graph._restrictedWrite(tx => tx.run(`MATCH (m:Migration {id: $id}) DETACH DELETE m`, {id, }));
+        await migration.backward(dbWrite);
+        await dbWrite(tx => tx.run(`MATCH (m:Migration {id: $id}) DETACH DELETE m`, {id, }));
     });
 }
 

@@ -18,7 +18,7 @@ suite("pull", () => {
                 const query = buildCypherQuery(request);
 
                 assert.equal(query.query, dedent`
-                    MATCH (_node:TestPerson)
+                    MATCH (_node:TestPerson:VNode)
                     
                     RETURN _node.uuid AS uuid, _node.shortId AS shortId, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
                 `);
@@ -48,7 +48,7 @@ suite("pull", () => {
             test("buildCypherQuery - get all, DOB flag off", () => {
                 const query = buildCypherQuery(partialPersonRequest);
                 assert.equal(query.query, dedent`
-                    MATCH (_node:TestPerson)
+                    MATCH (_node:TestPerson:VNode)
                     
                     RETURN _node.name AS name ORDER BY _node.name
                 `);
@@ -56,7 +56,7 @@ suite("pull", () => {
             test("buildCypherQuery - get all, DOB flag on", () => {
                 const query = buildCypherQuery(partialPersonRequest, {flags: ["includeDOB"]});
                 assert.equal(query.query, dedent`
-                    MATCH (_node:TestPerson)
+                    MATCH (_node:TestPerson:VNode)
                     
                     RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
                 `);
@@ -127,7 +127,7 @@ suite("pull", () => {
                 const query = buildCypherQuery(basicPersonRequest, {key: "00000000-0000-0000-0000-000000001234"});
 
                 assert.equal(query.query, dedent`
-                    MATCH (_node:TestPerson {uuid: $_nodeUuid})
+                    MATCH (_node:TestPerson:VNode {uuid: $_nodeUuid})
                     
                     RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
                 `);
@@ -137,7 +137,7 @@ suite("pull", () => {
                 const query = buildCypherQuery(basicPersonRequest, {where: "@.name = $nameMatch", params: {nameMatch: "Dwayne Johnson"}});
 
                 assert.equal(query.query, dedent`
-                    MATCH (_node:TestPerson)
+                    MATCH (_node:TestPerson:VNode)
                     WHERE _node.name = $nameMatch
                     
                     RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
@@ -152,7 +152,7 @@ suite("pull", () => {
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
                 assert.equal(query.query, dedent`
-                    MATCH (_node:TestMovie)<-[:IDENTIFIES]-(:ShortId {path: "TestMovie/" + $_nodeShortid})
+                    MATCH (_node:TestMovie:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
                     
                     RETURN _node.shortId AS shortId, _node.title AS title, _node.year AS year ORDER BY _node.year DESC
                 `);
@@ -178,9 +178,9 @@ suite("pull", () => {
                 // This test covers the situation where we're not including any raw (non-virtual) properties from the main node (_node)
                 const query = buildCypherQuery(request, filter);
                 assert.equal(query.query, dedent`
-                    MATCH (_node:TestPerson)<-[:IDENTIFIES]-(:ShortId {path: "TestPerson/" + $_nodeShortid})
+                    MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
 
-                    OPTIONAL MATCH (_node)-[:ACTED_IN]->(_movie1:TestMovie)
+                    OPTIONAL MATCH (_node)-[:ACTED_IN]->(_movie1:TestMovie:VNode)
                     WITH _node, _movie1 ORDER BY _movie1.year DESC
                     WITH _node, collect(_movie1 {.title, .year}) AS _movies1
 
@@ -220,12 +220,12 @@ suite("pull", () => {
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
                 assert.equal(query.query, dedent`
-                    MATCH (_node:TestMovie)
+                    MATCH (_node:TestMovie:VNode)
                     WHERE _node.year = 2018
                     
                     CALL {
                         WITH _node
-                        OPTIONAL MATCH (_node)-[:FRANCHISE_IS]->(_moviefranchise1:TestMovieFranchise)
+                        OPTIONAL MATCH (_node)-[:FRANCHISE_IS]->(_moviefranchise1:TestMovieFranchise:VNode)
                         RETURN _moviefranchise1 LIMIT 1
                     }
                     WITH _node, _moviefranchise1 {.name} AS _franchise1
@@ -262,19 +262,19 @@ suite("pull", () => {
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, {});
                 assert.equal(query.query, dedent`
-                    MATCH (_node:TestPerson)
+                    MATCH (_node:TestPerson:VNode)
 
-                    OPTIONAL MATCH (_node)-[:FRIEND_OF]-(_person1:TestPerson)
+                    OPTIONAL MATCH (_node)-[:FRIEND_OF]-(_person1:TestPerson:VNode)
                     
-                    OPTIONAL MATCH (_person1)-[:ACTED_IN]->(:TestMovie)<-[:ACTED_IN]-(_person2:TestPerson)
+                    OPTIONAL MATCH (_person1)-[:ACTED_IN]->(:TestMovie:VNode)<-[:ACTED_IN]-(_person2:TestPerson:VNode)
                     
-                    OPTIONAL MATCH (_person2)-[:ACTED_IN]->(_movie1:TestMovie)
+                    OPTIONAL MATCH (_person2)-[:ACTED_IN]->(_movie1:TestMovie:VNode)
                     WITH _node, _person1, _person2, _movie1 ORDER BY _movie1.year DESC
                     WITH _node, _person1, _person2, collect(_movie1 {.title, .year}) AS _movies1
                     
-                    OPTIONAL MATCH (_person2)-[:FRIEND_OF]-(_person3:TestPerson)
+                    OPTIONAL MATCH (_person2)-[:FRIEND_OF]-(_person3:TestPerson:VNode)
                     
-                    OPTIONAL MATCH (_person3)-[:ACTED_IN]->(_movie1:TestMovie)
+                    OPTIONAL MATCH (_person3)-[:ACTED_IN]->(_movie1:TestMovie:VNode)
                     WITH _node, _person1, _person2, _movies1, _person3, _movie1 ORDER BY _movie1.year DESC
                     WITH _node, _person1, _person2, _movies1, _person3, collect(_movie1 {.title, .year}) AS _movies2
                     WITH _node, _person1, _person2, _movies1, _person3, _movies2 ORDER BY _person3.name

@@ -20,7 +20,13 @@ export type TypedRecord<RS extends ReturnShape> = {
 
 export function neoNodeToRawVNode<VNT extends VNodeType = any>(fieldValue: Node<number>, fieldName: string): RawVNode<VNT> {
     if (!(fieldValue as any).__isNode__) { // would be nice if isNode() were exported from neo4j-driver
-        throw new Error(`Field in record (${fieldName}) is of type ${typeof fieldValue}, not a Node.`);
+        throw new Error(`Field ${fieldName} is of type ${typeof fieldValue}, not a VNode.`);
+    }
+    if (fieldValue.labels.includes("DeletedVNode")) {
+        throw new Error(`Field ${fieldName} matched a deleted VNode - check your query and match only nodes with the :VNode label`);
+    }
+    if (!fieldValue.labels.includes("VNode")) {
+        throw new Error(`Field ${fieldName} is a node but is missing the VNode label`);
     }
     return {
         ...fieldValue.properties,
@@ -56,7 +62,7 @@ export async function query<RS extends ReturnShape>(
             return `:${label} {uuid: $${paramName}})`;
             // Alternative: return `)<-[*0]-({uuid: $${paramName}})`;
         } else {
-            return `:${label})<-[:IDENTIFIES]-(:ShortId {path: "${label}/" + $${paramName}})`;
+            return `:${label})<-[:IDENTIFIES]-(:ShortId {shortId: $${paramName}})`;
         }
     });
     // Check that the RETURN statement matches "returnShape", and auto-generate it if needed.

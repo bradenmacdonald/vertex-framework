@@ -34,7 +34,7 @@ export class Movie extends VNodeType {
     static readonly virtualProperties = {
         franchise: {
             type: VirtualPropType.OneRelationship,
-            query: `(@this)-[:FRANCHISE_IS]->(@target:${MovieFranchise.label})`,
+            query: `(@this)-[:FRANCHISE_IS]->(@target:${MovieFranchise.label}:VNode)`,
             target: MovieFranchise,
         },
     };

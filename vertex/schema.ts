@@ -1,5 +1,12 @@
 /**
  * The core database Schema for a Vertex Framework application
+ *
+ * Labels used are:
+ *  :Migration - tracks database schema and data migration history
+ *  :VNode - label for all VNodes (basically all nodes involved in the Vertex Framework, except ShortId and Migration)
+ *  :DeletedVNode - label for a VNode that has been "deleted" and should be ignored.
+ *  :ShortId - label for ShortId nodes, used to allow looking up a VNode by its current _or_ past shortId values
+ *  :User:VNode - label for the User VNode type; must exist and be a VNode but details are up to the application
  */
 import { Migration } from "./vertex-interface";
 import { UUID } from "./lib/uuid";
@@ -10,6 +17,7 @@ export const SYSTEM_UUID: UUID = UUID("00000000-0000-0000-0000-000000000000");
 export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
     // ES6 objects preserve string key order, so these migrations don't need numbers, only string IDs.
     "_root": {
+        dependsOn: [],
         // This is the root migration, which sets up the schema so we can track all other migrations.
         forward: (dbWrite) => dbWrite(tx =>
             tx.run("CREATE CONSTRAINT migration_id_uniq ON (m:Migration) ASSERT m.id IS UNIQUE")
@@ -17,55 +25,85 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
         backward: (dbWrite) => dbWrite(tx =>
             tx.run("DROP CONSTRAINT migration_id_uniq")
         ),
-        dependsOn: [],
     },
-    core: {
-        forward: async (dbWrite, declareModel) => {
-            await declareModel("User", {shortId: true});
+    vnode: {
+        dependsOn: ["_root"],
+        forward: async (dbWrite) => {
             await dbWrite(async tx => {
-                await tx.run("CREATE CONSTRAINT user_email_uniq ON (u:User) ASSERT u.email IS UNIQUE");
-                await tx.run("CREATE CONSTRAINT user_username_uniq ON (u:User) ASSERT u.username IS UNIQUE");
+                // We have the core label "VNode" which applies to all VNodes and enforces their UUID+shortId uniqueness
+                await tx.run(`CREATE CONSTRAINT vnode_uuid_uniq ON (v:VNode) ASSERT v.uuid IS UNIQUE`);
+                await tx.run(`CREATE CONSTRAINT vnode_shortid_uniq ON (v:VNode) ASSERT v.shortId IS UNIQUE`)
+                // We also have the "DeletedVNode" label, which applies to VNodes that are "deleted":
+                await tx.run(`CREATE CONSTRAINT deletedvnode_uuid_uniq ON (v:DeletedVNode) ASSERT v.uuid IS UNIQUE`);
+                // ShortIds are used to identify VNodes, and continue to work even if the "current" shortId is changed:
+                await tx.run("CREATE CONSTRAINT shortid_shortid_uniq ON (s:ShortId) ASSERT s.shortId IS UNIQUE");
             });
-            await declareModel("Action");
-            // Slugs, used to identify TechNodes
+            // If we somehow create a VNode without giving it a UUID, make Neo4j generate one:
+            await dbWrite(tx => tx.run(`CALL apoc.uuid.install("VNode")`));
+        },
+        backward: async (dbWrite) => {
+            await dbWrite(tx => tx.run(`CALL apoc.uuid.remove("VNode")`));
             await dbWrite(async tx => {
-                await tx.run("CREATE CONSTRAINT shortid_path_uniq ON (s:ShortId) ASSERT s.path IS UNIQUE");
+                await tx.run("DROP CONSTRAINT shortid_shortid_uniq");
+                await tx.run("DROP CONSTRAINT deletedvnode_uuid_uniq");
+                await tx.run("DROP CONSTRAINT vnode_shortid_uniq");
+                await tx.run("DROP CONSTRAINT vnode_uuid_uniq");
             });
-            // Create the triggers that maintain slug relationships for models that use slugs as identifiers:
+            // Delete all nodes after the indexes have been removed (faster than doing so before):
             await dbWrite(async tx => {
-                // 1) Whenever a new node (TechNode) is created, if it has a shortId property, create a :ShortId node
-                //    with a relationship to the TechNode.
+                await tx.run(`MATCH (s:ShortId) DETACH DELETE s`);
+                await tx.run(`MATCH (v:VNode) DETACH DELETE v`);
+                await tx.run(`MATCH (v:DeletedVNode) DETACH DELETE v`);
+            });
+        },
+    },
+    shortIdTrigger: {
+        dependsOn: ["vnode"],
+        forward: async (dbWrite) => {
+            // Create the triggers that maintain shortId relationships for models that use shortIds as identifiers:
+            await dbWrite(async tx => {
+                // 1) Whenever a new VNode is created, if it has a shortId property, create a :ShortId node
+                //    with a relationship to the VNode.
                 await tx.run(`
                     CALL apoc.trigger.add("createShortIdRelation","
                         UNWIND $createdNodes AS n
                         WITH n
-                        WHERE EXISTS(n.shortId)
-                        CREATE (:ShortId {path: labels(n)[0] + '/' + n.shortId, timestamp: datetime()})-[:IDENTIFIES]->(n)
+                        WHERE n:VNode AND EXISTS(n.shortId)
+                        CREATE (:ShortId {shortId: n.shortId, timestamp: datetime()})-[:IDENTIFIES]->(n)
                     ", {phase:"before"})
                 `);
-                // 2) Whenever a new shortId property value is set on an existing node (TechNode), create a :ShortId node
-                //    with a relationship to that TechNode.
+                // 2) Whenever a new shortId property value is set on an existing VNode, create a :ShortId node
+                //    with a relationship to that VNode.
                 //    If the ShortId already exists, update its timestamp to make it the "current" one
                 await tx.run(`
                     CALL apoc.trigger.add("updateShortIdRelation", "
                         UNWIND apoc.trigger.propertiesByKey($assignedNodeProperties, 'shortId') AS prop
                         WITH prop.node as n, prop.old as oldShortId
-                        WHERE n.shortId IS NOT NULL AND n.shortId <> oldShortId
-                        MERGE (s:ShortId {path: labels(n)[0] + '/' + n.shortId})-[:IDENTIFIES]->(n)
+                        WHERE n:VNode AND n.shortId IS NOT NULL AND n.shortId <> oldShortId
+                        MERGE (s:ShortId {shortId: n.shortId})-[:IDENTIFIES]->(n)
                         SET s.timestamp = datetime()
                     ", {phase: "before"})
                 `);
                 // There is no delete trigger because deletions should generally be handled by re-labelling nodes to
-                // use a "Deleted_____" label, not actually deleting the nodes.
+                // use a "DeletedVNode" label, not actually deleting the nodes.
             });
+        },
+        backward: async (dbWrite) => {
+            await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("createShortIdRelation")`));
+            await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("updateShortIdRelation")`));
+        },
+    },
+    systemUser: {
+        dependsOn: ["vnode", "shortIdTrigger"],
+        forward: async (dbWrite) => {
             // Create the system user. This is a "bootstrap" User/Action because every user must be created via an
             // action and every action must be performed by a user. So here the system user creates itself.
             await dbWrite(tx => tx.run(`
-                CREATE (u:User {
+                CREATE (u:User:VNode {
                     uuid: "${SYSTEM_UUID}",
                     shortId: "system",
                     realname: "System"
-                })-[:PERFORMED]->(a:Action {
+                })-[:PERFORMED]->(a:Action:VNode {
                     // A UUID will be created automatically by apoc extension.
                     type: "CreateUser",
                     data: "{}",
@@ -74,19 +112,12 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                 })
             `));
         },
-        backward: async (dbWrite, _, removeModel) => {
-            await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("createShortIdRelation")`));
-            await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("updateShortIdRelation")`));
-            await dbWrite(tx => tx.run(`MATCH (s:ShortId) DETACH DELETE s`));
-            await dbWrite(tx => tx.run("DROP CONSTRAINT shortid_path_uniq")),
-            await removeModel("Action");
-            await dbWrite(tx => tx.run("DROP CONSTRAINT user_email_uniq")),
-            await dbWrite(tx => tx.run("DROP CONSTRAINT user_username_uniq")),
-            await removeModel("User", {shortId: true});
+        backward: async (dbWrite) => {
+            await dbWrite(tx => tx.run(`MATCH (u:User:VNode {uuid: "${SYSTEM_UUID}"}) DETACH DELETE u`));
         },
-        dependsOn: ["_root"],
     },
     trackActionChanges: {
+        dependsOn: ["vnode"],
         forward: async (dbWrite) => {
             // Other than migrations, all changes (writes) to the database must be associated with an "Action";
             // the Action node will be automatically created as part of the write transaction by the action-runner code.
@@ -107,7 +138,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                 await tx.run(`
                     CALL apoc.trigger.add("trackActionChanges", "
 
-                        WITH [n IN $createdNodes WHERE n:Action] AS actions
+                        WITH [n IN $createdNodes WHERE n:Action:VNode] AS actions
                             CALL apoc.util.validate(
                                 size(actions) <> 1,
                                 'every data write transaction should be associated with one Action, found %d', [size(actions)]
@@ -159,6 +190,5 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
         backward: async (dbWrite) => {
             await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("trackActionChanges")`));
         },
-        dependsOn: ["core"],
     },
 });

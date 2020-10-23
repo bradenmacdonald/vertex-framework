@@ -28,10 +28,10 @@ suite("action templates", () => {
                 assert.equal(p.dateOfBirth, undefined);
             };
             // By its shortId:
-            const r1 = await testGraph.read(tx => tx.queryOne(`MATCH (p:${Person.label})::{$key}`, {key: "ash"}, {p: Person}));
+            const r1 = await testGraph.read(tx => tx.queryOne(`MATCH (p:${Person.label}:VNode)::{$key}`, {key: "ash"}, {p: Person}));
             checkPerson(r1.p);
             // By its UUID:
-            const r2 = await testGraph.read(tx => tx.queryOne(`MATCH (p:${Person.label})::{$key}`, {key: result.uuid}, {p: Person}));
+            const r2 = await testGraph.read(tx => tx.queryOne(`MATCH (p:${Person.label}:VNode)::{$key}`, {key: result.uuid}, {p: Person}));
             checkPerson(r2.p);
             // Using pull()
             const p3 = await testGraph.pullOne(Person, p => p.allProps, {key: result.uuid});

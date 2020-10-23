@@ -42,7 +42,7 @@ suite("action", () => {
                 CreatePerson({shortId: "ash", name: "Ash"}),
             );
             const userResult = await testGraph.read(tx => tx.queryOne(`
-                MATCH (u:User)-[:PERFORMED]->(a:Action {type: $type})-[:MODIFIED]->(:${Person.label})::{$key}
+                MATCH (u:User:VNode)-[:PERFORMED]->(a:Action:VNode {type: $type})-[:MODIFIED]->(:${Person.label}:VNode)::{$key}
             `, {type: CreatePerson.type, key: result.uuid}, {u: "any"}));
             // Because "u" is typed as "any" instead of a User VNode, we have to access its properties via .properties:
             assert.equal(userResult.u.properties.shortId, "system");

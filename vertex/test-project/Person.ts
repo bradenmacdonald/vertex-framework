@@ -36,17 +36,17 @@ export class Person extends VNodeType {
     static readonly virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@this)-[:ACTED_IN]->(@target:${Movie.label})`,
+            query: `(@this)-[:ACTED_IN]->(@target:${Movie.label}:VNode)`,
             target: Movie,
         },
         costars: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@this)-[:ACTED_IN]->(:${Movie.label})<-[:ACTED_IN]-(@target:${Person.label})`,
+            query: `(@this)-[:ACTED_IN]->(:${Movie.label}:VNode)<-[:ACTED_IN]-(@target:${Person.label}:VNode)`,
             target: Person,
         },
         friends: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@this)-[:FRIEND_OF]-(@target:${Person.label})`,
+            query: `(@this)-[:FRIEND_OF]-(@target:${Person.label}:VNode)`,
             //gives: {friend: Person, rel: Person.relationshipsFrom.FRIEND_OF},
             target: Person,
         },
@@ -64,8 +64,8 @@ export const ActedIn = defineAction<{personId: string, movieId: string}, {/* */}
     type: "ActedIn",
     apply: async (tx, data) => {
         const result = await tx.queryOne(`
-            MATCH (p:${Person.label})::{$personId}
-            MATCH (m:${Movie.label})::{$movieId}
+            MATCH (p:${Person.label}:VNode)::{$personId}
+            MATCH (m:${Movie.label}:VNode)::{$movieId}
             MERGE (p)-[:ACTED_IN]->(m)
         `, data, {p: Person});
         return {
@@ -80,8 +80,8 @@ export const RecordFriends = defineAction<{personId: string, otherPersonId: stri
     type: "RecordFriends",
     apply: async (tx, data) => {
         const result = await tx.queryOne(`
-            MATCH (p1:${Person.label})::{$personId}
-            MATCH (p2:${Person.label})::{$otherPersonId}
+            MATCH (p1:${Person.label}:VNode)::{$personId}
+            MATCH (p2:${Person.label}:VNode)::{$otherPersonId}
             MERGE (p1)-[:FRIEND_OF]->(p2)
         `, data, {p1: Person, p2: Person});
         return {

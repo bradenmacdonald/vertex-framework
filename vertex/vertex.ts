@@ -165,6 +165,7 @@ export class Vertex implements VertexCore {
         // We only want the data, not the schema, which is fixed:
         cypherSnapshot = cypherSnapshot.replace(/CREATE CONSTRAINT[^;]+;/g, "");
         cypherSnapshot = cypherSnapshot.replace(/CREATE INDEX[^;]+;/g, "");
+        cypherSnapshot = cypherSnapshot.replace(/DROP CONSTRAINT[^;]+;/g, "");
         return {cypherSnapshot};
     }
 

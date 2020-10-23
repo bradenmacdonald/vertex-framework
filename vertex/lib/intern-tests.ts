@@ -36,7 +36,7 @@ intern.on("beforeRun", async () => {
         dataSnapshot = await testGraph.snapshotDataForTesting();
     } catch (err) {
         // No point in running the test sutie if beforeRun failed, but we don't have any good way to bail :-/
-        log.error(err);
+        log.error(`Error during beforeRun: ${err}`);
         void testGraph.shutdown();
         process.exit(1);
     }
@@ -59,7 +59,7 @@ export function isolateTestWrites(): void {
             }
             await testGraph.resetDBToSnapshot(dataSnapshot);
         } catch (err) {
-            log.error(err);
+            log.error(`Error during isolateTestWrites.afterEach: ${err}`);
             throw err;
         }
     });

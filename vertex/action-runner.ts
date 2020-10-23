@@ -48,9 +48,9 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
             // Mark the Action as having :MODIFIED any affects nodes, and also retrieve the current version of them.
             // (If a node was deleted, this will ignore it.)
             const result = await tx.run(`
-                MERGE (a:Action {uuid: $actionUuid})
+                MERGE (a:Action:VNode {uuid: $actionUuid})
                 WITH a
-                MATCH (n) WHERE id(n) IN $modifiedIds
+                MATCH (n:VNode) WHERE id(n) IN $modifiedIds
                 MERGE (a)-[:MODIFIED]->(n)
                 RETURN n
             `, {
@@ -61,8 +61,8 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
             for (const resultRow of result.records) {
                 const node: Node<number> = resultRow.get("n");
                 for (const label of node.labels) {
-                    if (label.startsWith("Deleted")) {
-                        continue;  // Don't validate nodes that have been "deleted" by re-labelling to a "Deleted____" label
+                    if (label === "VNode") {
+                        continue;
                     }
                     const nodeType = getVNodeType(label);
                     try {
@@ -79,17 +79,17 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
         const tookMs = (new Date()).getTime() - startTime.getTime();
 
         const actionUpdate = await tx.run(`
-            MERGE (a:Action {uuid: $actionUuid})
+            MERGE (a:Action:VNode {uuid: $actionUuid})
             SET a += {type: $type, timestamp: datetime(), tookMs: $tookMs, data: $dataJson}
 
             ${isRevertOfAction ? `
                 WITH a
-                MATCH (oldAction:Action {uuid: $isRevertOfAction})
+                MATCH (oldAction:Action:VNode {uuid: $isRevertOfAction})
                 MERGE (a)-[:REVERTED]->(oldAction)
             `: ""}
 
             WITH a
-            MATCH (u:User {uuid: $userUuid})
+            MATCH (u:User:VNode {uuid: $userUuid})
             CREATE (u)-[:PERFORMED]->(a)
 
             RETURN u
