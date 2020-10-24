@@ -17,7 +17,7 @@ export {
     defaultCreateFor,
     defaultDeleteAndUnDeleteFor,
     defaultUpdateActionFor,
-    updateOneToOneRelationship,
+    updateToOneRelationship,
 } from "./action-templates";
 
 export {

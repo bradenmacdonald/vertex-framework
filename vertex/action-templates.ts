@@ -293,14 +293,10 @@ export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementat
 
 
 /**
- * Designed for use in an "Update"-type Action, this helper method will update relationships from a node to other nodes.
- * It expects data of the form [[shortId/UUID, weight], ...] where each [shortId/UUID, weight] pair represents a
- * relationship from the current TechNode (of type "tn") to another node, such as a parent of the same type.
- * 
- * "newRelationshipsList" must be a complete list of all the target nodes for this relationship, as any existing target
- * nodes with that relationship will not be related anymore if they aren't in the list.
+ * Designed for use in an "Update"-type Action, this helper method will update a relationship from the current VNode,
+ * pointing to either another VNode or null. (an "x:1" relationship, e.g. "1:1" or "many:1")
  */
-export async function updateOneToOneRelationship<VNT extends VNodeType>({fromType, uuid, tx, relName, newId, allowNull}: {
+export async function updateToOneRelationship<VNT extends VNodeType>({fromType, uuid, tx, relName, newId, allowNull}: {
     fromType: VNT,
     relName: keyof VNT["relationshipsFrom"],
     uuid: UUID,
@@ -310,14 +306,14 @@ export async function updateOneToOneRelationship<VNT extends VNodeType>({fromTyp
 }): Promise<{previousUuid: UUID|null}> {
     const label = fromType.label;
     if (fromType.relationshipsFrom[relName as any]?.toLabels?.length !== 1) {
-        throw new Error("Unsupported: updateOneToOneRelationship doesn't yet work on relationships to multiple labels");
+        throw new Error("Unsupported: updateToOneRelationship doesn't yet work on relationships to multiple labels");
     }
     const targetLabel = fromType.relationshipsFrom[relName as any].toLabels[0];
 
     if (newId === null) {
-        // We want to clear this 1:1 relationship (set it to null)
+        // We want to clear this x:1 relationship (set it to null)
         if (!allowNull) {
-            throw new Error(`The 1:1 relationship ${fromType.name}.${relName} is not allowed to be null.`);
+            throw new Error(`The x:1 relationship ${fromType.name}.${relName} is not allowed to be null.`);
         }
         // Simply delete any existing relationship, returning the ID of the target.
         const delResult = await tx.query(`
@@ -326,7 +322,7 @@ export async function updateOneToOneRelationship<VNT extends VNodeType>({fromTyp
         `, {uuid, }, {"target.uuid": "uuid"});
         return {previousUuid: delResult.length ? delResult[0]["target.uuid"] : null};
     } else {
-        // We want this 1:1 relationship pointing to a specific node, identified by "newId"
+        // We want this x:1 relationship pointing to a specific node, identified by "newId"
         const mergeResult = await tx.queryOne(`
             MATCH (self:${label}:VNode {uuid: $uuid})
             MATCH (target:${targetLabel}:VNode)::{$newId}
@@ -338,7 +334,7 @@ export async function updateOneToOneRelationship<VNT extends VNodeType>({fromTyp
 
             WITH collect(oldTarget {.uuid}) AS oldTargets
         `, {uuid, newId}, {"oldTargets": "any"});
-        // The preceding query will have updated the 1:1 relationship; if any previous node was the target of this
+        // The preceding query will have updated the x:1 relationship; if any previous node was the target of this
         // relationship, that relationship(s) has been delete and its ID returned (for undo purposes).
         // If the MERGE succeeded, there will be one row in the result; otherwise zero (regardless of whether or not
         // an oldTarget(s) was found), so an error will be raised by queryOne() if this failed (e.g. newId was invalid)

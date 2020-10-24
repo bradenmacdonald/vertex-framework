@@ -2,7 +2,7 @@ import Joi from "@hapi/joi";
 import {
     defaultUpdateActionFor,
     defaultCreateFor,
-    updateOneToOneRelationship,
+    updateToOneRelationship,
     registerVNodeType,
     VNodeType,
     ShortIdProperty,
@@ -49,7 +49,7 @@ export const UpdateMovie = defaultUpdateActionFor(Movie, ["shortId", "title", "y
     otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot, changes) => {
         const previousValues: Partial<UpdateMovieExtraArgs> = {};
         if (args.franchiseId !== undefined) {
-            const {previousUuid} = await updateOneToOneRelationship({
+            const {previousUuid} = await updateToOneRelationship({
                 fromType: Movie,
                 uuid: nodeSnapshot.uuid,
                 tx,
