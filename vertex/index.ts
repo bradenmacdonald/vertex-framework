@@ -21,6 +21,11 @@ export {
 } from "./action-templates";
 
 export {
+    C,
+    CypherQuery,
+} from "./cypher-sugar";
+
+export {
     DataRequestFilter,
     VNodeDataRequest,
     VNodeDataRequestBuilder,

@@ -155,7 +155,7 @@ export function registerVNodeType(tnt: VNodeType): void {
         throw new Error(`Duplicate VNodeType label: ${tnt.label}`);
     }
     if (tnt.properties.uuid !== UuidProperty) {
-        throw new Error(`${tnt.name} VNodeType `);
+        throw new Error(`${tnt.name} VNodeType does not inherit the required uuid property from the base class.`);
     }
     if ("shortId" in tnt.properties && tnt.properties.shortId !== ShortIdProperty) {
         throw new Error(`If a VNode declares a shortId property, it must use the global ShortIdProperty definition.`);
