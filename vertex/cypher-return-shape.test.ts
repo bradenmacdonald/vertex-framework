@@ -1,8 +1,7 @@
 import { suite, test, assert, assertRejects } from "./lib/intern-tests";
 import { convertNeo4jRecord, ReturnShape, TypedResult } from "./cypher-return-shape";
 import { AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, checkType } from "./lib/ts-utils";
-import { testGraph } from "./test-project/graph";
-import { Person } from "./test-project/Person";
+import { testGraph, Person } from "./test-project";
 
 suite("Cypher return shape specification", () => {
 

@@ -1,7 +1,6 @@
 import { suite, test, assert } from "./lib/intern-tests";
 import { C, CypherQuery, UUID } from "./";
-import { Person } from "./test-project/Person";
-import { testGraph } from "./test-project/graph";
+import { testGraph, Person } from "./test-project";
 import { ProfiledPlan } from "neo4j-driver";
 
 /** Helper function to calculate the dbHits cost of a profiled cypher query */

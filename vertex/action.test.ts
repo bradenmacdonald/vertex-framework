@@ -1,7 +1,6 @@
 import { suite, test, assertRejects, isolateTestWrites, assert } from "./lib/intern-tests";
 
-import { CreatePerson, Person } from "./test-project/Person";
-import { testGraph } from "./test-project/graph";
+import { testGraph, CreatePerson, Person } from "./test-project";
 import { SYSTEM_UUID } from "./schema";
 import { C, UUID, log } from ".";
 

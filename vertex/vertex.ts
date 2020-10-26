@@ -6,7 +6,7 @@ import { UUID } from "./lib/uuid";
 import { PullNoTx, PullOneNoTx } from "./pull";
 import { migrations as coreMigrations, SYSTEM_UUID } from "./schema";
 import { WrappedTransaction, wrapTransaction } from "./transaction";
-import { Migration, VertexCore, VertextTestDataSnapshot } from "./vertex-interface";
+import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
 
 export interface InitArgs {
     neo4jUrl: string; // e.g. "bolt://neo4j"
@@ -159,7 +159,7 @@ export class Vertex implements VertexCore {
      * This assumes that tests will not attempt any schema changes, which
      * should never be done outside of migrations anyways.
      */
-    public async snapshotDataForTesting(): Promise<VertextTestDataSnapshot> {
+    public async snapshotDataForTesting(): Promise<VertexTestDataSnapshot> {
         const result = await this.read(tx => tx.run(`CALL apoc.export.cypher.all(null, {format: "plain"}) YIELD cypherStatements`));
         let cypherSnapshot: string = result.records[0].get("cypherStatements");
         // We only want the data, not the schema, which is fixed:
@@ -174,7 +174,7 @@ export class Vertex implements VertexCore {
      * for tests. This should be called after each test case, not before, or otherwise
      * the last test that runs will leave its data in the database.
      */
-    public async resetDBToSnapshot(snapshot: VertextTestDataSnapshot): Promise<void> {
+    public async resetDBToSnapshot(snapshot: VertexTestDataSnapshot): Promise<void> {
         await await this._restrictedAllowWritesWithoutAction(async () => {
             // Disable the shortId auto-creation trigger since it'll conflict with the ShortId nodes already in the data snapshot
             await this._restrictedWrite(async tx => {

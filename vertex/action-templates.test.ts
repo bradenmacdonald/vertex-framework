@@ -4,10 +4,7 @@ import {
     UUID,
     log
 } from ".";
-import { CreatePerson, Person } from "./test-project/Person";
-import { testGraph } from "./test-project/graph";
-import { CreateMovieFranchise } from "./test-project/MovieFranchise";
-import { CreateMovie, Movie } from "./test-project/Movie";
+import { testGraph,  CreatePerson, Person, CreateMovieFranchise, CreateMovie, Movie } from "./test-project";
 
 // Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
 
