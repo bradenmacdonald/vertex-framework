@@ -2,7 +2,10 @@ import { Node, Record as Neo4jRecord } from "neo4j-driver";
 import { UUID } from "./lib/uuid";
 import { VNodeType, isVNodeType, RawVNode } from "./vnode";
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //// Specifying the return shape that is expected from a cypher query:
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 export type ReturnShape = {
     [fieldName: string]: FieldType,
 };
@@ -12,24 +15,35 @@ type FieldType = (
     | VNodeType
     | MapReturnShape
     | ListReturnShape
+    | NullableField
     | "uuid"
     | "string"
     | "number"
     | "boolean"
     | "any"
 );
+// FieldType for a map:
 type MapReturnShape = {map: ReturnShape};
 type MapReturnShapeFull<MapShape extends ReturnShape> = {map: MapShape};
 function isMapType(fieldType: FieldType): fieldType is MapReturnShape {
     return Object.keys(fieldType).length === 1 && (fieldType as any).map !== undefined;
 }
+// FieldType for a list:
 type ListReturnShape = {list: FieldType};
 type ListReturnShapeFull<ListValueType extends FieldType> = {list: ListValueType};
 function isListType(fieldType: FieldType): fieldType is ListReturnShape {
     return Object.keys(fieldType).length === 1 && (fieldType as any).list !== undefined;
 }
+// FieldType for a value that may be null:
+type NullableField = {nullOr: FieldType};
+type NullableFieldFull<NullableValueType extends FieldType> = {nullOr: NullableValueType};
+function isNullableField(fieldType: FieldType): fieldType is NullableField {
+    return Object.keys(fieldType).length === 1 && (fieldType as any).nullOr !== undefined;
+}
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //// A fully-typed response for a given request:
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export type TypedResult<RS extends ReturnShape> = {
     [key in keyof RS]: ReturnTypeFor<RS[key]>;
@@ -37,9 +51,9 @@ export type TypedResult<RS extends ReturnShape> = {
 type ReturnTypeFor<DT extends FieldType> = (
     DT extends VNodeType ? RawVNode<DT> :
     DT extends MapReturnShapeFull<infer MapShape> ? TypedResult<MapShape> :
-    // DT extends MapReturnShape ? any :
     DT extends ListReturnShapeFull<infer ListValueType> ? ReturnTypeFor<ListValueType>[] :
-    // DT extends ListReturnShape ? any[] :
+    // A nullable field is a little complex because we need to avoid an infinite type lookup in the case of {nullOr: {nullOr: ...}}
+    DT extends NullableFieldFull<infer NullableValueType> ? null|(NullableValueType extends NullableField ? never : ReturnTypeFor<NullableValueType>) :
     DT extends "uuid" ? UUID :
     DT extends "string" ? string :
     DT extends "number" ? number :
@@ -48,14 +62,24 @@ type ReturnTypeFor<DT extends FieldType> = (
     never
 );
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//// Conversion methods:
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // Convert a single field in a transaction response (from the native Neo4j driver) to a typed variable
 export function convertNeo4jFieldValue<FT extends FieldType>(fieldName: string, fieldValue: any, fieldType: FT): ReturnTypeFor<FT> {
     if (isVNodeType(fieldType)) { // This is a node (VNode)
         return neoNodeToRawVNode(fieldValue, fieldName) as any;
     } else if (isMapType(fieldType)) {
-        return convertNeo4jRecord(fieldValue, fieldType.map) as any;
+        const map: any = {}
+        for (const mapKey of Object.keys(fieldType.map)) {
+            map[mapKey] = convertNeo4jFieldValue(mapKey, fieldValue[mapKey], fieldType.map[mapKey]);
+        }
+        return map;
     } else if (isListType(fieldType)) {
         return fieldValue.map((listValue: any) => convertNeo4jFieldValue(fieldName, listValue, fieldType.list));
+    } else if (isNullableField(fieldType)) {
+        return convertNeo4jFieldValue(fieldName, fieldValue, fieldType.nullOr);
     } else {
         // This is some plain value like "MATCH (u:User) RETURN u.name"
         // e.g. newRecord["u.name"] = fieldValue

@@ -41,4 +41,36 @@ suite("Cypher return shape specification", () => {
         }]);
     });
 
+    test("basic test - a nullable number and a map", async () => {
+        const shape = ReturnShape({numberOrNull: {nullOr: "number"}, mapField: {map: {val1: "string", val2: "any"}}});
+
+        checkType<AssertEqual<TypedResult<typeof shape>, {
+            numberOrNull: number|null,
+            mapField: {
+                val1: string,
+                val2: any,
+            },
+        }>>();
+        checkType<AssertPropertyPresent<TypedResult<typeof shape>, "numberOrNull", number|null>>();
+        checkType<AssertPropertyAbsent<TypedResult<typeof shape>, "otherField">>();
+
+        const results = await runAndConvert(`
+            UNWIND [
+                {numberOrNull: 123, mapField: {val1: "one", val2: true}},
+                {numberOrNull: null, mapField: {val1: "two", val2: null}}
+            ] AS row
+            RETURN row.numberOrNull as numberOrNull, row.mapField as mapField
+        `, {}, shape);
+        assert.deepEqual(results, [
+            {
+                numberOrNull: 123,
+                mapField: {val1: "one", val2: true},
+            },
+            {
+                numberOrNull: null,
+                mapField: {val1: "two", val2: null},
+            },
+        ]);
+    });
+
 });
