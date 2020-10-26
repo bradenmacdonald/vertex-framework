@@ -211,4 +211,29 @@ suite("Cypher syntactic sugar", () => {
             C`MATCH (p:${Person}), p HAS KEY $something`.queryString;
         }, `Expected a "something" parameter in the query for the p HAS KEY $something lookup.`);
     });
+
+    suite("return shape", () => {
+
+        test(".givesShape() can store a return shape", () => {
+            const baseQuery = C`MATCH (p:${Person}) RETURN p.uuid`;
+
+            const withReturnShape = baseQuery.givesShape({"p.uuid": "uuid"});
+
+            assert.deepStrictEqual(withReturnShape.returnShape, {"p.uuid": "uuid"});
+        });
+
+        test(".RETURN() can store a return shape and generate the RETURN clause", () => {
+            const query = C`MATCH (p:${Person})`.RETURN({"p.uuid": "uuid", "p.name": "string"});
+
+            assert.equal(query.queryString, "MATCH (p:TestPerson:VNode)\nRETURN p.uuid, p.name");
+            assert.deepStrictEqual(query.returnShape, {"p.uuid": "uuid", "p.name": "string"});
+        });
+
+        test(".RETURN({}) generates a RETURN null clause and an empty return shape", () => {
+            const query = C`MATCH (p:${Person})`.RETURN({});
+
+            assert.equal(query.queryString, "MATCH (p:TestPerson:VNode)\nRETURN null");
+            assert.deepStrictEqual(query.returnShape, {});
+        });
+    });
 });

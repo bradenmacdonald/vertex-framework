@@ -1,6 +1,7 @@
 /**
  * Syntactic sugar for writing Cypher queries.
  */
+import { ReturnShape } from "./cypher-return-shape";
 import { isVNodeType } from "./vnode";
 
 const _isRawString = Symbol("isRawString");
@@ -164,6 +165,46 @@ export class CypherQuery {
             copy.saveParameter(paramName, extraParams[paramName]);
         }
         return copy;
+    }
+
+    /**
+     * Return a new CypherQueryWithReturnShape which is identical to this, but which also stores the expected return
+     * shape.
+     * @param returnShape The expected return shape for the query
+     */
+    public givesShape<RS extends ReturnShape>(returnShape: RS): CypherQueryWithReturnShape<RS> {
+        const copy = new CypherQueryWithReturnShape(this.#strings, this.#paramsArray, returnShape);
+        copy.#paramsCompiled = {...this.#paramsCompiled};
+        return copy;
+    }
+
+    /**
+     * Generate a Cypher RETURN ... clause, and return a new CypherQueryWithReturnShape with that RETURN clause included
+     * in the query, and the expected return shape stored. The point of this is to avoid writing pretty much the same
+     * information twice: once in the RETURN statement and a second time in the ReturnShape specification.
+     */
+    public RETURN<RS extends ReturnShape>(returnShape: RS): CypherQueryWithReturnShape<RS> {
+        const fieldNames = Object.keys(returnShape);
+        const returnStatement = `\nRETURN ${fieldNames.length > 0 ? fieldNames.join(", ") : "null"}`;
+        const newStrings = [...this.#strings];
+        newStrings[newStrings.length - 1] += returnStatement;
+        const copy = new CypherQueryWithReturnShape(newStrings, this.#paramsArray, returnShape);
+        copy.#paramsCompiled = {...this.#paramsCompiled};
+        return copy;
+    }
+}
+
+/**
+ * A cypher query that has additional data about the shape of its return type.
+ */
+export class CypherQueryWithReturnShape<RS extends ReturnShape> extends CypherQuery {
+    #shape: Readonly<RS>;
+    constructor(strings: ReadonlyArray<string>, params: ReadonlyArray<any>, shape: RS) {
+        super(strings, params);
+        this.#shape = shape;
+    }
+    get returnShape(): Readonly<RS> {
+        return this.#shape;
     }
 }
 
