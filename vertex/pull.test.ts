@@ -2,9 +2,7 @@ import { suite, test, assert, dedent } from "./lib/intern-tests";
 
 import { buildCypherQuery, DataRequestFilter, VNodeDataRequest } from "./pull";
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "./lib/ts-utils";
-import { Person } from "./test-project/Person";
-import { Movie } from "./test-project/Movie";
-import { testGraph } from "./test-project/graph";
+import { testGraph, Person, Movie } from "./test-project";
 import { UUID } from "./lib/uuid";
 
 // Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////

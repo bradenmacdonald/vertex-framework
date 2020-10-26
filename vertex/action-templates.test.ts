@@ -1,12 +1,10 @@
 import { suite, test, assertRejects, isolateTestWrites, assert } from "./lib/intern-tests";
-
-import { CreatePerson, Person } from "./test-project/Person";
-import { testGraph } from "./test-project/graph";
-import { UUID } from "./lib/uuid";
-import { SYSTEM_UUID } from "./schema";
-import { log } from "./lib/log";
-import { CreateMovieFranchise } from "./test-project/MovieFranchise";
-import { CreateMovie, Movie } from "./test-project/Movie";
+import {
+    C,
+    UUID,
+    log
+} from ".";
+import { testGraph,  CreatePerson, Person, CreateMovieFranchise, CreateMovie, Movie } from "./test-project";
 
 // Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -28,10 +26,10 @@ suite("action templates", () => {
                 assert.equal(p.dateOfBirth, undefined);
             };
             // By its shortId:
-            const r1 = await testGraph.read(tx => tx.queryOne(`MATCH (p:${Person.label}:VNode)::{$key}`, {key: "ash"}, {p: Person}));
+            const r1 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${Person}), p HAS KEY ${"ash"}`.RETURN({p: Person})));
             checkPerson(r1.p);
             // By its UUID:
-            const r2 = await testGraph.read(tx => tx.queryOne(`MATCH (p:${Person.label}:VNode)::{$key}`, {key: result.uuid}, {p: Person}));
+            const r2 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${Person}), p HAS KEY ${result.uuid}`.RETURN({p: Person})));
             checkPerson(r2.p);
             // Using pull()
             const p3 = await testGraph.pullOne(Person, p => p.allProps, {key: result.uuid});

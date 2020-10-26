@@ -3,9 +3,8 @@ import intern from "intern";
 export { intern };
 
 import { reverseAllMigrations, runMigrations } from "../migrator";
-import { testGraph } from "../test-project/graph";
-import { createTestData } from "../test-project/test-data";
-import { VertextTestDataSnapshot } from "../vertex-interface";
+import { testGraph, createTestData } from "../test-project";
+import { VertexTestDataSnapshot } from "../vertex-interface";
 import { log } from "./log";
 
 export const { registerSuite } = intern.getPlugin("interface.object");
@@ -22,7 +21,7 @@ export const assertRejects = async (what: Promise<any>, msg?: string): Promise<v
     });
 }
 
-let dataSnapshot: VertextTestDataSnapshot;
+let dataSnapshot: VertexTestDataSnapshot;
 
 intern.on("beforeRun", async () => {
     try {

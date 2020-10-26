@@ -5,7 +5,7 @@ import { log } from "./lib/log";
 import { getVNodeType, RawVNode } from "./vnode";
 import { VertexCore } from "./vertex-interface";
 import { Node } from "neo4j-driver";
-import { neoNodeToRawVNode } from "./query";
+import { neoNodeToRawVNode } from "./cypher-return-shape";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.

@@ -1,4 +1,4 @@
-import { Vertex } from "../";
+import { Vertex } from "..";
 
 export const testGraph = new Vertex({
     neo4jUrl: "bolt://neo4j",
@@ -9,3 +9,8 @@ export const testGraph = new Vertex({
         // No special migrations required.
     },
 });
+
+export * from "./Movie";
+export * from "./MovieFranchise";
+export * from "./Person";
+export * from "./test-data";

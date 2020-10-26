@@ -1,5 +1,6 @@
 import Joi from "@hapi/joi";
 import {
+    C,
     defaultUpdateActionFor,
     defaultCreateFor,
     updateToOneRelationship,
@@ -9,14 +10,13 @@ import {
     VirtualPropType,
 } from "../";
 
-export const MovieLabel = "TestMovie";
 import { MovieFranchise } from "./MovieFranchise";
 
 /**
  * A Movie VNode for testing
  */
 export class Movie extends VNodeType {
-    static readonly label = MovieLabel;
+    static readonly label = "TestMovie";
     static readonly properties = {
         ...VNodeType.properties,
         shortId: ShortIdProperty,
@@ -34,7 +34,7 @@ export class Movie extends VNodeType {
     static readonly virtualProperties = {
         franchise: {
             type: VirtualPropType.OneRelationship,
-            query: `(@this)-[:FRANCHISE_IS]->(@target:${MovieFranchise.label}:VNode)`,
+            query: C`(@this)-[:FRANCHISE_IS]->(@target:${MovieFranchise})`,
             target: MovieFranchise,
         },
     };

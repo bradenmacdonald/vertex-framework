@@ -1,5 +1,6 @@
 import Joi from "@hapi/joi";
 import {
+    C,
     defaultCreateFor,
     defaultUpdateActionFor,
     defineAction,
@@ -36,17 +37,17 @@ export class Person extends VNodeType {
     static readonly virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@this)-[:ACTED_IN]->(@target:${Movie.label}:VNode)`,
+            query: C`(@this)-[:ACTED_IN]->(@target:${Movie})`,
             target: Movie,
         },
         costars: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@this)-[:ACTED_IN]->(:${Movie.label}:VNode)<-[:ACTED_IN]-(@target:${Person.label}:VNode)`,
+            query: C`(@this)-[:ACTED_IN]->(:${Movie})<-[:ACTED_IN]-(@target:${Person})`,
             target: Person,
         },
         friends: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@this)-[:FRIEND_OF]-(@target:${Person.label}:VNode)`,
+            query: C`(@this)-[:FRIEND_OF]-(@target:${Person})`,
             //gives: {friend: Person, rel: Person.relationshipsFrom.FRIEND_OF},
             target: Person,
         },
@@ -63,11 +64,11 @@ export const CreatePerson = defaultCreateFor(Person, ["shortId", "name"], Update
 export const ActedIn = defineAction<{personId: string, movieId: string}, {/* */}>({
     type: "ActedIn",
     apply: async (tx, data) => {
-        const result = await tx.queryOne(`
-            MATCH (p:${Person.label}:VNode)::{$personId}
-            MATCH (m:${Movie.label}:VNode)::{$movieId}
+        const result = await tx.queryOne(C`
+            MATCH (p:${Person}), p HAS KEY ${data.personId}
+            MATCH (m:${Movie}), m HAS KEY ${data.movieId}
             MERGE (p)-[:ACTED_IN]->(m)
-        `, data, {"p.uuid": "uuid"});
+        `.RETURN({"p.uuid": "uuid"}));
         return {
             modifiedNodes: [result["p.uuid"]],
             resultData: {},
@@ -79,11 +80,11 @@ export const ActedIn = defineAction<{personId: string, movieId: string}, {/* */}
 export const RecordFriends = defineAction<{personId: string, otherPersonId: string}, {/* */}>({
     type: "RecordFriends",
     apply: async (tx, data) => {
-        const result = await tx.queryOne(`
-            MATCH (p1:${Person.label}:VNode)::{$personId}
-            MATCH (p2:${Person.label}:VNode)::{$otherPersonId}
+        const result = await tx.queryOne(C`
+            MATCH (p1:${Person}), p1 HAS KEY ${data.personId}
+            MATCH (p2:${Person}), p2 HAS KEY ${data.otherPersonId}
             MERGE (p1)-[:FRIEND_OF]->(p2)
-        `, data, {"p1.uuid": "uuid", "p2.uuid": "uuid"});
+        `.RETURN({"p1.uuid": "uuid", "p2.uuid": "uuid"}));
         return {
             modifiedNodes: [result["p1.uuid"], result["p2.uuid"]],
             resultData: {},

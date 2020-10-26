@@ -1,5 +1,6 @@
 import * as Joi from "@hapi/joi";
 import { Transaction } from "neo4j-driver";
+import { CypherQuery } from "./cypher-sugar";
 import { UUID } from "./lib/uuid";
 
 /** Strict UUID Validator for Joi */
@@ -133,13 +134,13 @@ export const VirtualPropType = {
 
 export interface VirtualManyRelationshipProperty {
     type: typeof VirtualPropType.ManyRelationship;
-    query: string;
+    query: CypherQuery;
     target: VNodeType;
     //annotations?: {[K: string]: {cypher: string, }};
 }
 export interface VirtualOneRelationshipProperty {
     type: typeof VirtualPropType.OneRelationship,
-    query: string,
+    query: CypherQuery,
     target: VNodeType;
 }
 
@@ -155,7 +156,7 @@ export function registerVNodeType(tnt: VNodeType): void {
         throw new Error(`Duplicate VNodeType label: ${tnt.label}`);
     }
     if (tnt.properties.uuid !== UuidProperty) {
-        throw new Error(`${tnt.name} VNodeType `);
+        throw new Error(`${tnt.name} VNodeType does not inherit the required uuid property from the base class.`);
     }
     if ("shortId" in tnt.properties && tnt.properties.shortId !== ShortIdProperty) {
         throw new Error(`If a VNode declares a shortId property, it must use the global ShortIdProperty definition.`);

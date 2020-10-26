@@ -11,8 +11,8 @@ export interface VertexCore {
     _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
     _restrictedAllowWritesWithoutAction(someCode: () => Promise<any>): Promise<void>;
 
-    snapshotDataForTesting(): Promise<VertextTestDataSnapshot>;
-    resetDBToSnapshot(snapshot: VertextTestDataSnapshot): Promise<void>;
+    snapshotDataForTesting(): Promise<VertexTestDataSnapshot>;
+    resetDBToSnapshot(snapshot: VertexTestDataSnapshot): Promise<void>;
 
     readonly migrations: {[name: string]: Migration};
 }
@@ -25,6 +25,6 @@ export interface Migration {
     dependsOn: string[];
 }
 
-export interface VertextTestDataSnapshot {
+export interface VertexTestDataSnapshot {
     cypherSnapshot: string;
 }
