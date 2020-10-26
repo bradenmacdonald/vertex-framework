@@ -5,23 +5,6 @@ import { Record as Neo4jRecord } from "neo4j-driver";
 import { ReturnShape, TypedResult } from "./cypher-return-shape";
 import { isVNodeType } from "./vnode";
 
-const _isRawString = Symbol("isRawString");
-/**
- * RawString: A string that should be interpolated into a Cypher query string as-is.
- * (As opposed to an argument that should be passed as a $variable.
- *
- * Use this (via C.raw()) if you need to pass in a label (other than a VNode) or change the actual Cypher query itself.
- * Never use this for user-supplied values (unsafe).
- */
-interface RawString {
-    readonly value: string;
-    readonly [_isRawString]: true;
-}
-function isRawString(val: any): val is RawString {
-    return typeof val === "object" && val[_isRawString] === true;
-}
-
-
 /**
  * Wrapper around a cypher statement/query string, with optional parameters.
  * 
@@ -39,8 +22,9 @@ function isRawString(val: any): val is RawString {
  *   e.g. Input:  C`SET node.firstName = ${firstName}`
  *        Output: "SET node.firstName = $p1"
  *
- * - A variable can also be interpolated into the string without being converted into a query parameter:
- *   e.g. Input:  C`SET node.${C.raw(fieldName)} = ${value}`
+ * - A variable can also be interpolated into the string without being converted into a query parameter, by wrapping it
+ *   with this same C() helper:
+ *   e.g. Input:  C`SET node.${C(fieldName)} = ${value}`
  *        Output: "SET node.lastName = $p1"
  * 
  * - A non-standard ", ___ HAS KEY _____" syntax can be used in MATCH clauses to match VNodes by either UUID or shortId.
@@ -98,9 +82,6 @@ export class CypherQuery {
                     throw new Error("Interpolating a VNodeType into a string is only supported for matching labels, and should come after a ':'. Use ${C.raw(vnodeType.label)} if you need the label in some other way.");
                 }
                 compiledString += paramValue.label + ":VNode";  // The VNode label is always required too, to ensure it's not a deleted node and that indexes are used.
-            } else if (isRawString(paramValue)) {
-                // This string gets put into the query as-is
-                compiledString += paramValue.value;
             } else if (paramValue instanceof CypherQuery) {
                 // Embeding another compiled Cypher clause, merging its parameters:
                 let clause = paramValue.queryString;
@@ -217,17 +198,13 @@ export type QueryResponse<CQ extends CypherQuery> = (
 );
 
 /** Tagged template string helper function - write C`cypher here` */
-function C(strings: TemplateStringsArray|string, ...params: any[]): CypherQuery {
+export function C(strings: TemplateStringsArray|string, ...params: any[]): CypherQuery {
     if (typeof strings === "string") {
         return new CypherQuery([strings], params);
     }
     // This was used as a tagged template literal:
     return new CypherQuery(strings, params);
 }
-C.raw = (someStr: string): RawString => ({value: someStr, [_isRawString]: true});
-
-export {C};
-
 
 /**
  * In a cypher query, replace ", someVar HAS KEY $varName" with an appropriate matching condition.

@@ -61,10 +61,10 @@ suite("Cypher syntactic sugar", () => {
         assert.equal(query.queryString, "MATCH (p:TestPerson:VNode {uuid: $p1}) SET p.name = $p2");
     });
 
-    test("Interpolates values as-is when C.raw() is explicitly used.", () => {
+    test("Interpolates values as-is when C() is explicitly used.", () => {
         const uuid = UUID("4f33680a-d7a8-4a9f-8d50-4c40fc05997f");
         const label = "SomeLabel";
-        const query = C`MATCH (p:${C.raw(label)}:VNode {uuid: ${uuid}})`;
+        const query = C`MATCH (p:${C(label)}:VNode {uuid: ${uuid}})`;
         assert.equal(query.queryString, "MATCH (p:SomeLabel:VNode {uuid: $p1})");
         assert.deepEqual(query.params, {p1: uuid});
     });
