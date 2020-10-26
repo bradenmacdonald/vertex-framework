@@ -193,6 +193,21 @@ suite("Cypher syntactic sugar", () => {
         assert.deepEqual(query.params, {customKeyArg: UUID("11111111-1111-1111-1111-111111111111")});
     });
 
+    test("C.int() can be used to force a value to use the Neo4j Integer type", async () => {
+        // JavaScript doesn't distinguish between integers and floats.
+        // The JavaScript driver for Neo4j will treat all Numbers as floats.
+        // If one wants to save a number as an Integer explicitly, use C.int()
+        const numValue = 15;
+
+        const defaultQuery = C`RETURN apoc.meta.type(${numValue}) AS numberType`;
+        const defaultResult = await testGraph.read(tx => tx.run(defaultQuery.queryString, defaultQuery.params));
+        assert.equal(defaultResult.records[0].get("numberType"), "FLOAT");
+
+        const intQuery = C`RETURN apoc.meta.type(${C.int(numValue)}) AS numberType`;
+        const intResult = await testGraph.read(tx => tx.run(intQuery.queryString, intQuery.params));
+        assert.equal(intResult.records[0].get("numberType"), "INTEGER");
+    });
+
     test("CypherQuery throws an error if passed invalid arguments", () => {
         assert.throws(() => {
             new CypherQuery(["one string"], ["two", "args"]);

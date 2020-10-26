@@ -103,6 +103,7 @@ export function defaultUpdateActionFor<VNT extends VNodeType, SelectedProps exte
             if (clean) {
                 clean({data, nodeSnapshot, changes, previousValues});
             }
+            forceIntegers(changes);  // Store whole numbers as ints, not floats
             await tx.queryOne(C`
                 MATCH (t:${type}), t HAS KEY ${data.key}
                 SET t += ${changes}
@@ -193,6 +194,7 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
                 }
             }
             // Create the new node, assigning its UUID, as well as setting any props that the upcoming Update can't handle
+            forceIntegers(propsToSetOnCreate);
             await tx.query(C`
                 CREATE (node:${type} {uuid: ${uuid}})
                 SET node += ${propsToSetOnCreate}
@@ -286,6 +288,21 @@ export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementat
     });
 
     return [DeleteAction, UnDeleteAction];
+}
+
+
+// Little hack: JS doesn't distinguish between ints and floats, but Neo4j does.
+// This function will force floats to ints where it seems useful, before saving a bunch of properties into the database.
+// Without this, integers would always get stored as floats.
+// Note that this doesn't matter too much since we read all numbers back from the database as "number" types anyways,
+// but it does produce nicer data if people read the graph in other ways (not from JavaScript)
+function forceIntegers(propertiesMap: Record<string, any>): void {
+    for (const propName in propertiesMap) {
+        if (typeof propertiesMap[propName] === "number" && Number.isInteger(propertiesMap[propName])) {
+            // Store this value into Neo4j as an INT not a FLOAT
+            propertiesMap[propName] = C.int(propertiesMap[propName]);
+        }
+    }
 }
 
 

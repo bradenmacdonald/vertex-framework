@@ -1,7 +1,7 @@
 /**
  * Syntactic sugar for writing Cypher queries.
  */
-import { Record as Neo4jRecord } from "neo4j-driver";
+import { Record as Neo4jRecord, int as neo4jinteger } from "neo4j-driver";
 import { ReturnShape, TypedResult } from "./cypher-return-shape";
 import { isVNodeType } from "./vnode";
 
@@ -198,13 +198,16 @@ export type QueryResponse<CQ extends CypherQuery> = (
 );
 
 /** Tagged template string helper function - write C`cypher here` */
-export function C(strings: TemplateStringsArray|string, ...params: any[]): CypherQuery {
+function C(strings: TemplateStringsArray|string, ...params: any[]): CypherQuery {
     if (typeof strings === "string") {
         return new CypherQuery([strings], params);
     }
     // This was used as a tagged template literal:
     return new CypherQuery(strings, params);
 }
+C.int = neo4jinteger;
+
+export {C};
 
 /**
  * In a cypher query, replace ", someVar HAS KEY $varName" with an appropriate matching condition.
