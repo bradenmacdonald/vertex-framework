@@ -1,7 +1,8 @@
 /**
  * Syntactic sugar for writing Cypher queries.
  */
-import { ReturnShape } from "./cypher-return-shape";
+import { Record as Neo4jRecord } from "neo4j-driver";
+import { ReturnShape, TypedResult } from "./cypher-return-shape";
 import { isVNodeType } from "./vnode";
 
 const _isRawString = Symbol("isRawString");
@@ -207,6 +208,13 @@ export class CypherQueryWithReturnShape<RS extends ReturnShape> extends CypherQu
         return this.#shape;
     }
 }
+
+// Get what the expected response shape of a query is, if known. Meant only for use with query() and queryOne()
+export type QueryResponse<CQ extends CypherQuery> = (
+    CQ extends CypherQueryWithReturnShape<infer RS> ? TypedResult<RS> :
+    CQ extends CypherQuery ? Neo4jRecord[] :
+    never
+);
 
 /** Tagged template string helper function - write C`cypher here` */
 function C(strings: TemplateStringsArray|string, ...params: any[]): CypherQuery {

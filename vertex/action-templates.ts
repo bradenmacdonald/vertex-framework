@@ -1,4 +1,5 @@
 import { ActionImplementation, defineAction, ActionData } from "./action";
+import { C } from "./cypher-sugar";
 import { UUID } from "./lib/uuid";
 import { WrappedTransaction } from "./transaction";
 import { PropertyDataType, RawVNode, VNodeType } from "./vnode";
@@ -76,14 +77,12 @@ export function defaultUpdateActionFor<VNT extends VNodeType, SelectedProps exte
     type PropertyArgs = PropertyValuesForUpdate<VNT, ElementType<typeof mutableProperties>>;
     type Args = PropertyArgs & OtherArgs;
 
-    const label = type.label;
-
     const UpdateAction = defineAction<{key: string} & Args, {prevValues: Args}>({
-        type: `Update${label}`,
+        type: `Update${type.label}`,
         apply: async (tx, data) => {
             // Load the current value of the VNode from the graph
             // TODO: why is "as RawVNode<VNT>" required on the next line here?
-            const nodeSnapshot: RawVNode<VNT> = (await tx.queryOne(`MATCH (node:${label}:VNode)::{$key}`, {key: data.key}, {node: type})).node as RawVNode<VNT>;
+            const nodeSnapshot: RawVNode<VNT> = (await tx.queryOne(C`MATCH (node:${type}), node HAS KEY ${data.key}`.RETURN({node: type}))).node as RawVNode<VNT>;
             // Prepare to store the previous values of any changed properties/relationships (so we can undo this update)
             let previousValues: PropertyArgs = {};
             // Store the new values (properties that are being changed):
@@ -104,10 +103,10 @@ export function defaultUpdateActionFor<VNT extends VNodeType, SelectedProps exte
             if (clean) {
                 clean({data, nodeSnapshot, changes, previousValues});
             }
-            const result = await tx.queryOne(`
-                MATCH (t:${label}:VNode)::{$key}
-                SET t += $changes
-            `, {key: data.key, changes}, {"null": "any"});
+            await tx.queryOne(C`
+                MATCH (t:${type}), t HAS KEY ${data.key}
+                SET t += ${changes}
+            `.RETURN({}));
             let modifiedNodes: UUID[] = [nodeSnapshot.uuid];
 
             if (otherUpdates) {
@@ -154,7 +153,7 @@ type ArgsForUpdateAction<UAI extends UpdateActionImplementation<VNodeType, any, 
  * @param updateAction The Update Action, created by defaultUpdateActionFor() (optional)
  */
 export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends keyof VNT["properties"], UAI extends UpdateActionImplementation<VNT, any, any>|undefined = undefined>(  // eslint-disable-line @typescript-eslint/ban-types
-    VNodeType: VNT,
+    type: VNT,
     requiredProperties: ReadonlyArray<RequiredProps>,
     updateAction?: UAI
 ): ActionImplementation<
@@ -166,10 +165,9 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
 , {uuid: string, updateResult: null|{prevValues: any}}> {
 
     type Args = RequiredArgsForCreate<VNT, RequiredProps> & ArgsForUpdateAction<UAI>;
-    const label = VNodeType.label;
 
     const CreateAction = defineAction<Args, {uuid: UUID, updateResult: null|{prevValues: any}}>({
-        type: `Create${label}`,
+        type: `Create${type.label}`,
         apply: async (tx, data) => {
             const uuid = UUID();
             // This Create Action also runs an Update at the same time (if configured that way).
@@ -195,11 +193,10 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
                 }
             }
             // Create the new node, assigning its UUID, as well as setting any props that the upcoming Update can't handle
-            const result = await tx.queryOne(
-                `CREATE (node:${label}:VNode {uuid: $uuid}) SET node += $propsToSetOnCreate`,
-                {uuid, propsToSetOnCreate, },
-                {"null": "any"},
-            );
+            await tx.query(C`
+                CREATE (node:${type} {uuid: ${uuid}})
+                SET node += ${propsToSetOnCreate}
+            `);
             if (updateAction && Object.keys(propsToSetViaUpdate).length > 0) {
                 const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: uuid, ...propsToSetViaUpdate});
                 return {
@@ -219,7 +216,7 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
     });
 
     const UndoCreateAction = defineAction<{uuid: string, updateResult: any}, Record<string, unknown>>({
-        type: `UndoCreate${label}`,
+        type: `UndoCreate${type.label}`,
         apply: async (tx, data) => {
             // First undo the update that may have been part of the create, since it may have created relationships
             // Or updated external systems, etc.
@@ -230,17 +227,17 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
             }
             // Delete the node and its expected relationships. We don't use DETACH DELETE because that would hide errors
             // such as relationships that we should have undone but didn't.
-            await tx.run(`
-                MATCH (tn:${label}:VNode {uuid: $uuid})
-                WITH tn
-                OPTIONAL MATCH (s:ShortId)-[rel:IDENTIFIES]->(tn)
+            await tx.query(C`
+                MATCH (node:${type} {uuid: ${data.uuid}})
+                WITH node
+                OPTIONAL MATCH (s:ShortId)-[rel:IDENTIFIES]->(node)
                 DELETE rel, s
-                WITH tn
-                OPTIONAL MATCH (a:Action:VNode)-[rel:MODIFIED]->(tn)
+                WITH node
+                OPTIONAL MATCH (a:Action:VNode)-[rel:MODIFIED]->(node)
                 DELETE rel
-                WITH tn
-                DELETE tn
-            `, {uuid: data.uuid });
+                WITH node
+                DELETE node
+            `);
             return {
                 resultData: {},
                 modifiedNodes,
@@ -253,38 +250,38 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
 }
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementation<{key: string}, {}>, ActionImplementation<{key: string}, {}>] {
-    const label = type.label;
+export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementation<{key: string}, {}>, ActionImplementation<{uuid: UUID}, {}>] {
 
     const DeleteAction = defineAction<{key: string}, any>({
-        type: `Delete${label}`,
+        type: `Delete${type.label}`,
         apply: async (tx, data) => {
-            const result = await tx.queryOne(`
-                MATCH (tn:${label}:VNode)::{$key}
-                SET tn:DeletedVNode
-                REMOVE tn:VNode
-            `, {key: data.key}, {"tn.uuid": "uuid"});
-            const modifiedNodes = [result["tn.uuid"]];
-            return {resultData: {}, modifiedNodes};
+            const result = await tx.queryOne(C`
+                MATCH (node:${type}), node HAS KEY ${data.key}
+                SET node:DeletedVNode
+                REMOVE node:VNode
+            `.RETURN({"node.uuid": "uuid"}));
+            const modifiedNodes = [result["node.uuid"]];
+            return {resultData: {uuid: result["node.uuid"]}, modifiedNodes};
         },
         invert: (data, resultData) => {
-            return UnDeleteAction({key: data.key});
+            return UnDeleteAction({uuid: resultData.uuid});
         },
     });
 
-    const UnDeleteAction = defineAction<{key: string}, any>({
-        type: `UnDelete${label}`,
+    const UnDeleteAction = defineAction<{uuid: UUID}, any>({
+        type: `UnDelete${type.label}`,
         apply: async (tx, data) => {
-            const result = await tx.queryOne(`
-                MATCH (tn:${label}:DeletedVNode)::{$key}
-                SET tn:VNode
-                REMOVE tn:DeletedVNode
-            `, {key: data.key}, {"tn.uuid": "uuid"});
-            const modifiedNodes = [result["tn.uuid"]];
+            // We cannot use the HAS KEY lookup since it deliberately ignores :DeletedVNodes
+            const result = await tx.queryOne(C`
+                MATCH (node:${C(type.label)}:DeletedVNode {uuid: $uuid})
+                SET node:VNode
+                REMOVE node:DeletedVNode
+            `);
+            const modifiedNodes = [data.uuid];
             return {resultData: {}, modifiedNodes};
         },
         invert: (data): ActionData => {
-            return DeleteAction({key: data.key});
+            return DeleteAction({key: data.uuid});
         },
     });
 
@@ -304,7 +301,9 @@ export async function updateToOneRelationship<VNT extends VNodeType>({fromType, 
     newId: string|null,
     allowNull: boolean,
 }): Promise<{previousUuid: UUID|null}> {
-    const label = fromType.label;
+    if (typeof relName !== "string") {
+        throw new Error(`Relationship name ${relName} must be a string.`);
+    }
     if (fromType.relationshipsFrom[relName as any]?.toLabels?.length !== 1) {
         throw new Error("Unsupported: updateToOneRelationship doesn't yet work on relationships to multiple labels");
     }
@@ -316,24 +315,24 @@ export async function updateToOneRelationship<VNT extends VNodeType>({fromType, 
             throw new Error(`The x:1 relationship ${fromType.name}.${relName} is not allowed to be null.`);
         }
         // Simply delete any existing relationship, returning the ID of the target.
-        const delResult = await tx.query(`
-            MATCH (:${label}:VNode {uuid: $uuid})-[rel:${relName}]->(target:${targetLabel}:VNode)
+        const delResult = await tx.query(C`
+            MATCH (:${fromType} {uuid: ${uuid}})-[rel:${C(relName)}]->(target:${targetLabel}:VNode)
             DELETE rel
-        `, {uuid, }, {"target.uuid": "uuid"});
+        `.RETURN({"target.uuid": "uuid"}));
         return {previousUuid: delResult.length ? delResult[0]["target.uuid"] : null};
     } else {
         // We want this x:1 relationship pointing to a specific node, identified by "newId"
-        const mergeResult = await tx.queryOne(`
-            MATCH (self:${label}:VNode {uuid: $uuid})
-            MATCH (target:${targetLabel}:VNode)::{$newId}
-            MERGE (self)-[rel:${relName}]->(target)
+        const mergeResult = await tx.queryOne(C`
+            MATCH (self:${fromType} {uuid: ${uuid}})
+            MATCH (target:${C(targetLabel)}), target HAS KEY ${newId}
+            MERGE (self)-[rel:${C(relName)}]->(target)
 
             WITH self, target
-            OPTIONAL MATCH (self)-[oldRel:${relName}]->(oldTarget) WHERE oldTarget <> target
+            OPTIONAL MATCH (self)-[oldRel:${C(relName)}]->(oldTarget) WHERE oldTarget <> target
             DELETE oldRel
 
             WITH collect(oldTarget {.uuid}) AS oldTargets
-        `, {uuid, newId}, {"oldTargets": "any"});
+        `.RETURN({"oldTargets": {list: {map: {uuid: "uuid"}}}}));
         // The preceding query will have updated the x:1 relationship; if any previous node was the target of this
         // relationship, that relationship(s) has been delete and its ID returned (for undo purposes).
         // If the MERGE succeeded, there will be one row in the result; otherwise zero (regardless of whether or not

@@ -26,18 +26,16 @@ export {
 } from "./cypher-sugar";
 
 export {
+    ReturnShape,
+    TypedResult
+} from "./cypher-return-shape";
+
+export {
     DataRequestFilter,
     VNodeDataRequest,
     VNodeDataRequestBuilder,
     buildCypherQuery,
 } from "./pull";
-
-export {
-    ReturnShape,
-    FieldType,
-    ReturnTypeFor,
-    TypedRecord,
-} from "./query";
 
 export {
     WrappedTransaction,

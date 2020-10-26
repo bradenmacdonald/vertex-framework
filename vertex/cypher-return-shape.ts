@@ -98,7 +98,7 @@ export function convertNeo4jRecord<RS extends ReturnShape>(record: Neo4jRecord, 
     return newRecord;
 }
 
-function neoNodeToRawVNode<VNT extends VNodeType = any>(fieldValue: Node<any>, fieldName: string): RawVNode<VNT> {
+export function neoNodeToRawVNode<VNT extends VNodeType = any>(fieldValue: Node<any>, fieldName: string): RawVNode<VNT> {
     if (!(fieldValue as any).__isNode__) { // would be nice if isNode() were exported from neo4j-driver
         throw new Error(`Field ${fieldName} is of type ${typeof fieldValue}, not a VNode.`);
     }

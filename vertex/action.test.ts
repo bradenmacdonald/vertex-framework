@@ -2,11 +2,8 @@ import { suite, test, assertRejects, isolateTestWrites, assert } from "./lib/int
 
 import { CreatePerson, Person } from "./test-project/Person";
 import { testGraph } from "./test-project/graph";
-import { UUID } from "./lib/uuid";
 import { SYSTEM_UUID } from "./schema";
-import { log } from "./lib/log";
-import { CreateMovieFranchise } from "./test-project/MovieFranchise";
-import { CreateMovie, Movie } from "./test-project/Movie";
+import { C, UUID, log } from ".";
 
 // Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -41,12 +38,11 @@ suite("action", () => {
             const result = await testGraph.runAsSystem(
                 CreatePerson({shortId: "ash", name: "Ash"}),
             );
-            const userResult = await testGraph.read(tx => tx.queryOne(`
-                MATCH (u:User:VNode)-[:PERFORMED]->(a:Action:VNode {type: $type})-[:MODIFIED]->(:${Person.label}:VNode)::{$key}
-            `, {type: CreatePerson.type, key: result.uuid}, {u: "any"}));
-            // Because "u" is typed as "any" instead of a User VNode, we have to access its properties via .properties:
-            assert.equal(userResult.u.properties.shortId, "system");
-            assert.equal(userResult.u.properties.uuid, SYSTEM_UUID);
+            const userResult = await testGraph.read(tx => tx.queryOne(C`
+                MATCH (u:User:VNode)-[:PERFORMED]->(a:Action:VNode {type: $type})-[:MODIFIED]->(p:${Person} {uuid: ${result.uuid}})
+            `.RETURN({"u.shortId": "string", "u.uuid": "uuid"})));
+            assert.equal(userResult["u.shortId"], "system");
+            assert.equal(userResult["u.uuid"], SYSTEM_UUID);
         });
 
         test("Running an action with a non-existent user ID will raise an error", async () => {
