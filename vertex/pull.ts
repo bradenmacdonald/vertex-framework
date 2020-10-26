@@ -328,7 +328,11 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
     const addManyRelationshipSubquery = (variableName: string, virtProp: VirtualManyRelationshipProperty, parentNodeVariable: string, request: VNDRInternalData): void => {
         const newTargetVar = generateNameFor(virtProp.target);
         workingVars.add(newTargetVar);
-        query += `\nOPTIONAL MATCH ${virtProp.query.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
+        if (Object.keys(virtProp.query.params).length) {
+            throw new Error(`A virtual property query clause cannot have parameters.`);
+            // ^ This could be supported in the future though, if useful.
+        }
+        query += `\nOPTIONAL MATCH ${virtProp.query.queryString.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
 
         // Add additional subqeries, if any:
         const virtPropsMap = addVirtualPropsForNode(newTargetVar, request);
@@ -354,11 +358,16 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         const newTargetVar = generateNameFor(virtProp.target);
         workingVars.add(newTargetVar);
 
+        if (Object.keys(virtProp.query.params).length) {
+            throw new Error(`A virtual property query clause cannot have parameters.`);
+            // ^ This could be supported in the future though, if useful.
+        }
+
         // Unfortunately, the database doesn't actually enforce that this is a 1:1 relationship, so we use this subquery
         // to limit the OPTIONAL MATCH to one node at most. According to PROFILE, this way of doing it only adds 1 "db hit"
         query += `\nCALL {\n`;
         query += `    WITH ${parentNodeVariable}\n`;
-        query += `    OPTIONAL MATCH ${virtProp.query.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
+        query += `    OPTIONAL MATCH ${virtProp.query.queryString.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
         query += `    RETURN ${newTargetVar} LIMIT 1\n`;
         query += `}\n`;
 

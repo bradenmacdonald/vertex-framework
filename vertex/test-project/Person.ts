@@ -37,17 +37,17 @@ export class Person extends VNodeType {
     static readonly virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@this)-[:ACTED_IN]->(@target:${Movie.label}:VNode)`,
+            query: C`(@this)-[:ACTED_IN]->(@target:${Movie})`,
             target: Movie,
         },
         costars: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@this)-[:ACTED_IN]->(:${Movie.label}:VNode)<-[:ACTED_IN]-(@target:${Person.label}:VNode)`,
+            query: C`(@this)-[:ACTED_IN]->(:${Movie})<-[:ACTED_IN]-(@target:${Person})`,
             target: Person,
         },
         friends: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@this)-[:FRIEND_OF]-(@target:${Person.label}:VNode)`,
+            query: C`(@this)-[:FRIEND_OF]-(@target:${Person})`,
             //gives: {friend: Person, rel: Person.relationshipsFrom.FRIEND_OF},
             target: Person,
         },

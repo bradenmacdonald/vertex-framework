@@ -1,5 +1,6 @@
 import * as Joi from "@hapi/joi";
 import { Transaction } from "neo4j-driver";
+import { CypherQuery } from "./cypher-sugar";
 import { UUID } from "./lib/uuid";
 
 /** Strict UUID Validator for Joi */
@@ -133,13 +134,13 @@ export const VirtualPropType = {
 
 export interface VirtualManyRelationshipProperty {
     type: typeof VirtualPropType.ManyRelationship;
-    query: string;
+    query: CypherQuery;
     target: VNodeType;
     //annotations?: {[K: string]: {cypher: string, }};
 }
 export interface VirtualOneRelationshipProperty {
     type: typeof VirtualPropType.OneRelationship,
-    query: string,
+    query: CypherQuery,
     target: VNodeType;
 }
 

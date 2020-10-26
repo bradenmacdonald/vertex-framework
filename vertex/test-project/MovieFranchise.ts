@@ -1,5 +1,6 @@
 import Joi from "@hapi/joi";
 import {
+    C,
     registerVNodeType,
     VNodeType,
     ShortIdProperty,
@@ -7,7 +8,7 @@ import {
     defaultUpdateActionFor,
     defaultCreateFor,
 } from "../";
-import { Movie, MovieLabel } from "./Movie";
+import { Movie } from "./Movie";
 
 /**
  * A Movie Franchise VNode for testing
@@ -23,7 +24,7 @@ export class MovieFranchise extends VNodeType {
     static readonly virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,
-            query: `(@this)<-[:FRANCHISE_IS]-(@target:${MovieLabel})`,
+            query: C`(@this)<-[:FRANCHISE_IS]-(@target:${Movie})`,
             target: Movie,
         },
     };

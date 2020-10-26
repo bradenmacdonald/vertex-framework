@@ -4,13 +4,14 @@
  * transform it to another state. Many actions are invertable, making it easy to revert edits, undo changes, etc.
  */
 import Joi from "@hapi/joi";
+import { Transaction } from "neo4j-driver";
 
 import { NominalType } from "./lib/ts-utils";
+import { UUID } from "./lib/uuid";
+import { log } from "./lib/log";
 import { VNodeType, RawVNode, ValidationError, registerVNodeType, VirtualPropType } from "./vnode";
 import { WrappedTransaction } from "./transaction";
-import { UUID } from "./lib/uuid";
-import { Transaction } from "neo4j-driver";
-import { log } from "./lib/log";
+import { C } from "./cypher-sugar";
 
 
 // A type of action, e.g. 'createUser'
@@ -146,12 +147,12 @@ export class Action extends VNodeType {
     static readonly virtualProperties = {
         revertedBy: {
             type: VirtualPropType.OneRelationship,
-            query: `(@target:Action)-[:REVERTED]->(@this)`,
+            query: C`(@target:Action)-[:REVERTED]->(@this)`,
             target: Action,
         },
         revertedAction: {
             type: VirtualPropType.OneRelationship,
-            query: `(@this)-[:REVERTED]->(@target:Action)`,
+            query: C`(@this)-[:REVERTED]->(@target:Action)`,
             target: Action,
         },
     };
