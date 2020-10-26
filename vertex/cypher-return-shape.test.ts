@@ -1,12 +1,16 @@
-import { suite, test, assert } from "./lib/intern-tests";
+import { suite, test, assert, assertRejects } from "./lib/intern-tests";
 import { convertNeo4jRecord, ReturnShape, TypedResult } from "./cypher-return-shape";
 import { AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, checkType } from "./lib/ts-utils";
 import { testGraph } from "./test-project/graph";
+import { Person } from "./test-project/Person";
 
 suite("Cypher return shape specification", () => {
 
+    // Note: this test suite deliberately avoids using any cypher syntactic sugar (C`...`) or pull() and just focuses
+    // on testing the ReturnShape specification class itself, as well as convertNeo4jRecord()
+
     async function runAndConvert<RS extends ReturnShape>(query: string, params: any, shape: RS): Promise<TypedResult<RS>[]> {
-        const result = await testGraph.read(tx => tx.run(query));
+        const result = await testGraph.read(tx => tx.run(query, params));
         return result.records.map(record => convertNeo4jRecord(record, shape));
     }
 
@@ -20,7 +24,7 @@ suite("Cypher return shape specification", () => {
         checkType<AssertPropertyAbsent<TypedResult<typeof shape>, "otherField">>();
 
         const results = await runAndConvert(`RETURN "hello" as myString`, {}, shape);
-        assert.deepEqual(results, [{myString: "hello"}]);
+        assert.deepStrictEqual(results, [{myString: "hello"}]);
     });
 
     test("basic test - a typed record with a list of numbers field and a boolean field.", async () => {
@@ -35,7 +39,7 @@ suite("Cypher return shape specification", () => {
         checkType<AssertPropertyAbsent<TypedResult<typeof shape>, "otherField">>();
 
         const results = await runAndConvert(`RETURN true as boolField, [1, 2, 3] as listOfNumbers`, {}, shape);
-        assert.deepEqual(results, [{
+        assert.deepStrictEqual(results, [{
             boolField: true,
             listOfNumbers: [1, 2, 3],
         }]);
@@ -61,7 +65,7 @@ suite("Cypher return shape specification", () => {
             ] AS row
             RETURN row.numberOrNull as numberOrNull, row.mapField as mapField
         `, {}, shape);
-        assert.deepEqual(results, [
+        assert.deepStrictEqual(results, [
             {
                 numberOrNull: 123,
                 mapField: {val1: "one", val2: true},
@@ -73,4 +77,37 @@ suite("Cypher return shape specification", () => {
         ]);
     });
 
+    suite("Convert Nodes to RawVNode", () => {
+
+        test("retrieve a Person VNode", async () => {
+            const shape = ReturnShape({p: Person});
+            const results = await runAndConvert(`MATCH (p:TestPerson:VNode {shortId: $shortId}) RETURN p`, {shortId: "the-rock"}, shape);
+            assert.lengthOf(results, 1);
+            const theRock = results[0].p;
+
+            checkType<AssertPropertyPresent<typeof theRock, "name", string>>();
+            checkType<AssertPropertyAbsent<typeof theRock, "someOtherThing">>();
+
+            assert.strictEqual(theRock.name, "Dwayne Johnson");
+            assert.strictEqual(theRock.shortId, "the-rock");
+            assert.includeMembers(theRock._labels, ["TestPerson", "VNode"]);
+            assert.isNumber(theRock._identity);
+        });
+
+        test("retrieving a non-node as a VNode should fail", async () => {
+            const shape = ReturnShape({p: Person});
+            await assertRejects(
+                runAndConvert(`RETURN false AS p`, {}, shape),
+                "Field p is of type boolean, not a VNode."
+            );
+        });
+
+        test("retrieving a non-VNode as a VNode should fail", async () => {
+            const shape = ReturnShape({p: Person});
+            await assertRejects(
+                runAndConvert(`MATCH (s:ShortId) RETURN s AS p LIMIT 1`, {}, shape),
+                "Field p is a node but is missing the VNode label"
+            );
+        });
+    });
 });
