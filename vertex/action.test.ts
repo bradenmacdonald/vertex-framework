@@ -38,7 +38,7 @@ suite("action", () => {
                 CreatePerson({shortId: "ash", name: "Ash"}),
             );
             const userResult = await testGraph.read(tx => tx.queryOne(C`
-                MATCH (u:User:VNode)-[:PERFORMED]->(a:Action:VNode {type: $type})-[:MODIFIED]->(p:${Person} {uuid: ${result.uuid}})
+                MATCH (u:User:VNode)-[:PERFORMED]->(a:Action:VNode {type: ${CreatePerson.type}})-[:MODIFIED]->(p:${Person} {uuid: ${result.uuid}})
             `.RETURN({"u.shortId": "string", "u.uuid": "uuid"})));
             assert.equal(userResult["u.shortId"], "system");
             assert.equal(userResult["u.uuid"], SYSTEM_UUID);

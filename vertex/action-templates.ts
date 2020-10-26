@@ -333,7 +333,7 @@ export async function updateToOneRelationship<VNT extends VNodeType>({fromType, 
         }
         // Simply delete any existing relationship, returning the ID of the target.
         const delResult = await tx.query(C`
-            MATCH (:${fromType} {uuid: ${uuid}})-[rel:${C(relName)}]->(target:${targetLabel}:VNode)
+            MATCH (:${fromType} {uuid: ${uuid}})-[rel:${C(relName)}]->(target:${C(targetLabel)}:VNode)
             DELETE rel
         `.RETURN({"target.uuid": "uuid"}));
         return {previousUuid: delResult.length ? delResult[0]["target.uuid"] : null};
