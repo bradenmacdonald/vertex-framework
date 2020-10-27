@@ -24,9 +24,11 @@ export class Person extends VNodeType {
     };
     static readonly relationshipsFrom = {
         /** This Person acted in a given movie */
-        ACTED_ID: {
+        ACTED_IN: {
             toLabels: [Movie.label],
-            properties: {},
+            properties: {
+                role: Joi.string(),
+            },
         },
         /** This Person is a friend of the given person (non-directed relationship) */
         FRIEND_OF: {
@@ -61,14 +63,15 @@ export const UpdatePerson = defaultUpdateActionFor(Person, ["name", "dateOfBirth
 
 export const CreatePerson = defaultCreateFor(Person, ["shortId", "name"], UpdatePerson);
 
-export const ActedIn = defineAction<{personId: string, movieId: string}, {/* */}>({
+export const ActedIn = defineAction<{personId: string, movieId: string, role: string}, {/* */}>({
     type: "ActedIn",
     apply: async (tx, data) => {
         const result = await tx.queryOne(C`
             MATCH (p:${Person}), p HAS KEY ${data.personId}
             MATCH (m:${Movie}), m HAS KEY ${data.movieId}
-            MERGE (p)-[:ACTED_IN]->(m)
-        `.RETURN({"p.uuid": "uuid"}));
+            MERGE (p)-[rel:ACTED_IN]->(m)
+            SET rel.role = ${data.role}
+            `.RETURN({"p.uuid": "uuid"}));
         return {
             modifiedNodes: [result["p.uuid"]],
             resultData: {},
