@@ -178,8 +178,8 @@ suite("pull", () => {
                 assert.equal(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
 
-                    OPTIONAL MATCH (_node)-[:ACTED_IN]->(_movie1:TestMovie:VNode)
-                    WITH _node, _movie1 ORDER BY _movie1.year DESC
+                    OPTIONAL MATCH (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _movie1, _rel1 ORDER BY _movie1.year DESC
                     WITH _node, collect(_movie1 {.title, .year}) AS _movies1
 
                     RETURN _movies1 AS movies ORDER BY _node.name
@@ -310,14 +310,14 @@ suite("pull", () => {
                     
                     OPTIONAL MATCH (_person1)-[:ACTED_IN]->(:TestMovie:VNode)<-[:ACTED_IN]-(_person2:TestPerson:VNode)
                     
-                    OPTIONAL MATCH (_person2)-[:ACTED_IN]->(_movie1:TestMovie:VNode)
-                    WITH _node, _person1, _person2, _movie1 ORDER BY _movie1.year DESC
+                    OPTIONAL MATCH (_person2)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _person1, _person2, _movie1, _rel1 ORDER BY _movie1.year DESC
                     WITH _node, _person1, _person2, collect(_movie1 {.title, .year}) AS _movies1
                     
                     OPTIONAL MATCH (_person2)-[:FRIEND_OF]-(_person3:TestPerson:VNode)
                     
-                    OPTIONAL MATCH (_person3)-[:ACTED_IN]->(_movie1:TestMovie:VNode)
-                    WITH _node, _person1, _person2, _movies1, _person3, _movie1 ORDER BY _movie1.year DESC
+                    OPTIONAL MATCH (_person3)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _person1, _person2, _movies1, _person3, _movie1, _rel1 ORDER BY _movie1.year DESC
                     WITH _node, _person1, _person2, _movies1, _person3, collect(_movie1 {.title, .year}) AS _movies2
                     WITH _node, _person1, _person2, _movies1, _person3, _movies2 ORDER BY _person3.name
                     WITH _node, _person1, _person2, _movies1, collect(_person3 {.name, movies: _movies2}) AS _friends1

@@ -243,7 +243,7 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
                 const targetVNodeType = virtualProp.target;
                 return (buildSubRequest: (subRequest: VNodeDataRequest<typeof targetVNodeType>) => VNodeDataRequest<typeof targetVNodeType>, options?: {ifFlag: string|undefined}) => {
                     // Build the subrequest immediately, using the supplied code:
-                    const subRequest = buildSubRequest(VNodeDataRequest(targetVNodeType));
+                    const subRequest = buildSubRequest(VNodeDataRequest(targetVNodeType));  // TODO: add in the virtual props from the relationship
                     // Save the request in our internal data:
                     if (internalData[_virtualProperties][propKey] !== undefined) {
                         throw new Error(`Virtual Property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
@@ -251,6 +251,18 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
                     internalData[_virtualProperties][propKey] = {
                         ifFlag: options?.ifFlag,
                         shapeData: getInternalData(subRequest),
+                    };
+                    // Return the same object so more operations can be chained on:
+                    return requestObj;
+                };
+            } else if (virtualProp.type === VirtualPropType.CypherExpression) {
+                return (options?: {ifFlag: string|undefined}) => {
+                    // Save the request in our internal data:
+                    if (internalData[_virtualProperties][propKey] !== undefined) {
+                        throw new Error(`Virtual Property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
+                    }
+                    internalData[_virtualProperties][propKey] = {
+                        ifFlag: options?.ifFlag,
                     };
                     // Return the same object so more operations can be chained on:
                     return requestObj;
@@ -382,7 +394,18 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
             throw new Error(`A virtual property query clause cannot have parameters.`);
             // ^ This could be supported in the future though, if useful.
         }
-        query += `\nOPTIONAL MATCH ${virtProp.query.queryString.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
+        let matchClause = (
+            virtProp.query.queryString
+            .replace("@this", parentNodeVariable)
+            .replace("@target", newTargetVar)
+        );
+        let relationshipVariable: string|undefined;
+        if (matchClause.includes("@rel")) {
+            relationshipVariable = generateNameFor("rel");
+            workingVars.add(relationshipVariable);
+            matchClause = matchClause.replace("@rel", relationshipVariable);
+        }
+        query += `\nOPTIONAL MATCH ${matchClause}\n`;
 
         // Add additional subqeries, if any:
         const virtPropsMap = addVirtualPropsForNode(newTargetVar, request);
@@ -393,6 +416,9 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         }
         // Construct the WITH statement that ends this subquery, collect()ing many related nodes into a single array property
         workingVars.delete(newTargetVar);
+        if (relationshipVariable) {
+            workingVars.delete(relationshipVariable);
+        }
         const variablesIncluded = getRawPropertiesIncludedIn(request, rootFilter).map(p => "." + p);
         // Pull in the virtual properties included:
         for (const [pName, varName] of Object.entries(virtPropsMap)) {
