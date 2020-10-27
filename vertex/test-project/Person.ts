@@ -51,7 +51,6 @@ export class Person extends VNodeType {
         friends: {
             type: VirtualPropType.ManyRelationship,
             query: C`(@this)-[:FRIEND_OF]-(@target:${Person})`,
-            //gives: {friend: Person, rel: Person.relationshipsFrom.FRIEND_OF},
             target: Person,
         },
         age: {

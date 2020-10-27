@@ -1,3 +1,4 @@
+import Joi from "@hapi/joi";
 import { log } from "./lib/log";
 import {
     PropertyDataType,
@@ -143,9 +144,26 @@ type RecursiveVirtualPropRequestCypherExpressionSpec<propType extends VirtualCyp
 // used to make the "role" property appear as a virtual property on the Movie VNode.
 type ExtraRelationshipProps<PS extends PropSchema|undefined> = {
     virtualProperties: {
-        [K in keyof PS]: VirtualCypherExpressionProperty
+        [K in keyof PS]: VirtualCypherExpressionPropertyForProp<PS[K]>
     }
 };
+type VirtualCypherExpressionPropertyForProp<Prop> = (
+    // This is a generated VirtualCypherExpressionProperty, used to make a property from the relationship appear as an
+    // available virtual property on the target VNode. (e.g. the "role" property from the ACTED_IN relationship now
+    // appears as a VirtualCypherExpressionProperty on the Movie VNode when accessed via the "person.movies" virtual
+    // property.)
+    Omit<VirtualCypherExpressionProperty, "valueType"> & {
+        // We don't really enforce relationship properties or know when they're nullable so assume they can always be null:
+        valueType: {nullOr: (
+            // "Prop" is the property definition (Joi validator) defined in the VNode.relationshipsFrom section
+            Prop extends Joi.StringSchema ? "string" :
+            Prop extends Joi.NumberSchema ? "number" :
+            Prop extends Joi.BooleanSchema ? "boolean" :
+            Prop extends Joi.DateSchema ? "string" :
+            any
+        )}
+    }
+);
 
 
 // Internal data stored in a VNodeDataRequest:
