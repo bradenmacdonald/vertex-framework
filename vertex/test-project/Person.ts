@@ -39,7 +39,8 @@ export class Person extends VNodeType {
     static readonly virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[:ACTED_IN]->(@target:${Movie})`,
+            query: C`(@this)-[@rel:ACTED_IN]->(@target:${Movie})`,
+            relationshipProps: Person.relationshipsFrom.ACTED_IN.properties,
             target: Movie,
         },
         costars: {

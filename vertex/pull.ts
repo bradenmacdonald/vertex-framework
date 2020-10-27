@@ -6,6 +6,7 @@ import {
     VirtualOneRelationshipProperty,
     VirtualPropertyDefinition,
     VirtualPropType,
+    PropSchema,
 } from "./vnode";
 import type { WrappedTransaction } from "./transaction";
 
@@ -39,7 +40,9 @@ type VNodeDataRequest<
     // For each raw field like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that field
     VNDR_AddFlags<VNT, rawProps, maybeRawProps, virtualPropSpec> &
     // For each virtual property of the VNodeType, there is a .propName(p => p...) method for requesting it.
-    VNDR_AddVirtualProp<VNT, rawProps, maybeRawProps, virtualPropSpec>
+    VNDR_AddVirtualProp<VNT, rawProps, maybeRawProps, virtualPropSpec> &
+    // When requesting related VNodes via virtual properties, one can also request fields from the relationship between the current VNode and the related one:
+    VNDR_AddVirtualRelationshipProp<VNT, rawProps, maybeRawProps, virtualPropSpec>
 );
 
 /** Each VNodeDataRequest has a .allProps attribute which requests all raw properties and returns the same request object */
@@ -83,16 +86,36 @@ type VNDR_AddVirtualProp<
         VNT["virtualProperties"][K] extends VirtualManyRelationshipProperty ?
             // For each x:many virtual property, add a method for requesting that virtual property:
             <SubSpec extends VNodeDataRequest<VNT["virtualProperties"][K]["target"]>, FlagType extends string|undefined = undefined>
-            (subRequest: (emptyRequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"]>) => SubSpec, options?: {ifFlag: FlagType})
+            // This is the method:
+            (subRequest: (
+                buildSubequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"] & ExtraRelationshipProps<VNT["virtualProperties"][K]["relationshipProps"]>>) => SubSpec,
+                options?: {ifFlag?: FlagType}
+            )
+            // The return value of the method is the same VNodeDataRequest, with the additional virtual property added in:
             => VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "many"}}>
         : VNT["virtualProperties"][K] extends VirtualOneRelationshipProperty ?
             // For each x:one virtual property, add a method for requesting that virtual property:
             <SubSpec extends VNodeDataRequest<VNT["virtualProperties"][K]["target"]>, FlagType extends string|undefined = undefined>
-            (subRequest: (emptyRequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"]>) => SubSpec, options?: {ifFlag: FlagType})
+            (subRequest: (buildSubequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"]>) => SubSpec, options?: {ifFlag: FlagType})
             => VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "one"}}>
         : never
     )
 };
+
+/**
+ * If this VNodeType is joined to some parent type via a virtual property, there may be fields stored on the
+ * relationship that can be added to the request (annotated onto this VNode)
+ */
+type VNDR_AddVirtualRelationshipProp<
+    VNT extends VNodeType,
+    rawProps extends keyof VNT["properties"],
+    maybeRawProps extends keyof VNT["properties"],
+    virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
+> = (
+    VNT extends ExtraRelationshipProps<infer RelationshipPropSchema> ? {
+        [K in keyof RelationshipPropSchema]: VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec>
+    } : {/* If this is a normal/root VNode, not joined in via a virtual prop, there is no extra method available here. */}
+);
 
 /** Type data about virtual properties that have been requested so far in a VNodeDataRequest */
 type RecursiveVirtualPropRequest<VNT extends VNodeType> = {
@@ -116,6 +139,8 @@ type RecursiveVirtualPropRequestOneSpec<propType extends VirtualOneRelationshipP
     spec: Spec,
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish ...ManySpec from ...OneSpec
 };
+
+type ExtraRelationshipProps<PS extends PropSchema|undefined> = {availablePropsFromRelationship: PS};
 
 
 // Internal data stored in a VNodeDataRequest:

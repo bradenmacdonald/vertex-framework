@@ -136,7 +136,9 @@ export interface VirtualManyRelationshipProperty {
     type: typeof VirtualPropType.ManyRelationship;
     query: CypherQuery;
     target: VNodeType;
-    //annotations?: {[K: string]: {cypher: string, }};
+    // One of the relationships in the query can be assigned to the variable @rel, and if so, specify its props here so
+    // that the relationship properties can be optionally included (as part of the target node)
+    relationshipProps?: PropSchema,
 }
 export interface VirtualOneRelationshipProperty {
     type: typeof VirtualPropType.OneRelationship,

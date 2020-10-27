@@ -210,6 +210,16 @@ suite("pull", () => {
             });
         });
 
+        // Test a to-many virtual property/relationship with a property on the relationship:
+        test("Get all Robert Downey Jr. Movies, annotated with role", async () => {
+            const rdj = await testGraph.pullOne(Person, p => p
+                .name
+                .movies(m => m.title.year.role)
+            , {key: "rdj", });
+
+            assert.equal(rdj.movies.length, 2);
+        });
+
         // Test a to-one virtual property/relationship:
         suite("Get a movie's franchise", () => {
             const request = VNodeDataRequest(Movie).title.franchise(f => f.name);
