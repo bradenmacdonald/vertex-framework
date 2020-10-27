@@ -4,11 +4,12 @@ import {
     VNodeType,
     VirtualManyRelationshipProperty,
     VirtualOneRelationshipProperty,
-    VirtualPropertyDefinition,
+    VirtualCypherExpressionProperty,
     VirtualPropType,
     PropSchema,
 } from "./vnode";
 import type { WrappedTransaction } from "./transaction";
+import type { ReturnTypeFor } from "./cypher-return-shape";
 
 ////////////////////////////// VNode Data Request format ////////////////////////////////////////////////////////////
 
@@ -40,9 +41,7 @@ type VNodeDataRequest<
     // For each raw field like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that field
     VNDR_AddFlags<VNT, rawProps, maybeRawProps, virtualPropSpec> &
     // For each virtual property of the VNodeType, there is a .propName(p => p...) method for requesting it.
-    VNDR_AddVirtualProp<VNT, rawProps, maybeRawProps, virtualPropSpec> &
-    // When requesting related VNodes via virtual properties, one can also request fields from the relationship between the current VNode and the related one:
-    VNDR_AddVirtualRelationshipProp<VNT, rawProps, maybeRawProps, virtualPropSpec>
+    VNDR_AddVirtualProp<VNT, rawProps, maybeRawProps, virtualPropSpec>
 );
 
 /** Each VNodeDataRequest has a .allProps attribute which requests all raw properties and returns the same request object */
@@ -98,24 +97,13 @@ type VNDR_AddVirtualProp<
             <SubSpec extends VNodeDataRequest<VNT["virtualProperties"][K]["target"]>, FlagType extends string|undefined = undefined>
             (subRequest: (buildSubequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"]>) => SubSpec, options?: {ifFlag: FlagType})
             => VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "one"}}>
+        : VNT["virtualProperties"][K] extends VirtualCypherExpressionProperty ?
+            // Add a method to include this [virtual property based on a cypher expression], optionally toggled via a flag:
+            <FlagType extends string|undefined = undefined>(options?: {ifFlag: FlagType})
+            => VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, type: "cypher", propertyDefinition: VNT["virtualProperties"][K]}}>
         : never
     )
 };
-
-/**
- * If this VNodeType is joined to some parent type via a virtual property, there may be fields stored on the
- * relationship that can be added to the request (annotated onto this VNode)
- */
-type VNDR_AddVirtualRelationshipProp<
-    VNT extends VNodeType,
-    rawProps extends keyof VNT["properties"],
-    maybeRawProps extends keyof VNT["properties"],
-    virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
-> = (
-    VNT extends ExtraRelationshipProps<infer RelationshipPropSchema> ? {
-        [K in keyof RelationshipPropSchema]: VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec>
-    } : {/* If this is a normal/root VNode, not joined in via a virtual prop, there is no extra method available here. */}
-);
 
 /** Type data about virtual properties that have been requested so far in a VNodeDataRequest */
 type RecursiveVirtualPropRequest<VNT extends VNodeType> = {
@@ -124,6 +112,8 @@ type RecursiveVirtualPropRequest<VNT extends VNodeType> = {
             RecursiveVirtualPropRequestManySpec<VNT["virtualProperties"][K], any> :
         VNT["virtualProperties"][K] extends VirtualOneRelationshipProperty ?
             RecursiveVirtualPropRequestOneSpec<VNT["virtualProperties"][K], any> :
+        VNT["virtualProperties"][K] extends VirtualCypherExpressionProperty ?
+            RecursiveVirtualPropRequestCypherExpressionSpec<VNT["virtualProperties"][K]> :
         never
     )
 }
@@ -140,7 +130,22 @@ type RecursiveVirtualPropRequestOneSpec<propType extends VirtualOneRelationshipP
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish ...ManySpec from ...OneSpec
 };
 
-type ExtraRelationshipProps<PS extends PropSchema|undefined> = {availablePropsFromRelationship: PS};
+type RecursiveVirtualPropRequestCypherExpressionSpec<propType extends VirtualCypherExpressionProperty> = {
+    ifFlag: string|undefined,
+    type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish ...ManySpec from ...OneSpec
+    propertyDefinition: propType;  // This field also doesn't exist
+};
+
+// When using a virtual property to join some other VNode to another node, this ExtraRelationshipProps type is used to
+// allow properties from the *relationship* to appear on the target VNode.
+// For example, if there is a (:Person)-[:ACTED_IN]->(:Movie) where "Person" is the main VNode and "Person.movies" is a
+// virtual property to list the movies they acted in, and the ACTED_IN relationship has a "role" property, then this is
+// used to make the "role" property appear as a virtual property on the Movie VNode.
+type ExtraRelationshipProps<PS extends PropSchema|undefined> = {
+    virtualProperties: {
+        [K in keyof PS]: VirtualCypherExpressionProperty
+    }
+};
 
 
 // Internal data stored in a VNodeDataRequest:
@@ -272,6 +277,8 @@ type VNodeDataResponse<VNDR extends VNodeDataRequest<any, any, any, any>> = (
             : virtualPropSpec[virtualProp] extends RecursiveVirtualPropRequestOneSpec<any, infer Spec> ?
                 // 1:1 relationships are currently always optional at the DB level, so this may be null
                 VNodeDataResponse<Spec> | null | (virtualPropSpec[virtualProp]["ifFlag"] extends string ? undefined : never)
+            : virtualPropSpec[virtualProp] extends RecursiveVirtualPropRequestCypherExpressionSpec<infer VirtPropDefinition> ?
+                ReturnTypeFor<VirtPropDefinition["valueType"]> | (virtualPropSpec[virtualProp]["ifFlag"] extends string ? undefined : never)
             : never
         )}
     ) : never

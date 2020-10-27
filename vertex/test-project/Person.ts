@@ -54,6 +54,11 @@ export class Person extends VNodeType {
             //gives: {friend: Person, rel: Person.relationshipsFrom.FRIEND_OF},
             target: Person,
         },
+        age: {
+            type: VirtualPropType.CypherExpression,
+            cypherExpression: C`duration.between(@this.dateOfBirth, date()).years`,
+            valueType: "number" as const,
+        }
     };
     static readonly defaultOrderBy = "name";
 }

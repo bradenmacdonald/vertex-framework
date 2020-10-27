@@ -1,6 +1,7 @@
 import * as Joi from "@hapi/joi";
-import { Transaction } from "neo4j-driver";
-import { CypherQuery } from "./cypher-sugar";
+import type { Transaction } from "neo4j-driver";
+import type { CypherQuery } from "./cypher-sugar";
+import type { FieldType } from "./cypher-return-shape";
 import { UUID } from "./lib/uuid";
 
 /** Strict UUID Validator for Joi */
@@ -130,6 +131,7 @@ export const VirtualPropType = {
     // inference unless it's always explicitly used as "VirtualPropType.ManyRelationship as const", which is annoying.
     ManyRelationship: "many-relationship" as const,
     OneRelationship: "one-relationship" as const,
+    CypherExpression: "cypher-expression" as const,
 }
 
 export interface VirtualManyRelationshipProperty {
@@ -145,10 +147,16 @@ export interface VirtualOneRelationshipProperty {
     query: CypherQuery,
     target: VNodeType;
 }
+export interface VirtualCypherExpressionProperty {
+    type: typeof VirtualPropType.CypherExpression,
+    cypherExpression: CypherQuery,
+    valueType: FieldType,
+}
 
 export type VirtualPropertyDefinition = (
-    VirtualManyRelationshipProperty|
-    VirtualOneRelationshipProperty
+    |VirtualManyRelationshipProperty
+    |VirtualOneRelationshipProperty
+    |VirtualCypherExpressionProperty
 );
 
 const registeredNodeTypes: {[label: string]: VNodeType} = {};

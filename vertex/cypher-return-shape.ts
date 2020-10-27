@@ -11,7 +11,7 @@ export type ReturnShape = {
 };
 // This helper function is used to declare variables with appropriate typing as "RS extends ReturnShape" and not just "ReturnShape"
 export function ReturnShape<RS extends ReturnShape>(rs: RS): RS { return rs; }
-type FieldType = (
+export type FieldType = (
     | VNodeType
     | MapReturnShape
     | ListReturnShape
@@ -48,7 +48,7 @@ function isNullableField(fieldType: FieldType): fieldType is NullableField {
 export type TypedResult<RS extends ReturnShape> = {
     [key in keyof RS]: ReturnTypeFor<RS[key]>;
 };
-type ReturnTypeFor<DT extends FieldType> = (
+export type ReturnTypeFor<DT extends FieldType> = (
     DT extends VNodeType ? RawVNode<DT> :
     DT extends MapReturnShapeFull<infer MapShape> ? TypedResult<MapShape> :
     DT extends ListReturnShapeFull<infer ListValueType> ? ReturnTypeFor<ListValueType>[] :

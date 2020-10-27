@@ -214,10 +214,14 @@ suite("pull", () => {
         test("Get all Robert Downey Jr. Movies, annotated with role", async () => {
             const rdj = await testGraph.pullOne(Person, p => p
                 .name
-                .movies(m => m.title.year.role)
+                .movies(m => m.title.year.role())
             , {key: "rdj", });
 
             assert.equal(rdj.movies.length, 2);
+            assert.equal(rdj.movies[0].title, "Avengers: Infinity War");
+            assert.equal(rdj.movies[0].role, "Tony Stark / Iron Man");  // "role" is a property stored on the relationship
+            const role = rdj.movies[0].role;
+            checkType<AssertEqual<typeof role, string>>();
         });
 
         // Test a to-one virtual property/relationship:
@@ -253,6 +257,35 @@ suite("pull", () => {
                 assert.equal(spyDumpedMe?.franchise, undefined);
             });
         });
+
+        suite("Cypher expression: get a person's age", () => {
+            const request = VNodeDataRequest(Person).name.dateOfBirth.age();
+            // This filter will match two movies: "Avengers: Infinity War" (MCU franchise) and "The Spy Who Dumped Me" (no franchise)
+            const filter: DataRequestFilter = {key: "chris-pratt"};
+            test("buildCypherQuery", () => {
+                const query = buildCypherQuery(request, filter);
+                assert.equal(query.query, dedent`
+                    MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
+
+                    WITH _node, (duration.between(@this.dateOfBirth, date()).years) AS _age1
+                    
+                    RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth, _age1 AS age ORDER BY _node.name
+                `);
+            });
+            test("pull", async () => {
+                const chrisPratt = await testGraph.pullOne(request, filter);
+                // A function to compute the age in JavaScript, from https://stackoverflow.com/a/7091965 :
+                const getAge = (dateString: string): number => {
+                    const today = new Date(), birthDate = new Date(dateString);
+                    let age = today.getFullYear() - birthDate.getFullYear();
+                    const m = today.getMonth() - birthDate.getMonth();
+                    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) { age--; }
+                    return age;
+                }
+                checkType<AssertEqual<typeof chrisPratt["age"], number>>();
+                assert.equal(chrisPratt.age, getAge(chrisPratt.dateOfBirth));
+            });
+        })
 
         suite("deep pull", () => {
             // Build a horribly deep query:
