@@ -32,77 +32,81 @@ import { C } from "./cypher-sugar";
  */
 type VNodeDataRequest<
     VNT extends VNodeType,
-    rawProps extends keyof VNT["properties"] = never,
-    maybeRawProps extends keyof VNT["properties"] = never,
-    virtualPropSpec extends RecursiveVirtualPropRequest<VNT> = {}  // eslint-disable-line @typescript-eslint/ban-types
+    includedProperties extends keyof VNT["properties"] = never,
+    flaggedProperties extends keyof VNT["properties"] = never,
+    includedVirtualProperties extends RecursiveVirtualPropRequest<VNT> = {}  // eslint-disable-line @typescript-eslint/ban-types
 > = (
-    // Each VNodeDataRequest has a .allProps attribute which requests all raw properties and returns the same request object
-    VNDR_AddAllProps<VNT, rawProps, maybeRawProps, virtualPropSpec> &
-    // For each raw field like "uuid", the data request has a .uuid attribute which requests that field and returns the same request object
-    VNDR_AddRawProp<VNT, rawProps, maybeRawProps, virtualPropSpec> &
-    // For each raw field like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that field
-    VNDR_AddFlags<VNT, rawProps, maybeRawProps, virtualPropSpec> &
+    // Each VNodeDataRequest has a .allProps attribute which requests all raw (non-virtual) properties and returns the same request object
+    VNDR_AddAllProps<VNT, includedProperties, flaggedProperties, includedVirtualProperties> &
+    // For each raw property like "uuid", the data request has a .uuid attribute which requests that property and returns the same request object
+    VNDR_AddRawProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties> &
+    // For each raw property like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that property
+    VNDR_AddFlags<VNT, includedProperties, flaggedProperties, includedVirtualProperties> &
     // For each virtual property of the VNodeType, there is a .propName(p => p...) method for requesting it.
-    VNDR_AddVirtualProp<VNT, rawProps, maybeRawProps, virtualPropSpec>
+    VNDR_AddVirtualProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties>
 );
 
 /** Each VNodeDataRequest has a .allProps attribute which requests all raw properties and returns the same request object */
 type VNDR_AddAllProps<
     VNT extends VNodeType,
-    rawProps extends keyof VNT["properties"],
-    maybeRawProps extends keyof VNT["properties"],
-    virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
+    includedProperties extends keyof VNT["properties"],
+    flaggedProperties extends keyof VNT["properties"],
+    includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
 > = {
-    allProps: VNodeDataRequest<VNT, keyof VNT["properties"], maybeRawProps, virtualPropSpec>
+    allProps: VNodeDataRequest<VNT, keyof VNT["properties"], flaggedProperties, includedVirtualProperties>
 };
 
-/** For each raw field like "uuid", the data request has a .uuid attribute which requests that field and returns the same request object */
+/** For each raw property like "uuid", the data request has a .uuid attribute which requests that property and returns the same request object */
 type VNDR_AddRawProp<
     VNT extends VNodeType,
-    rawProps extends keyof VNT["properties"],
-    maybeRawProps extends keyof VNT["properties"],
-    virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
+    includedProperties extends keyof VNT["properties"],
+    flaggedProperties extends keyof VNT["properties"],
+    includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
 > = {
-    [K in keyof VNT["properties"]/* as Exclude<K, rawProps|maybeRawProps>*/]: VNodeDataRequest<VNT, rawProps|K, maybeRawProps, virtualPropSpec>
+    [K in keyof VNT["properties"]/* as Exclude<K, includedProperties|flaggedProperties>*/]: VNodeDataRequest<VNT, includedProperties|K, flaggedProperties, includedVirtualProperties>
 };
 
-/** For each raw field like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that field */
+/** For each raw property like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that property */
 type VNDR_AddFlags<
     VNT extends VNodeType,
-    rawProps extends keyof VNT["properties"],
-    maybeRawProps extends keyof VNT["properties"],
-    virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
+    includedProperties extends keyof VNT["properties"],
+    flaggedProperties extends keyof VNT["properties"],
+    includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
 > = {
-    [K in keyof VNT["properties"] as K extends string ? `${K}IfFlag` : never]: (flagName: string) => VNodeDataRequest<VNT, rawProps, maybeRawProps|K, virtualPropSpec>
+    [K in keyof VNT["properties"] as K extends string ? `${K}IfFlag` : never]: (flagName: string) => VNodeDataRequest<VNT, includedProperties, flaggedProperties|K, includedVirtualProperties>
 };
 
 /** For each virtual property of the VNodeType, there is a .propName(p => p...) method for requesting it. */
 type VNDR_AddVirtualProp<
     VNT extends VNodeType,
-    rawProps extends keyof VNT["properties"],
-    maybeRawProps extends keyof VNT["properties"],
-    virtualPropSpec extends RecursiveVirtualPropRequest<VNT>,
+    includedProperties extends keyof VNT["properties"],
+    flaggedProperties extends keyof VNT["properties"],
+    includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
 > = {
     [K in keyof VNT["virtualProperties"]]: (
+
         VNT["virtualProperties"][K] extends VirtualManyRelationshipProperty ?
             // For each x:many virtual property, add a method for requesting that virtual property:
             <SubSpec extends VNodeDataRequest<VNT["virtualProperties"][K]["target"]>, FlagType extends string|undefined = undefined>
             // This is the method:
             (subRequest: (
-                buildSubequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"] & ExtraRelationshipProps<VNT["virtualProperties"][K]["relationshipProps"]>>) => SubSpec,
+                buildSubequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"] & ProjectRelationshipProps<VNT["virtualProperties"][K]["relationshipProps"]>>) => SubSpec,
                 options?: {ifFlag?: FlagType}
             )
             // The return value of the method is the same VNodeDataRequest, with the additional virtual property added in:
-            => VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "many"}}>
+            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "many"}}>
+
         : VNT["virtualProperties"][K] extends VirtualOneRelationshipProperty ?
             // For each x:one virtual property, add a method for requesting that virtual property:
             <SubSpec extends VNodeDataRequest<VNT["virtualProperties"][K]["target"]>, FlagType extends string|undefined = undefined>
             (subRequest: (buildSubequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"]>) => SubSpec, options?: {ifFlag: FlagType})
-            => VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "one"}}>
+            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "one"}}>
+
         : VNT["virtualProperties"][K] extends VirtualCypherExpressionProperty ?
             // Add a method to include this [virtual property based on a cypher expression], optionally toggled via a flag:
             <FlagType extends string|undefined = undefined>(options?: {ifFlag: FlagType})
-            => VNodeDataRequest<VNT, rawProps, maybeRawProps, virtualPropSpec&{[K2 in K]: {ifFlag: FlagType, type: "cypher", propertyDefinition: VNT["virtualProperties"][K]}}>
+            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[K2 in K]: {ifFlag: FlagType, type: "cypher", propertyDefinition: VNT["virtualProperties"][K]}}>
+
         : never
     )
 };
@@ -111,48 +115,49 @@ type VNDR_AddVirtualProp<
 type RecursiveVirtualPropRequest<VNT extends VNodeType> = {
     [K in keyof VNT["virtualProperties"]]?: (
         VNT["virtualProperties"][K] extends VirtualManyRelationshipProperty ?
-            RecursiveVirtualPropRequestManySpec<VNT["virtualProperties"][K], any> :
+            IncludedVirtualManyProp<VNT["virtualProperties"][K], any> :
         VNT["virtualProperties"][K] extends VirtualOneRelationshipProperty ?
-            RecursiveVirtualPropRequestOneSpec<VNT["virtualProperties"][K], any> :
+            IncludedVirtualOneProp<VNT["virtualProperties"][K], any> :
         VNT["virtualProperties"][K] extends VirtualCypherExpressionProperty ?
-            RecursiveVirtualPropRequestCypherExpressionSpec<VNT["virtualProperties"][K]> :
+            IncludedVirtualCypherExpressionProp<VNT["virtualProperties"][K]> :
         never
     )
 }
 
-type RecursiveVirtualPropRequestManySpec<propType extends VirtualManyRelationshipProperty, Spec extends VNodeDataRequest<propType["target"], any, any, any>> = {
+type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends VNodeDataRequest<propType["target"], any, any, any>> = {
     ifFlag: string|undefined,
     spec: Spec,
-    type: "many",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish ...ManySpec from ...OneSpec
+    type: "many",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
 
-type RecursiveVirtualPropRequestOneSpec<propType extends VirtualOneRelationshipProperty, Spec extends VNodeDataRequest<propType["target"], any, any, any>> = {
+type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends VNodeDataRequest<propType["target"], any, any, any>> = {
     ifFlag: string|undefined,
     spec: Spec,
-    type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish ...ManySpec from ...OneSpec
+    type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
 
-type RecursiveVirtualPropRequestCypherExpressionSpec<propType extends VirtualCypherExpressionProperty> = {
+type IncludedVirtualCypherExpressionProp<propType extends VirtualCypherExpressionProperty> = {
     ifFlag: string|undefined,
-    type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish ...ManySpec from ...OneSpec
-    propertyDefinition: propType;  // This field also doesn't exist
+    type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
+    propertyDefinition: propType;  // This field also doesn't exist, but is required for type inference to work
 };
 
-// When using a virtual property to join some other VNode to another node, this ExtraRelationshipProps type is used to
-// allow properties from the *relationship* to appear on the target VNode.
+// When using a virtual property to join some other VNode to another node, this ProjectRelationshipProps type is used to
+// "project" properties from the *relationship* so that they appear as virtual properties on the target VNode.
+//
 // For example, if there is a (:Person)-[:ACTED_IN]->(:Movie) where "Person" is the main VNode and "Person.movies" is a
 // virtual property to list the movies they acted in, and the ACTED_IN relationship has a "role" property, then this is
 // used to make the "role" property appear as a virtual property on the Movie VNode.
-type ExtraRelationshipProps<PS extends PropSchema|undefined> = {
+type ProjectRelationshipProps<PS extends PropSchema|undefined> = {
     virtualProperties: {
-        [K in keyof PS]: VirtualCypherExpressionPropertyForProp<PS[K]>
+        [K in keyof PS]: VirtualCypherExpressionPropertyForRelationshipProp<PS[K]>
     }
 };
-type VirtualCypherExpressionPropertyForProp<Prop> = (
+type VirtualCypherExpressionPropertyForRelationshipProp<Prop> = (
     // This is a generated VirtualCypherExpressionProperty, used to make a property from the relationship appear as an
     // available virtual property on the target VNode. (e.g. the "role" property from the ACTED_IN relationship now
-    // appears as a VirtualCypherExpressionProperty on the Movie VNode when accessed via the "person.movies" virtual
-    // property.)
+    // appears as a VirtualCypherExpressionProperty on the Movie VNode when accessed via the "person.movies.role"
+    // virtual property, even though there is normally no "movies.role" virtual property.)
     Omit<VirtualCypherExpressionProperty, "valueType"> & {
         // We don't really enforce relationship properties or know when they're nullable so assume they can always be null:
         valueType: {nullOr: (
@@ -169,9 +174,9 @@ type VirtualCypherExpressionPropertyForProp<Prop> = (
 
 // Internal data stored in a VNodeDataRequest:
 const _vnodeType = Symbol("vnodeType");
-const _rawProperties = Symbol("rawProperties");
-const _virtualProperties = Symbol("virtualProperties");
-const _additionalVirtualProperties = Symbol("_additionalVirtualProperties");
+const _includedProperties = Symbol("includedProperties");
+const _includedVirtualProperties = Symbol("virtualProperties");
+const _projectedVirtualProperties = Symbol("_projectedVirtualProperties");
 const _internalData = Symbol("internalData");
 
 /** Internal data in a VNodeDataRequest object */
@@ -180,14 +185,15 @@ interface VNDRInternalData {
     [_vnodeType]: VNodeType;
     // Raw properties to pull from the database.
     // Keys represent the property names; string values indicate they should only be pulled when a flag is set.
-    [_rawProperties]: {[propName: string]: true|string}
+    [_includedProperties]: {[propName: string]: true|string}
     // Virtual properties (like related objects) to pull from the database, along with details such as what data to pull
     // in turn for those VNodes
-    [_virtualProperties]: {[propName: string]: {ifFlag: string|undefined, shapeData?: VNDRInternalData}},
+    [_includedVirtualProperties]: {[propName: string]: {ifFlag: string|undefined, shapeData?: VNDRInternalData}},
     // Additional virtual properties currently available on this VNode, which may or may not be included in the request.
     // These are coming from a relationship, e.g. "Role" in the movies example.
-    // If one of these additional virtual props should be included in the request, it will be in _virtualProperties too.
-    [_additionalVirtualProperties]: {[propName: string]: VirtualCypherExpressionProperty}
+    // If one of these additional virtual props should be included in the request, it will be in 
+    // _includedVirtualProperties too.
+    [_projectedVirtualProperties]: {[propName: string]: VirtualCypherExpressionProperty}
 }
 
 /** Proxy handler that works with the VNodeDataRequest() function to implement the VNodeDataRequest API. */
@@ -199,22 +205,22 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
         if (propKey === _internalData) {
             return internalData;
         } else if (typeof propKey !== "string") {
-            throw new Error("Can't have non-string fields on a VNodeDataRequest");
+            throw new Error("Can't have non-string property keys on a VNodeDataRequest");
         }
 
         // Note: in this handler code, "return requestObj" will return the Proxy, i.e. the VNodeDataRequest, so that
         // multiple calls can be chained:
-        //     const r = VNodeDataRequest(type).field1.field2.field3IfFlag("flag").field4 etc.
+        //     const r = VNodeDataRequest(type).property1.property2.property3IfFlag("flag").property4 etc.
 
         if (vnodeType.properties[propKey] !== undefined) {
             // Operation to include a raw property:
             // "request.name" means add the "name" raw property to "request" and return "request"
-            internalData[_rawProperties][propKey] = true;
+            internalData[_includedProperties][propKey] = true;
             return requestObj;
         }
 
         if (propKey === "allProps") {
-            Object.keys(vnodeType.properties).forEach(someProp => internalData[_rawProperties][someProp] = true);
+            Object.keys(vnodeType.properties).forEach(someProp => internalData[_includedProperties][someProp] = true);
             return requestObj;
         }
 
@@ -226,11 +232,11 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
             if (vnodeType.properties[actualPropKey] !== undefined) {
                 // ...IfFlag requires an argument (the flag name), so return a function:
                 return (flagName: string) => {
-                    // The user is conditionally requesting a field, based on some flag.
+                    // The user is conditionally requesting a property, based on some flag.
                     // Check if this property was already requested though.
-                    const oldRequest = internalData[_rawProperties][actualPropKey];
+                    const oldRequest = internalData[_includedProperties][actualPropKey];
                     if (oldRequest === undefined) {
-                        internalData[_rawProperties][actualPropKey] = flagName;
+                        internalData[_includedProperties][actualPropKey] = flagName;
                     } else if (oldRequest === true) {
                         log.warn(`Cleanup needed: Property ${vnodeType.name}.${actualPropKey} was requested unconditionally and conditionally (${actualPropKey}IfFlag).`);
                     } else {
@@ -241,7 +247,7 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
             }
         }
 
-        const virtualProp = vnodeType.virtualProperties[propKey] || internalData[_additionalVirtualProperties][propKey];
+        const virtualProp = vnodeType.virtualProperties[propKey] || internalData[_projectedVirtualProperties][propKey];
         if (virtualProp !== undefined) {
             // Operation to add a virtual property:
             if (virtualProp.type === VirtualPropType.ManyRelationship || virtualProp.type === VirtualPropType.OneRelationship) {
@@ -249,18 +255,18 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
                 const targetVNodeType = virtualProp.target;
                 return (buildSubRequest: (subRequest: VNodeDataRequest<typeof targetVNodeType>) => VNodeDataRequest<typeof targetVNodeType>, options?: {ifFlag: string|undefined}) => {
                     // Build the subrequest immediately, using the supplied code:
-                    const subRequestData = VNodeDataRequest(targetVNodeType); // An empty request - the buildSubRequest() will use it to pick which fields of the target type should be included.
+                    const subRequestData = VNodeDataRequest(targetVNodeType); // An empty request - the buildSubRequest() will use it to pick which properties of the target type should be included.
                     if (virtualProp.type === VirtualPropType.ManyRelationship) {
-                        // Add properties from the relationship to the target VNode data request, so they can be optionally selected for inclusion:
-                        const extraProps = virtualPropsForRelationship(virtualProp);
-                        getInternalData(subRequestData)[_additionalVirtualProperties] = extraProps;
+                        // "Project" properties from the relationship onto the target VNode data request, so they can be optionally selected for inclusion:
+                        const projectedRelationshipProps = virtualPropsForRelationship(virtualProp);
+                        getInternalData(subRequestData)[_projectedVirtualProperties] = projectedRelationshipProps;
                     }
                     const subRequest = buildSubRequest(subRequestData);
                     // Save the request in our internal data:
-                    if (internalData[_virtualProperties][propKey] !== undefined) {
+                    if (internalData[_includedVirtualProperties][propKey] !== undefined) {
                         throw new Error(`Virtual Property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
                     }
-                    internalData[_virtualProperties][propKey] = {
+                    internalData[_includedVirtualProperties][propKey] = {
                         ifFlag: options?.ifFlag,
                         shapeData: getInternalData(subRequest),
                     };
@@ -270,10 +276,10 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
             } else if (virtualProp.type === VirtualPropType.CypherExpression) {
                 return (options?: {ifFlag: string|undefined}) => {
                     // Save the request in our internal data:
-                    if (internalData[_virtualProperties][propKey] !== undefined) {
+                    if (internalData[_includedVirtualProperties][propKey] !== undefined) {
                         throw new Error(`Virtual Property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
                     }
-                    internalData[_virtualProperties][propKey] = {
+                    internalData[_includedVirtualProperties][propKey] = {
                         ifFlag: options?.ifFlag,
                     };
                     // Return the same object so more operations can be chained on:
@@ -290,10 +296,11 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
 
 /**
  * With a -to-many Virtual Property, there may be some properties on the _relationship_ that connects the target VNode
- * to the current VNode. This function helps to make those relationship properties available on the target VNode when
- * it's accessed via a virtual property that sets "relationshipProps".
+ * to the current VNode. This function helps to "project" those relationship properties, making them available on the
+ * target VNode when it's accessed via a virtual property that sets "relationshipProps".
  * 
- * In the movie example, this makes the "role" field available on Movie when accessed via the Person.movies virtual prop
+ * In the movie example, this makes the "role" property available on Movie when accessed via the Person.movies.role
+ * virtual property, even though there is normally no Movie.role property.
  * 
  * @param virtualProp The virtual property that may specify relationship props, via .relationshipProps
  */
@@ -330,9 +337,9 @@ export type VNodeDataRequestBuilder<VNT extends VNodeType> = VNodeDataRequest<VN
 export function VNodeDataRequest<VNT extends VNodeType>(vnt: VNT): VNodeDataRequestBuilder<VNT> {
     const data: VNDRInternalData = {
         [_vnodeType]: vnt,
-        [_rawProperties]: {},
-        [_virtualProperties]: {},
-        [_additionalVirtualProperties]: {}
+        [_includedProperties]: {},
+        [_includedVirtualProperties]: {},
+        [_projectedVirtualProperties]: {}
     };
     return new Proxy(data, vndrProxyHandler) as any;
 }
@@ -341,17 +348,23 @@ export function VNodeDataRequest<VNT extends VNodeType>(vnt: VNT): VNodeDataRequ
  * When a VNodeDataRequest is executed ("pulled") from the database, this defines the shape/type of the response
  */
 type VNodeDataResponse<VNDR extends VNodeDataRequest<any, any, any, any>> = (
-    VNDR extends VNodeDataRequest<infer VNT, infer rawProps, infer maybeRawProps, infer virtualPropSpec> ? (
-        {[rawProp in rawProps]: PropertyDataType<VNT["properties"], rawProp>} &
-        {[conditionalRawProp in maybeRawProps]?: PropertyDataType<VNT["properties"], conditionalRawProp>} &
-        {[virtualProp in keyof virtualPropSpec]: (
-            virtualPropSpec[virtualProp] extends RecursiveVirtualPropRequestManySpec<any, infer Spec> ?
-                VNodeDataResponse<Spec>[] | (virtualPropSpec[virtualProp]["ifFlag"] extends string ? undefined : never)
-            : virtualPropSpec[virtualProp] extends RecursiveVirtualPropRequestOneSpec<any, infer Spec> ?
+    VNDR extends VNodeDataRequest<infer VNT, infer includedProperties, infer flaggedProperties, infer includedVirtualProperties> ? (
+        // Raw properties that are definitely included:
+        {[rawProp in includedProperties]: PropertyDataType<VNT["properties"], rawProp>} &
+        // Raw properties that are conditionally included, depending on whether a certain flag is set or not:
+        {[conditionalRawProp in flaggedProperties]?: PropertyDataType<VNT["properties"], conditionalRawProp>} &
+        // Virtual properties that are included, possibly conditional on some flag:
+        {[virtualProp in keyof includedVirtualProperties]: (
+            // A -to-many virtual property is included:
+            includedVirtualProperties[virtualProp] extends IncludedVirtualManyProp<any, infer Spec> ?
+                VNodeDataResponse<Spec>[] | (includedVirtualProperties[virtualProp]["ifFlag"] extends string ? undefined : never)
+            // A -to-one virtual property is included:
+            : includedVirtualProperties[virtualProp] extends IncludedVirtualOneProp<any, infer Spec> ?
                 // 1:1 relationships are currently always optional at the DB level, so this may be null
-                VNodeDataResponse<Spec> | null | (virtualPropSpec[virtualProp]["ifFlag"] extends string ? undefined : never)
-            : virtualPropSpec[virtualProp] extends RecursiveVirtualPropRequestCypherExpressionSpec<infer VirtPropDefinition> ?
-                ReturnTypeFor<VirtPropDefinition["valueType"]> | (virtualPropSpec[virtualProp]["ifFlag"] extends string ? undefined : never)
+                VNodeDataResponse<Spec> | null | (includedVirtualProperties[virtualProp]["ifFlag"] extends string ? undefined : never)
+            // A cypher expression virtual property is included:
+            : includedVirtualProperties[virtualProp] extends IncludedVirtualCypherExpressionProp<infer VirtPropDefinition> ?
+                ReturnTypeFor<VirtPropDefinition["valueType"]> | (includedVirtualProperties[virtualProp]["ifFlag"] extends string ? undefined : never)
             : never
         )}
     ) : never
@@ -371,9 +384,9 @@ export interface DataRequestFilter {
     where?: string;
     /** Params: Values that are referenced in the "where" predicate, if any. */
     params?: {[key: string]: any};
-    /** Order the results by one of the fields (e.g. "name" or "name DESC") */
+    /** Order the results by one of the properties (e.g. "name" or "name DESC") */
     orderBy?: string;
-    /** Optional fields to include in the response */
+    /** A list of flags that determines which flagged/conditional properties should get included in the response */
     flags?: string[];
 }
 
@@ -529,8 +542,8 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         const virtPropsMap: VirtualPropertiesMap = {};
         // For each virtual prop:
         getVirtualPropertiesIncludedIn(request, rootFilter).forEach(propName => {
-            const virtProp = request[_vnodeType].virtualProperties[propName] || request[_additionalVirtualProperties][propName];
-            const virtPropRequest = request[_virtualProperties][propName].shapeData;
+            const virtProp = request[_vnodeType].virtualProperties[propName] || request[_projectedVirtualProperties][propName];
+            const virtPropRequest = request[_includedVirtualProperties][propName].shapeData;
             const variableName = generateNameFor(propName);
             virtPropsMap[propName] = variableName;
             if (virtProp.type === VirtualPropType.ManyRelationship) {
@@ -591,7 +604,7 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
     const request: VNodeDataRequest<VNodeType> = typeof arg2 === "function" ? arg2(VNodeDataRequest(arg1)) : arg1;
     const requestData: VNDRInternalData = getInternalData(request);
     const filter: DataRequestFilter = (typeof arg2 === "function" ? arg3 : arg2) || {};
-    const topLevelFields = getAllFieldsIncludedIn(requestData, filter);
+    const topLevelFields = getAllPropertiesIncludedIn(requestData, filter);
 
     const query = buildCypherQuery(request, filter);
     log.debug(query.query);
@@ -676,12 +689,12 @@ function getInternalData(request: VNodeDataRequest<any, any, any, any>): VNDRInt
  */
 function getRawPropertiesIncludedIn(request: VNDRInternalData, filter: DataRequestFilter): string[] {
     return Object.keys(request[_vnodeType].properties).filter(propName =>
-        // request[_rawProperties][propName] will be either undefined (exclude), true (include), or a string (include based on flag)
-        typeof request[_rawProperties][propName] === "string" ?
+        // request[_includedProperties][propName] will be either undefined (exclude), true (include), or a string (include based on flag)
+        typeof request[_includedProperties][propName] === "string" ?
             // Conditionally include this raw prop, if a flag is set in the filter:
-            filter.flags?.includes(request[_rawProperties][propName] as string)
+            filter.flags?.includes(request[_includedProperties][propName] as string)
         :
-            request[_rawProperties][propName] === true
+            request[_includedProperties][propName] === true
     );
 }
 
@@ -694,12 +707,12 @@ function getRawPropertiesIncludedIn(request: VNDRInternalData, filter: DataReque
  */
 function getVirtualPropertiesIncludedIn(request: VNDRInternalData, filter: DataRequestFilter): string[] {
     const keys = Object.keys(request[_vnodeType].virtualProperties);
-    keys.push(...Object.keys(request[_additionalVirtualProperties]))
+    keys.push(...Object.keys(request[_projectedVirtualProperties]));
     return keys.filter(propName =>
-        propName in request[_virtualProperties] && (
-            request[_virtualProperties][propName].ifFlag ?
+        propName in request[_includedVirtualProperties] && (
+            request[_includedVirtualProperties][propName].ifFlag ?
                 // Conditionally include this virtual prop, if a flag is set in the filter:
-                filter.flags?.includes(request[_virtualProperties][propName].ifFlag as string)
+                filter.flags?.includes(request[_includedVirtualProperties][propName].ifFlag as string)
             :
                 true
         )
@@ -713,7 +726,7 @@ function getVirtualPropertiesIncludedIn(request: VNDRInternalData, filter: DataR
  * @param request 
  * @param filter 
  */
-function getAllFieldsIncludedIn(request: VNDRInternalData, filter: DataRequestFilter): string[] {
+function getAllPropertiesIncludedIn(request: VNDRInternalData, filter: DataRequestFilter): string[] {
     return [
         ...getRawPropertiesIncludedIn(request, filter),
         ...getVirtualPropertiesIncludedIn(request, filter),
