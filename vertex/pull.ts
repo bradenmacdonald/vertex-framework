@@ -462,6 +462,19 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         workingVars.add(variableName);
     }
 
+    /** Add a variable computed using some cypher expression */
+    const addCypherExpression = (variableName: string, virtProp: VirtualCypherExpressionProperty, parentNodeVariable: string): void => {
+        if (Object.keys(virtProp.cypherExpression.params).length) {
+            throw new Error(`A virtual property cypherExpression cannot have parameters.`);
+            // ^ This could be supported in the future though, if useful.
+        }
+
+        const cypherExpression = virtProp.cypherExpression.queryString.replace("@this", parentNodeVariable);
+
+        query += `WITH ${[...workingVars].join(", ")}, (${cypherExpression}) AS ${variableName}\n`;
+        workingVars.add(variableName);
+    }
+
     type VirtualPropertiesMap = {[propName: string]: string};
     // Add subqueries for each of this node's virtual properties.
     // Returns a map that maps from the virtual property's name (e.g. "friends") to the variable name/placeholder used
@@ -480,6 +493,8 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
             } else if (virtProp.type === VirtualPropType.OneRelationship) {
                 if (virtPropRequest === undefined) { throw new Error(`Missing sub-request for x:one virtProp "${propName}"!`); }
                 addOneRelationshipSubquery(variableName, virtProp, parentNodeVariable, virtPropRequest);
+            } else if (virtProp.type === VirtualPropType.CypherExpression) {
+                addCypherExpression(variableName, virtProp, parentNodeVariable);
             } else {
                 throw new Error("Not implemented yet.");
                 // TODO: Build computed virtual props, 1:1 virtual props

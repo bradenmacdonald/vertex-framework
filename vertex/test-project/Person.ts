@@ -55,7 +55,8 @@ export class Person extends VNodeType {
         },
         age: {
             type: VirtualPropType.CypherExpression,
-            cypherExpression: C`duration.between(@this.dateOfBirth, date()).years`,
+            // Note: currently, "dateOfBirth" is stored as a string - TODO: Add proper date support
+            cypherExpression: C`duration.between(date(@this.dateOfBirth), date()).years`,
             valueType: "number" as const,
         }
     };

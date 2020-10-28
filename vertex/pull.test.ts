@@ -260,16 +260,15 @@ suite("pull", () => {
         });
 
         suite("Cypher expression: get a person's age", () => {
+            // This tests the "age" virtual property, which computes the Person's age within Neo4j and returns it
             const request = VNodeDataRequest(Person).name.dateOfBirth.age();
-            // This filter will match two movies: "Avengers: Infinity War" (MCU franchise) and "The Spy Who Dumped Me" (no franchise)
             const filter: DataRequestFilter = {key: "chris-pratt"};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
                 assert.equal(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
+                    WITH _node, (duration.between(date(_node.dateOfBirth), date()).years) AS _age1
 
-                    WITH _node, (duration.between(@this.dateOfBirth, date()).years) AS _age1
-                    
                     RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth, _age1 AS age ORDER BY _node.name
                 `);
             });
