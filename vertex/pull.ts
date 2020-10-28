@@ -11,6 +11,7 @@ import {
 } from "./vnode";
 import type { WrappedTransaction } from "./transaction";
 import type { ReturnTypeFor } from "./cypher-return-shape";
+import { C } from "./cypher-sugar";
 
 ////////////////////////////// VNode Data Request format ////////////////////////////////////////////////////////////
 
@@ -170,6 +171,7 @@ type VirtualCypherExpressionPropertyForProp<Prop> = (
 const _vnodeType = Symbol("vnodeType");
 const _rawProperties = Symbol("rawProperties");
 const _virtualProperties = Symbol("virtualProperties");
+const _additionalVirtualProperties = Symbol("_additionalVirtualProperties");
 const _internalData = Symbol("internalData");
 
 /** Internal data in a VNodeDataRequest object */
@@ -182,6 +184,10 @@ interface VNDRInternalData {
     // Virtual properties (like related objects) to pull from the database, along with details such as what data to pull
     // in turn for those VNodes
     [_virtualProperties]: {[propName: string]: {ifFlag: string|undefined, shapeData?: VNDRInternalData}},
+    // Additional virtual properties currently available on this VNode, which may or may not be included in the request.
+    // These are coming from a relationship, e.g. "Role" in the movies example.
+    // If one of these additional virtual props should be included in the request, it will be in _virtualProperties too.
+    [_additionalVirtualProperties]: {[propName: string]: VirtualCypherExpressionProperty}
 }
 
 /** Proxy handler that works with the VNodeDataRequest() function to implement the VNodeDataRequest API. */
@@ -235,7 +241,7 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
             }
         }
 
-        const virtualProp = vnodeType.virtualProperties[propKey];
+        const virtualProp = vnodeType.virtualProperties[propKey] || internalData[_additionalVirtualProperties][propKey];
         if (virtualProp !== undefined) {
             // Operation to add a virtual property:
             if (virtualProp.type === VirtualPropType.ManyRelationship || virtualProp.type === VirtualPropType.OneRelationship) {
@@ -243,7 +249,13 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
                 const targetVNodeType = virtualProp.target;
                 return (buildSubRequest: (subRequest: VNodeDataRequest<typeof targetVNodeType>) => VNodeDataRequest<typeof targetVNodeType>, options?: {ifFlag: string|undefined}) => {
                     // Build the subrequest immediately, using the supplied code:
-                    const subRequest = buildSubRequest(VNodeDataRequest(targetVNodeType));  // TODO: add in the virtual props from the relationship
+                    const subRequestData = VNodeDataRequest(targetVNodeType); // An empty request - the buildSubRequest() will use it to pick which fields of the target type should be included.
+                    if (virtualProp.type === VirtualPropType.ManyRelationship) {
+                        // Add properties from the relationship to the target VNode data request, so they can be optionally selected for inclusion:
+                        const extraProps = virtualPropsForRelationship(virtualProp);
+                        getInternalData(subRequestData)[_additionalVirtualProperties] = extraProps;
+                    }
+                    const subRequest = buildSubRequest(subRequestData);
                     // Save the request in our internal data:
                     if (internalData[_virtualProperties][propKey] !== undefined) {
                         throw new Error(`Virtual Property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
@@ -276,6 +288,36 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
     },
 };
 
+/**
+ * With a -to-many Virtual Property, there may be some properties on the _relationship_ that connects the target VNode
+ * to the current VNode. This function helps to make those relationship properties available on the target VNode when
+ * it's accessed via a virtual property that sets "relationshipProps".
+ * 
+ * In the movie example, this makes the "role" field available on Movie when accessed via the Person.movies virtual prop
+ * 
+ * @param virtualProp The virtual property that may specify relationship props, via .relationshipProps
+ */
+function virtualPropsForRelationship(virtualProp: VirtualManyRelationshipProperty): {[propName: string]: VirtualCypherExpressionProperty} {
+    const extraProps: {[propName: string]: VirtualCypherExpressionProperty} = {}
+    if (virtualProp.relationshipProps !== undefined) {
+        // Add properties from the relationship to the target VNode data request, so they can be optionally selected for inclusion:
+        for (const relationshipPropName in virtualProp.relationshipProps) {
+            const joiValidator = virtualProp.relationshipProps[relationshipPropName];
+            extraProps[relationshipPropName] = {
+                type: VirtualPropType.CypherExpression,
+                cypherExpression: C("@rel." + relationshipPropName),
+                valueType: (
+                    joiValidator.type === "string" ? "string" :
+                    joiValidator.type === "boolean" ? "boolean" :
+                    joiValidator.type === "number" ? "number" :
+                    "any"
+                ),
+            };
+        }
+    }
+    return extraProps;
+}
+
 // The full VNodeDataRequest<A, B, C, D> type is private and not exported, but it's necessary/useful to export the basic version:
 export type VNodeDataRequestBuilder<VNT extends VNodeType> = VNodeDataRequest<VNT>;
 
@@ -290,6 +332,7 @@ export function VNodeDataRequest<VNT extends VNodeType>(vnt: VNT): VNodeDataRequ
         [_vnodeType]: vnt,
         [_rawProperties]: {},
         [_virtualProperties]: {},
+        [_additionalVirtualProperties]: {}
     };
     return new Proxy(data, vndrProxyHandler) as any;
 }
@@ -399,6 +442,8 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
             .replace("@this", parentNodeVariable)
             .replace("@target", newTargetVar)
         );
+        // If (one of) the relationship(s) in the MATCH (@self)-...relationships...-(@target) expression is named via the @rel placeholder,
+        // then replace that with a variable that can be used to fetch properties from the relationship or sort by them.
         let relationshipVariable: string|undefined;
         if (matchClause.includes("@rel")) {
             relationshipVariable = generateNameFor("rel");
@@ -408,10 +453,11 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         query += `\nOPTIONAL MATCH ${matchClause}\n`;
 
         // Add additional subqeries, if any:
-        const virtPropsMap = addVirtualPropsForNode(newTargetVar, request);
+        const virtPropsMap = addVirtualPropsForNode(newTargetVar, request, relationshipVariable);
 
         // Order the results of this subquery (has to happen immediately before the WITH...collect() line):
         if (virtProp.target.defaultOrderBy) {
+            // TODO: allow ordering by properties of the relationship
             query += `WITH ${[...workingVars].join(", ")} ORDER BY ${newTargetVar}.${virtProp.target.defaultOrderBy}\n`;
         }
         // Construct the WITH statement that ends this subquery, collect()ing many related nodes into a single array property
@@ -463,13 +509,13 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
     }
 
     /** Add a variable computed using some cypher expression */
-    const addCypherExpression = (variableName: string, virtProp: VirtualCypherExpressionProperty, parentNodeVariable: string): void => {
+    const addCypherExpression = (variableName: string, virtProp: VirtualCypherExpressionProperty, parentNodeVariable: string, relationshipVariable?: string): void => {
         if (Object.keys(virtProp.cypherExpression.params).length) {
             throw new Error(`A virtual property cypherExpression cannot have parameters.`);
             // ^ This could be supported in the future though, if useful.
         }
 
-        const cypherExpression = virtProp.cypherExpression.queryString.replace("@this", parentNodeVariable);
+        const cypherExpression = virtProp.cypherExpression.queryString.replace("@this", parentNodeVariable).replace("@rel", relationshipVariable || "@rel");
 
         query += `WITH ${[...workingVars].join(", ")}, (${cypherExpression}) AS ${variableName}\n`;
         workingVars.add(variableName);
@@ -479,11 +525,11 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
     // Add subqueries for each of this node's virtual properties.
     // Returns a map that maps from the virtual property's name (e.g. "friends") to the variable name/placeholder used
     // in the query (e.g. "friends_1")
-    const addVirtualPropsForNode = (parentNodeVariable: string, request: VNDRInternalData): VirtualPropertiesMap => {
+    const addVirtualPropsForNode = (parentNodeVariable: string, request: VNDRInternalData, relationshipVariable?: string): VirtualPropertiesMap => {
         const virtPropsMap: VirtualPropertiesMap = {};
         // For each virtual prop:
         getVirtualPropertiesIncludedIn(request, rootFilter).forEach(propName => {
-            const virtProp = request[_vnodeType].virtualProperties[propName];
+            const virtProp = request[_vnodeType].virtualProperties[propName] || request[_additionalVirtualProperties][propName];
             const virtPropRequest = request[_virtualProperties][propName].shapeData;
             const variableName = generateNameFor(propName);
             virtPropsMap[propName] = variableName;
@@ -494,7 +540,7 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
                 if (virtPropRequest === undefined) { throw new Error(`Missing sub-request for x:one virtProp "${propName}"!`); }
                 addOneRelationshipSubquery(variableName, virtProp, parentNodeVariable, virtPropRequest);
             } else if (virtProp.type === VirtualPropType.CypherExpression) {
-                addCypherExpression(variableName, virtProp, parentNodeVariable);
+                addCypherExpression(variableName, virtProp, parentNodeVariable, relationshipVariable);
             } else {
                 throw new Error("Not implemented yet.");
                 // TODO: Build computed virtual props, 1:1 virtual props
@@ -647,16 +693,9 @@ function getRawPropertiesIncludedIn(request: VNDRInternalData, filter: DataReque
  * @param filter 
  */
 function getVirtualPropertiesIncludedIn(request: VNDRInternalData, filter: DataRequestFilter): string[] {
-    Object.keys(request[_vnodeType].virtualProperties).forEach(propName => {
-        const cond = propName in request[_virtualProperties] && (
-            request[_virtualProperties][propName].ifFlag ?
-                // Conditionally include this virtual prop, if a flag is set in the filter:
-                filter.flags?.includes(request[_virtualProperties][propName].ifFlag as string)
-            :
-                true
-        );
-    });
-    return Object.keys(request[_vnodeType].virtualProperties).filter(propName =>
+    const keys = Object.keys(request[_vnodeType].virtualProperties);
+    keys.push(...Object.keys(request[_additionalVirtualProperties]))
+    return keys.filter(propName =>
         propName in request[_virtualProperties] && (
             request[_virtualProperties][propName].ifFlag ?
                 // Conditionally include this virtual prop, if a flag is set in the filter:

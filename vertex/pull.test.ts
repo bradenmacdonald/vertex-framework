@@ -223,6 +223,8 @@ suite("pull", () => {
             const infinityWar = rdj.movies[0];
             // We don't really enforce relationship properties or know when they're nullable so assume they can always be null:
             checkType<AssertPropertyPresent<typeof infinityWar, "role", string|null>>();
+            assert.equal(rdj.movies[1].title, "Tropic Thunder");
+            assert.equal(rdj.movies[1].role, "Kirk Lazarus");
         });
 
         // Test a to-one virtual property/relationship:
