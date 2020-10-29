@@ -1,6 +1,7 @@
 import * as Joi from "@hapi/joi";
-import { Transaction } from "neo4j-driver";
-import { CypherQuery } from "./cypher-sugar";
+import type { Transaction } from "neo4j-driver";
+import type { CypherQuery } from "./cypher-sugar";
+import type { FieldType } from "./cypher-return-shape";
 import { UUID } from "./lib/uuid";
 
 /** Strict UUID Validator for Joi */
@@ -130,23 +131,35 @@ export const VirtualPropType = {
     // inference unless it's always explicitly used as "VirtualPropType.ManyRelationship as const", which is annoying.
     ManyRelationship: "many-relationship" as const,
     OneRelationship: "one-relationship" as const,
+    CypherExpression: "cypher-expression" as const,
 }
 
 export interface VirtualManyRelationshipProperty {
     type: typeof VirtualPropType.ManyRelationship;
     query: CypherQuery;
     target: VNodeType;
-    //annotations?: {[K: string]: {cypher: string, }};
+    // One of the relationships in the query can be assigned to the variable @rel, and if so, specify its props here so
+    // that the relationship properties can be optionally included (as part of the target node)
+    relationshipProps?: PropSchema,
+    // How should this relationship be ordered by default, if not by the default ordering of the target VNode?
+    // Should be a cypher expression that can reference fields on @this, @target, or @rel (if @rel is used in the query)
+    defaultOrderBy?: string,
 }
 export interface VirtualOneRelationshipProperty {
     type: typeof VirtualPropType.OneRelationship,
     query: CypherQuery,
     target: VNodeType;
 }
+export interface VirtualCypherExpressionProperty {
+    type: typeof VirtualPropType.CypherExpression,
+    cypherExpression: CypherQuery,
+    valueType: FieldType,
+}
 
 export type VirtualPropertyDefinition = (
-    VirtualManyRelationshipProperty|
-    VirtualOneRelationshipProperty
+    |VirtualManyRelationshipProperty
+    |VirtualOneRelationshipProperty
+    |VirtualCypherExpressionProperty
 );
 
 const registeredNodeTypes: {[label: string]: VNodeType} = {};

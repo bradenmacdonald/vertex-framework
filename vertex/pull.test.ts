@@ -98,7 +98,7 @@ suite("pull", () => {
             });
             test("Partial Person request with sorting (oldest first)", async () => {
                 const peopleOldestFirst = await testGraph.pull(partialPersonRequest, {
-                    orderBy: "dateOfBirth",
+                    orderBy: "@this.dateOfBirth",
                     // Test ordering by a field that's not included in the response.
                 });
                 assert.equal(peopleOldestFirst[0].name, "Robert Downey Jr.");
@@ -106,7 +106,7 @@ suite("pull", () => {
             });
             test("Partial Person request with sorting (youngest first)", async () => {
                 const peopleYoungestFirst = await testGraph.pull(partialPersonRequest, {
-                    orderBy: "dateOfBirth DESC",
+                    orderBy: "@this.dateOfBirth DESC",
                     flags: ["includeDOB"],
                 });
                 assert.equal(peopleYoungestFirst[0].name, "Karen Gillan");
@@ -178,8 +178,8 @@ suite("pull", () => {
                 assert.equal(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
 
-                    OPTIONAL MATCH (_node)-[:ACTED_IN]->(_movie1:TestMovie:VNode)
-                    WITH _node, _movie1 ORDER BY _movie1.year DESC
+                    OPTIONAL MATCH (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _movie1, _rel1 ORDER BY _movie1.year DESC
                     WITH _node, collect(_movie1 {.title, .year}) AS _movies1
 
                     RETURN _movies1 AS movies ORDER BY _node.name
@@ -207,6 +207,51 @@ suite("pull", () => {
                 const firstTitle = chrisPratt.movies[0].title;
                 assert.equal(firstTitle, "Avengers: Infinity War");
                 checkType<AssertEqual<typeof firstTitle, string>>();
+            });
+        });
+
+        // Test a to-many virtual property/relationship with a property on the relationship:
+        test("Get all Robert Downey Jr. Movies, annotated with role", async () => {
+            const rdj = await testGraph.pullOne(Person, p => p
+                .name
+                .movies(m => m.title.year.role())
+            , {key: "rdj", });
+
+            assert.equal(rdj.movies.length, 2);
+            assert.equal(rdj.movies[0].title, "Avengers: Infinity War");
+            assert.equal(rdj.movies[0].role, "Tony Stark / Iron Man");  // "role" is a property stored on the relationship
+            const infinityWar = rdj.movies[0];
+            // We don't really enforce relationship properties or know when they're nullable so assume they can always be null:
+            checkType<AssertPropertyPresent<typeof infinityWar, "role", string|null>>();
+            assert.equal(rdj.movies[1].title, "Tropic Thunder");
+            assert.equal(rdj.movies[1].role, "Kirk Lazarus");
+        });
+
+        suite("Test ordering a to-many virtual property by a relationship property", async () => {
+            const request = VNodeDataRequest(Person).name.moviesOrderedByRole(m => m.title.year.role())
+            const filter: DataRequestFilter = {key: "rdj", };
+            test("buildCypherQuery", () => {
+                const query = buildCypherQuery(request, filter);
+                assert.equal(query.query, dedent`
+                    MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
+
+                    OPTIONAL MATCH (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _movie1, _rel1, (_rel1.role) AS _role1
+                    WITH _node, _movie1, _rel1, _role1 ORDER BY _rel1.role
+                    WITH _node, collect(_movie1 {.title, .year, role: _role1}) AS _moviesOrderedByRole1
+
+                    RETURN _node.name AS name, _moviesOrderedByRole1 AS moviesOrderedByRole ORDER BY _node.name
+                `);
+            });
+            test("pull", async () => {
+                const rdj = await testGraph.pullOne(request, filter);
+                assert.equal(rdj.moviesOrderedByRole.length, 2);
+                // Kirk Lazarus comes before Tony Stark:
+                assert.equal(rdj.moviesOrderedByRole[0].title, "Tropic Thunder");
+                assert.equal(rdj.moviesOrderedByRole[0].role, "Kirk Lazarus");
+                assert.equal(rdj.moviesOrderedByRole[1].title, "Avengers: Infinity War");
+                assert.equal(rdj.moviesOrderedByRole[1].role, "Tony Stark / Iron Man");
+                // Compare this to the previous test case for the role prop, where the order was different.
             });
         });
 
@@ -244,6 +289,34 @@ suite("pull", () => {
             });
         });
 
+        suite("Cypher expression: get a person's age", () => {
+            // This tests the "age" virtual property, which computes the Person's age within Neo4j and returns it
+            const request = VNodeDataRequest(Person).name.dateOfBirth.age();
+            const filter: DataRequestFilter = {key: "chris-pratt"};
+            test("buildCypherQuery", () => {
+                const query = buildCypherQuery(request, filter);
+                assert.equal(query.query, dedent`
+                    MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
+                    WITH _node, (duration.between(date(_node.dateOfBirth), date()).years) AS _age1
+
+                    RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth, _age1 AS age ORDER BY _node.name
+                `);
+            });
+            test("pull", async () => {
+                const chrisPratt = await testGraph.pullOne(request, filter);
+                // A function to compute the age in JavaScript, from https://stackoverflow.com/a/7091965 :
+                const getAge = (dateString: string): number => {
+                    const today = new Date(), birthDate = new Date(dateString);
+                    let age = today.getFullYear() - birthDate.getFullYear();
+                    const m = today.getMonth() - birthDate.getMonth();
+                    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) { age--; }
+                    return age;
+                }
+                checkType<AssertEqual<typeof chrisPratt["age"], number>>();
+                assert.equal(chrisPratt.age, getAge(chrisPratt.dateOfBirth));
+            });
+        })
+
         suite("deep pull", () => {
             // Build a horribly deep query:
             // For every person, find their friends, then find their friend's costars, then their costar's movies and friends' movies
@@ -266,14 +339,14 @@ suite("pull", () => {
                     
                     OPTIONAL MATCH (_person1)-[:ACTED_IN]->(:TestMovie:VNode)<-[:ACTED_IN]-(_person2:TestPerson:VNode)
                     
-                    OPTIONAL MATCH (_person2)-[:ACTED_IN]->(_movie1:TestMovie:VNode)
-                    WITH _node, _person1, _person2, _movie1 ORDER BY _movie1.year DESC
+                    OPTIONAL MATCH (_person2)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _person1, _person2, _movie1, _rel1 ORDER BY _movie1.year DESC
                     WITH _node, _person1, _person2, collect(_movie1 {.title, .year}) AS _movies1
                     
                     OPTIONAL MATCH (_person2)-[:FRIEND_OF]-(_person3:TestPerson:VNode)
                     
-                    OPTIONAL MATCH (_person3)-[:ACTED_IN]->(_movie1:TestMovie:VNode)
-                    WITH _node, _person1, _person2, _movies1, _person3, _movie1 ORDER BY _movie1.year DESC
+                    OPTIONAL MATCH (_person3)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _person1, _person2, _movies1, _person3, _movie1, _rel1 ORDER BY _movie1.year DESC
                     WITH _node, _person1, _person2, _movies1, _person3, collect(_movie1 {.title, .year}) AS _movies2
                     WITH _node, _person1, _person2, _movies1, _person3, _movies2 ORDER BY _person3.name
                     WITH _node, _person1, _person2, _movies1, collect(_person3 {.name, movies: _movies2}) AS _friends1

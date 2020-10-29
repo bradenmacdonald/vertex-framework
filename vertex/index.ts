@@ -57,6 +57,7 @@ export {
     ValidationError,
     VirtualManyRelationshipProperty,
     VirtualOneRelationshipProperty,
+    VirtualCypherExpressionProperty,
     VirtualPropType,
     VirtualPropertyDefinition,
     VirtualPropsSchema,
