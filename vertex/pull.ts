@@ -377,9 +377,9 @@ export interface DataRequestFilter {
      * Filter the main node(s) of this data request to only those that match this predicate.
      * 
      * Examples:
-     *     @.name = $name
-     *     @.dateOfbirth < date("2002-01-01")
-     *     EXISTS { MATCH (@)-->(m) WHERE @.age = m.age }
+     *     @this.name = $name
+     *     @this.dateOfbirth < date("2002-01-01")
+     *     EXISTS { MATCH (@)-->(m) WHERE @this.age = m.age }
      */
     where?: string;
     /** Params: Values that are referenced in the "where" predicate, if any. */
@@ -435,7 +435,7 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         }
     }
     if (rootFilter.where) {
-        query += `WHERE ${rootFilter.where.replace("@", "_node")}\n`;
+        query += `WHERE ${rootFilter.where.replace("@this", "_node")}\n`;
     }
 
     

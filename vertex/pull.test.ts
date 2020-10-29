@@ -89,7 +89,7 @@ suite("pull", () => {
             });
             test("pull - with name filter", async () => {
                 const people = await testGraph.pull(partialPersonRequest, {
-                    where: "@.name STARTS WITH $nameStart",
+                    where: "@this.name STARTS WITH $nameStart",
                     params: {nameStart: "Ka"},
                 });
 
@@ -132,7 +132,7 @@ suite("pull", () => {
                 assert.equal(query.params._nodeUuid, "00000000-0000-0000-0000-000000001234");
             });
             test("buildCypherQuery - matching with WHERE filter", () => {
-                const query = buildCypherQuery(basicPersonRequest, {where: "@.name = $nameMatch", params: {nameMatch: "Dwayne Johnson"}});
+                const query = buildCypherQuery(basicPersonRequest, {where: "@this.name = $nameMatch", params: {nameMatch: "Dwayne Johnson"}});
 
                 assert.equal(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)
@@ -259,7 +259,7 @@ suite("pull", () => {
         suite("Get a movie's franchise", () => {
             const request = VNodeDataRequest(Movie).title.franchise(f => f.name);
             // This filter will match two movies: "Avengers: Infinity War" (MCU franchise) and "The Spy Who Dumped Me" (no franchise)
-            const filter: DataRequestFilter = {where: "@.year = 2018"};
+            const filter: DataRequestFilter = {where: "@this.year = 2018"};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
                 assert.equal(query.query, dedent`
