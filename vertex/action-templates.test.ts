@@ -1,4 +1,4 @@
-import { suite, test, assertRejects, isolateTestWrites, assert } from "./lib/intern-tests";
+import { suite, test, assertRejects, configureTestData, assert } from "./lib/intern-tests";
 import {
     C,
     UUID,
@@ -9,7 +9,7 @@ import { testGraph,  CreatePerson, Person, CreateMovieFranchise, CreateMovie, Mo
 // Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
 
 suite("action templates", () => {
-    isolateTestWrites();
+    configureTestData({loadTestProjectData: false, isolateTestWrites: true});
 
     suite("defaultCreateFor", () => {
 

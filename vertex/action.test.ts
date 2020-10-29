@@ -1,4 +1,4 @@
-import { suite, test, assertRejects, isolateTestWrites, assert } from "./lib/intern-tests";
+import { suite, test, assertRejects, assert, configureTestData } from "./lib/intern-tests";
 
 import { testGraph, CreatePerson, Person } from "./test-project";
 import { SYSTEM_UUID } from "./schema";
@@ -7,7 +7,7 @@ import { C, UUID, log } from ".";
 // Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
 
 suite("action", () => {
-    isolateTestWrites();
+    configureTestData({isolateTestWrites: true, loadTestProjectData: false});
 
     suite("test isolation", () => {
         // Test that our test cases have sufficient test isolation, via isolateTestWrites()

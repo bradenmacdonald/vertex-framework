@@ -1,7 +1,10 @@
 import { Vertex } from "../vertex";
+import { VertexTestDataSnapshot } from "../vertex-interface";
 import { CreateMovie } from "./Movie";
 import { CreateMovieFranchise } from "./MovieFranchise";
 import { CreatePerson, ActedIn, RecordFriends } from "./Person";
+
+let dataSnapshot: VertexTestDataSnapshot;
 
 /**
  * Create data that can be used for testing.
@@ -9,6 +12,11 @@ import { CreatePerson, ActedIn, RecordFriends } from "./Person";
  * @param graph 
  */
 export async function createTestData(graph: Vertex): Promise<void> {
+    if (dataSnapshot !== undefined) {
+        await graph.resetDBToSnapshot(dataSnapshot);
+        return;
+    }
+
     await graph.runAsSystem(
         CreateMovieFranchise({shortId: "mcu", name: "Marvel Cinematic Universe"}),
         CreateMovieFranchise({shortId: "jumanji", name: "Jumanji"}),
@@ -62,4 +70,6 @@ export async function createTestData(graph: Vertex): Promise<void> {
         RecordFriends({personId: "scarlett-johansson", otherPersonId: "rdj"}),
         RecordFriends({personId: "kate-mckinnon", otherPersonId: "ilana-glazer"}),
     );
+    // Save a snapshot to make this faster next time:
+    dataSnapshot = await graph.snapshotDataForTesting();
 }

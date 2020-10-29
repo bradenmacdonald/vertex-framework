@@ -1,4 +1,4 @@
-import { suite, test, assert, assertRejects } from "./lib/intern-tests";
+import { suite, test, assert, assertRejects, configureTestData } from "./lib/intern-tests";
 import { convertNeo4jRecord, ReturnShape, TypedResult } from "./cypher-return-shape";
 import { AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, checkType } from "./lib/ts-utils";
 import { testGraph, Person } from "./test-project";
@@ -78,19 +78,23 @@ suite("Cypher return shape specification", () => {
 
     suite("Convert Nodes to RawVNode", () => {
 
-        test("retrieve a Person VNode", async () => {
-            const shape = ReturnShape({p: Person});
-            const results = await runAndConvert(`MATCH (p:TestPerson:VNode {shortId: $shortId}) RETURN p`, {shortId: "the-rock"}, shape);
-            assert.lengthOf(results, 1);
-            const theRock = results[0].p;
+        suite("test with real data", () => {
+            configureTestData({loadTestProjectData: true, isolateTestWrites: false});
 
-            checkType<AssertPropertyPresent<typeof theRock, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof theRock, "someOtherThing">>();
-
-            assert.strictEqual(theRock.name, "Dwayne Johnson");
-            assert.strictEqual(theRock.shortId, "the-rock");
-            assert.includeMembers(theRock._labels, ["TestPerson", "VNode"]);
-            assert.isNumber(theRock._identity);
+            test("retrieve a Person VNode", async () => {
+                const shape = ReturnShape({p: Person});
+                const results = await runAndConvert(`MATCH (p:TestPerson:VNode {shortId: $shortId}) RETURN p`, {shortId: "the-rock"}, shape);
+                assert.lengthOf(results, 1);
+                const theRock = results[0].p;
+    
+                checkType<AssertPropertyPresent<typeof theRock, "name", string>>();
+                checkType<AssertPropertyAbsent<typeof theRock, "someOtherThing">>();
+    
+                assert.strictEqual(theRock.name, "Dwayne Johnson");
+                assert.strictEqual(theRock.shortId, "the-rock");
+                assert.includeMembers(theRock._labels, ["TestPerson", "VNode"]);
+                assert.isNumber(theRock._identity);
+            });
         });
 
         test("retrieving a non-node as a VNode should fail", async () => {

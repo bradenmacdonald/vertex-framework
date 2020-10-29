@@ -1,4 +1,4 @@
-import { suite, test, assert } from "./lib/intern-tests";
+import { suite, test, assert, configureTestData } from "./lib/intern-tests";
 import { C, CypherQuery, UUID } from "./";
 import { testGraph, Person } from "./test-project";
 import { ProfiledPlan } from "neo4j-driver";
@@ -105,44 +105,48 @@ suite("Cypher syntactic sugar", () => {
         assert.deepEqual(withShortId.params, {p1: shortId});
     });
 
-    test("HAS KEY lookups by UUID are efficient", async () => {
-        // Make sure we're not paying any database lookup performance penalty for using this HAS KEY lookup
-        const uuid = (await testGraph.pullOne(Person, p => p.uuid, {key: "rdj"})).uuid;
+    suite("PROFILE with real data", () => {
+        configureTestData({loadTestProjectData: true, isolateTestWrites: false});
 
-        // A query written as efficiently as possible using normal syntax:
-        const simpleQuery = C`PROFILE MATCH (person:${Person} {uuid: ${uuid}}) RETURN person`;
-        const simpleResult = await testGraph.read(tx => tx.run(simpleQuery.queryString, simpleQuery.params));
-
-        // The same query (UUID lookup) but using HAS KEY:
-        const hasKeyQuery = C`PROFILE MATCH (person:${Person}), person HAS KEY ${uuid} RETURN person`;
-        const hasKeyResult = await testGraph.read(tx => tx.run(hasKeyQuery.queryString, hasKeyQuery.params));
-        
-        assert.equal(
-            // Make sure the database query complexity is the same:
-            sumDbHits(hasKeyResult.summary.profile),
-            sumDbHits(simpleResult.summary.profile),
-        );
-        assert.equal(sumDbHits(hasKeyResult.summary.profile), 3);
-    });
-
-    test("HAS KEY lookups by shortId are efficient", async () => {
-        // Make sure we're not paying any database lookup performance penalty for using this HAS KEY lookup
-        const shortId = "rdj";
-
-        // A query written as efficiently as possible using normal syntax:
-        const simpleQuery = C`PROFILE MATCH (person:${Person})<-[:IDENTIFIES]-(:ShortId {shortId: ${shortId}}) RETURN person LIMIT 1`;
-        const simpleResult = await testGraph.read(tx => tx.run(simpleQuery.queryString, simpleQuery.params));
-
-        // The same query (UUID lookup) but using HAS KEY:
-        const hasKeyQuery = C`PROFILE MATCH (person:${Person}), person HAS KEY ${shortId} RETURN person`;
-        const hasKeyResult = await testGraph.read(tx => tx.run(hasKeyQuery.queryString, hasKeyQuery.params));
-        
-        assert.equal(
-            // Make sure the database query complexity is the same:
-            sumDbHits(hasKeyResult.summary.profile),
-            sumDbHits(simpleResult.summary.profile),
-        );
-        assert.equal(sumDbHits(hasKeyResult.summary.profile), 6);  // 6 is the best we can do while supporting lookups on previous shortId values. Lower would be better.
+        test("HAS KEY lookups by UUID are efficient", async () => {
+            // Make sure we're not paying any database lookup performance penalty for using this HAS KEY lookup
+            const uuid = (await testGraph.pullOne(Person, p => p.uuid, {key: "rdj"})).uuid;
+    
+            // A query written as efficiently as possible using normal syntax:
+            const simpleQuery = C`PROFILE MATCH (person:${Person} {uuid: ${uuid}}) RETURN person`;
+            const simpleResult = await testGraph.read(tx => tx.run(simpleQuery.queryString, simpleQuery.params));
+    
+            // The same query (UUID lookup) but using HAS KEY:
+            const hasKeyQuery = C`PROFILE MATCH (person:${Person}), person HAS KEY ${uuid} RETURN person`;
+            const hasKeyResult = await testGraph.read(tx => tx.run(hasKeyQuery.queryString, hasKeyQuery.params));
+            
+            assert.equal(
+                // Make sure the database query complexity is the same:
+                sumDbHits(hasKeyResult.summary.profile),
+                sumDbHits(simpleResult.summary.profile),
+            );
+            assert.equal(sumDbHits(hasKeyResult.summary.profile), 3);
+        });
+    
+        test("HAS KEY lookups by shortId are efficient", async () => {
+            // Make sure we're not paying any database lookup performance penalty for using this HAS KEY lookup
+            const shortId = "rdj";
+    
+            // A query written as efficiently as possible using normal syntax:
+            const simpleQuery = C`PROFILE MATCH (person:${Person})<-[:IDENTIFIES]-(:ShortId {shortId: ${shortId}}) RETURN person LIMIT 1`;
+            const simpleResult = await testGraph.read(tx => tx.run(simpleQuery.queryString, simpleQuery.params));
+    
+            // The same query (UUID lookup) but using HAS KEY:
+            const hasKeyQuery = C`PROFILE MATCH (person:${Person}), person HAS KEY ${shortId} RETURN person`;
+            const hasKeyResult = await testGraph.read(tx => tx.run(hasKeyQuery.queryString, hasKeyQuery.params));
+            
+            assert.equal(
+                // Make sure the database query complexity is the same:
+                sumDbHits(hasKeyResult.summary.profile),
+                sumDbHits(simpleResult.summary.profile),
+            );
+            assert.equal(sumDbHits(hasKeyResult.summary.profile), 6);  // 6 is the best we can do while supporting lookups on previous shortId values. Lower would be better.
+        });
     });
 
     test("Lets us use .withParams() to add custom parameters", () => {

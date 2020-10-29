@@ -29,8 +29,6 @@ intern.on("beforeRun", async () => {
         await reverseAllMigrations(testGraph);
         // Apply pending migrations
         await runMigrations(testGraph);
-        // Create test data
-        await createTestData(testGraph);
         // Take a snapshot, for test isolation
         dataSnapshot = await testGraph.snapshotDataForTesting();
     } catch (err) {
@@ -45,23 +43,44 @@ intern.on("afterRun", async () => {
     await testGraph.shutdown();
 });
 
-
-/**
- * Call this function within a test suite to set up a form of test isolation, so that changes made to the graph database
- * will be rolled back after each test.
- */
-export function isolateTestWrites(): void {
-    afterEach(async () => {
-        try {
-            if (dataSnapshot === undefined) {
-                throw new Error("beforeRun did not complete - cannot isolate data.");
-            }
-            await testGraph.resetDBToSnapshot(dataSnapshot);
-        } catch (err) {
-            log.error(`Error during isolateTestWrites.afterEach: ${err}`);
-            throw err;
+async function resetTestDbToSnapshot(): Promise<void> {
+    try {
+        if (dataSnapshot === undefined) {
+            throw new Error("beforeRun did not complete - cannot isolate data.");
         }
-    });
+        await testGraph.resetDBToSnapshot(dataSnapshot);
+    } catch (err) {
+        log.error(`Error during isolateTestWrites.afterEach: ${err}`);
+        throw err;
+    }
+}
+
+
+export function configureTestData(args: {
+    // Load the data from test-project/test-data.ts before running these tests?
+    loadTestProjectData: boolean,
+    // If these tests are writing to the database, set this to true and the database will be reset after each test.
+    // If the tests are read-only, set this false for better performance.
+    isolateTestWrites: boolean,
+}): void {
+    if (args.isolateTestWrites) {
+        if (args.loadTestProjectData) {
+            beforeEach(async () => {
+                await createTestData(testGraph);
+            });
+        }
+        // Reset the database to the snapshot after each test
+        afterEach(resetTestDbToSnapshot);
+    } else {
+        // These tests are not writing to the database so we don't need to reset it after each test.
+        // But if the test suite as a whole needs sample data, we need to load it first and reset it after:
+        if (args.loadTestProjectData) {
+            before(async () => {
+                await createTestData(testGraph);
+            });
+            after(resetTestDbToSnapshot);
+        }
+    }
 }
 
 // Template string helper for comparing strings, dedenting a multiline string.

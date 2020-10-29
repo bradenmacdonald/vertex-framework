@@ -1,13 +1,16 @@
-import { suite, test, assert, dedent } from "./lib/intern-tests";
+import { suite, test, assert, dedent, configureTestData } from "./lib/intern-tests";
 
 import { buildCypherQuery, DataRequestFilter, VNodeDataRequest } from "./pull";
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "./lib/ts-utils";
-import { testGraph, Person, Movie } from "./test-project";
+import { testGraph, Person, Movie, createTestData } from "./test-project";
 import { UUID } from "./lib/uuid";
 
 // Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
 
 suite("pull", () => {
+
+    configureTestData({loadTestProjectData: true, isolateTestWrites: false});
+
     suite("simple queries", () => {
 
         suite("Person allProps request (no filter - get all people)", () => {
