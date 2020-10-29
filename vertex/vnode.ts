@@ -141,6 +141,9 @@ export interface VirtualManyRelationshipProperty {
     // One of the relationships in the query can be assigned to the variable @rel, and if so, specify its props here so
     // that the relationship properties can be optionally included (as part of the target node)
     relationshipProps?: PropSchema,
+    // How should this relationship be ordered by default, if not by the default ordering of the target VNode?
+    // Should be a cypher expression that can reference fields on @this, @target, or @rel (if @rel is used in the query)
+    defaultOrderBy?: string,
 }
 export interface VirtualOneRelationshipProperty {
     type: typeof VirtualPropType.OneRelationship,

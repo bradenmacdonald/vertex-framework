@@ -20,7 +20,7 @@ export class MovieFranchise extends VNodeType {
         shortId: ShortIdProperty,
         name: Joi.string().required(),
     };
-    static readonly defaultOrderBy = "name";
+    static readonly defaultOrderBy = "@this.name";
     static readonly virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,

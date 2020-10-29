@@ -23,7 +23,7 @@ export class Movie extends VNodeType {
         title: Joi.string().required(),
         year: Joi.number().integer().min(1888).max(2200).required(),
     };
-    static readonly defaultOrderBy = "year DESC";
+    static readonly defaultOrderBy = "@this.year DESC";
     static readonly relationshipsFrom = {
         /** This Movie is part of a franchise */
         FRANCHISE_IS: {

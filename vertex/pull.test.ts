@@ -98,7 +98,7 @@ suite("pull", () => {
             });
             test("Partial Person request with sorting (oldest first)", async () => {
                 const peopleOldestFirst = await testGraph.pull(partialPersonRequest, {
-                    orderBy: "dateOfBirth",
+                    orderBy: "@this.dateOfBirth",
                     // Test ordering by a field that's not included in the response.
                 });
                 assert.equal(peopleOldestFirst[0].name, "Robert Downey Jr.");
@@ -106,7 +106,7 @@ suite("pull", () => {
             });
             test("Partial Person request with sorting (youngest first)", async () => {
                 const peopleYoungestFirst = await testGraph.pull(partialPersonRequest, {
-                    orderBy: "dateOfBirth DESC",
+                    orderBy: "@this.dateOfBirth DESC",
                     flags: ["includeDOB"],
                 });
                 assert.equal(peopleYoungestFirst[0].name, "Karen Gillan");
@@ -225,6 +225,34 @@ suite("pull", () => {
             checkType<AssertPropertyPresent<typeof infinityWar, "role", string|null>>();
             assert.equal(rdj.movies[1].title, "Tropic Thunder");
             assert.equal(rdj.movies[1].role, "Kirk Lazarus");
+        });
+
+        suite("Test ordering a to-many virtual property by a relationship property", async () => {
+            const request = VNodeDataRequest(Person).name.moviesOrderedByRole(m => m.title.year.role())
+            const filter: DataRequestFilter = {key: "rdj", };
+            test("buildCypherQuery", () => {
+                const query = buildCypherQuery(request, filter);
+                assert.equal(query.query, dedent`
+                    MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
+
+                    OPTIONAL MATCH (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _movie1, _rel1, (_rel1.role) AS _role1
+                    WITH _node, _movie1, _rel1, _role1 ORDER BY _rel1.role
+                    WITH _node, collect(_movie1 {.title, .year, role: _role1}) AS _moviesOrderedByRole1
+
+                    RETURN _node.name AS name, _moviesOrderedByRole1 AS moviesOrderedByRole ORDER BY _node.name
+                `);
+            });
+            test("pull", async () => {
+                const rdj = await testGraph.pullOne(request, filter);
+                assert.equal(rdj.moviesOrderedByRole.length, 2);
+                // Kirk Lazarus comes before Tony Stark:
+                assert.equal(rdj.moviesOrderedByRole[0].title, "Tropic Thunder");
+                assert.equal(rdj.moviesOrderedByRole[0].role, "Kirk Lazarus");
+                assert.equal(rdj.moviesOrderedByRole[1].title, "Avengers: Infinity War");
+                assert.equal(rdj.moviesOrderedByRole[1].role, "Tony Stark / Iron Man");
+                // Compare this to the previous test case for the role prop, where the order was different.
+            });
         });
 
         // Test a to-one virtual property/relationship:

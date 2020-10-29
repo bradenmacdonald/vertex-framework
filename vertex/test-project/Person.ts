@@ -43,6 +43,13 @@ export class Person extends VNodeType {
             relationshipProps: Person.relationshipsFrom.ACTED_IN.properties,
             target: Movie,
         },
+        moviesOrderedByRole: {
+            type: VirtualPropType.ManyRelationship,
+            query: C`(@this)-[@rel:ACTED_IN]->(@target:${Movie})`,
+            relationshipProps: Person.relationshipsFrom.ACTED_IN.properties,
+            target: Movie,
+            defaultOrderBy: "@rel.role",  // Just to test ordering a Many virtual property based on a property of the relationship; ordering by movie year (as happens by default) makes more sense
+        },
         costars: {
             type: VirtualPropType.ManyRelationship,
             query: C`(@this)-[:ACTED_IN]->(:${Movie})<-[:ACTED_IN]-(@target:${Person})`,
@@ -60,7 +67,7 @@ export class Person extends VNodeType {
             valueType: "number" as const,
         }
     };
-    static readonly defaultOrderBy = "name";
+    static readonly defaultOrderBy = "@this.name";
 }
 registerVNodeType(Person);
 

@@ -469,9 +469,11 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         const virtPropsMap = addVirtualPropsForNode(newTargetVar, request, relationshipVariable);
 
         // Order the results of this subquery (has to happen immediately before the WITH...collect() line):
-        if (virtProp.target.defaultOrderBy) {
+        const orderBy = virtProp.defaultOrderBy || virtProp.target.defaultOrderBy;
+        if (orderBy) {
             // TODO: allow ordering by properties of the relationship
-            query += `WITH ${[...workingVars].join(", ")} ORDER BY ${newTargetVar}.${virtProp.target.defaultOrderBy}\n`;
+            const orderExpression = orderBy.replace("@this", newTargetVar).replace("@rel", relationshipVariable || "@rel");
+            query += `WITH ${[...workingVars].join(", ")} ORDER BY ${orderExpression}\n`;
         }
         // Construct the WITH statement that ends this subquery, collect()ing many related nodes into a single array property
         workingVars.delete(newTargetVar);
@@ -580,7 +582,7 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
 
     const orderBy = rootFilter.orderBy || rootNodeType.defaultOrderBy;
     if (orderBy) {
-        query += ` ORDER BY _node.${orderBy}`;
+        query += ` ORDER BY ${orderBy.replace("@this", "_node")}`;
     }
 
     return {query, params};
