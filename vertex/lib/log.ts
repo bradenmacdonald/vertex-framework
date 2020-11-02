@@ -37,13 +37,15 @@ function getCallerFile(): string {
  */
 function prefix(): string {
     let shortFilePath = getCallerFile();
-    // Convert '/app/technotes/foo/bar.ts' to just 'foo/bar'
+
+    // Convert '/testenv/vertex/foo.ts' to just 'vertex/foo'
     if (shortFilePath.endsWith(".ts")) {
         shortFilePath = shortFilePath.substr(0, shortFilePath.length - 3);
     }
-    if (shortFilePath.indexOf("/technotes/") !== -1) {
-        shortFilePath = shortFilePath.substr(shortFilePath.indexOf("/technotes/") + 11);
+    if (shortFilePath.indexOf("/testenv/") !== -1) {
+        shortFilePath = shortFilePath.substr(shortFilePath.indexOf("/testenv/") + 9);
     }
+
     const prefix = `${(new Date()).toISOString().substr(0, 19)} ${shortFilePath} `;
     return applyColor(Colors.light, prefix);
 }
