@@ -1,8 +1,8 @@
 import * as Joi from "@hapi/joi";
-import type { Transaction } from "neo4j-driver";
 import type { CypherQuery } from "./cypher-sugar";
 import type { FieldType } from "./cypher-return-shape";
 import { UUID } from "./lib/uuid";
+import { WrappedTransaction } from "./transaction";
 
 /** Strict UUID Validator for Joi */
 export const uuidValidator: Joi.CustomValidator = (stringValue, helpers) => {
@@ -38,7 +38,7 @@ abstract class _VNodeType {
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
     static readonly defaultOrderBy: string|undefined = undefined;
 
-    static async validate(dbObject: RawVNode<any>, tx: Transaction): Promise<void> {
+    static async validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void> {
         const validation = await Joi.object(this.properties).keys({
             _identity: Joi.number(),
             _labels: Joi.any(),
@@ -60,7 +60,7 @@ export interface VNodeType {
     readonly relationshipsFrom: RelationshipsFromSchema;
     readonly virtualProperties: VirtualPropsSchema;
     readonly defaultOrderBy: string|undefined;
-    validate(dbObject: RawVNode<any>, tx: Transaction): Promise<void>;
+    validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 }
 
 /** Helper function to check if some object is a VNodeType */

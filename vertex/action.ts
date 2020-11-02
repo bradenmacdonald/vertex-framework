@@ -124,7 +124,7 @@ export class Action extends VNodeType {
         // How many milliseconds it took to run this action.
         tookMs: Joi.number(),
     };
-    static async validate(dbObject: RawVNode<typeof Action>, tx: Transaction): Promise<void> {
+    static async validate(dbObject: RawVNode<typeof Action>, tx: WrappedTransaction): Promise<void> {
         await super.validate(dbObject, tx);
         try {
             JSON.parse(dbObject.data);
