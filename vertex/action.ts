@@ -1,5 +1,5 @@
 /**
- * TechNotes uses the command pattern extensively, where all operations that can change the site's content in any way
+ * Vertex Framework uses the command pattern, where all operations that can change the site's content in any way
  * (other than data/schema migrations) are described as "actions" (a.k.a. mutations) that take the current state and
  * transform it to another state. Many actions are invertable, making it easy to revert edits, undo changes, etc.
  */

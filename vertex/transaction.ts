@@ -3,7 +3,7 @@ import { CypherQuery, QueryResponse } from "./cypher-sugar";
 import { pull, PullNoTx, pullOne, PullOneNoTx } from "./pull";
 import { query, queryOne } from "./query";
 
-/** A Neo4j Transaction with some TechNotes-specific convenience methods */
+/** A Neo4j Transaction with some Vertex Framework convenience methods */
 export interface WrappedTransaction extends Transaction {
 
     query<CQ extends CypherQuery>(cypherQuery: CQ): Promise<QueryResponse<CQ>[]>
