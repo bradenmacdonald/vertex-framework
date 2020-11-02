@@ -11,7 +11,7 @@ import {
 } from "./vnode";
 import type { WrappedTransaction } from "./transaction";
 import type { ReturnTypeFor } from "./cypher-return-shape";
-import { C } from "./cypher-sugar";
+import { C, CypherQuery } from "./cypher-sugar";
 
 ////////////////////////////// VNode Data Request format ////////////////////////////////////////////////////////////
 
@@ -377,13 +377,11 @@ export interface DataRequestFilter {
      * Filter the main node(s) of this data request to only those that match this predicate.
      * 
      * Examples:
-     *     @this.name = $name
+     *     @this.name = ${name}
      *     @this.dateOfbirth < date("2002-01-01")
      *     EXISTS { MATCH (@)-->(m) WHERE @this.age = m.age }
      */
-    where?: string;
-    /** Params: Values that are referenced in the "where" predicate, if any. */
-    params?: {[key: string]: any};
+    where?: CypherQuery;
     /** Order the results by one of the properties (e.g. "name" or "name DESC") */
     orderBy?: string;
     /** A list of flags that determines which flagged/conditional properties should get included in the response */
@@ -401,7 +399,7 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
     const rootNodeType = rootRequest[_vnodeType];
     const label = rootNodeType.label;
     let query: string;
-    const params: {[key: string]: any} = rootFilter.params || {};
+    const params: {[key: string]: any} = {};
     const workingVars = new Set(["_node"]);
 
     /** Generate a new variable name for the given node type or property that we can use in the Cypher query. */
@@ -435,7 +433,16 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
         }
     }
     if (rootFilter.where) {
-        query += `WHERE ${rootFilter.where.replace("@this", "_node")}\n`;
+        // This query is being filtered by some WHERE condition.
+        // Add it and any parameter values into this query. Rename parameters as needed.
+        let whereClause = rootFilter.where.queryString.replace("@this", "_node");
+        let i = 1;
+        for (const paramName in rootFilter.where.params) {
+            const newParamName = `whereParam${i++}`;
+            whereClause = whereClause.replace("$" + paramName, "$" + newParamName);
+            params[newParamName] = rootFilter.where.params[paramName];
+        }
+        query += `WHERE ${whereClause}\n`;
     }
 
     

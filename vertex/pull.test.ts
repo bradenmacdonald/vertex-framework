@@ -3,7 +3,7 @@ import { suite, test, assert, dedent, configureTestData } from "./lib/intern-tes
 import { buildCypherQuery, DataRequestFilter, VNodeDataRequest } from "./pull";
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "./lib/ts-utils";
 import { testGraph, Person, Movie, createTestData } from "./test-project";
-import { UUID } from "./lib/uuid";
+import { C, UUID } from ".";
 
 // Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -91,9 +91,9 @@ suite("pull", () => {
                 checkType<AssertPropertyAbsent<typeof firstPerson, "uuid">>();
             });
             test("pull - with name filter", async () => {
+                const nameStart = "Ka";
                 const people = await testGraph.pull(partialPersonRequest, {
-                    where: "@this.name STARTS WITH $nameStart",
-                    params: {nameStart: "Ka"},
+                    where: C`@this.name STARTS WITH ${nameStart}`,
                 });
 
                 assert.equal(people[0].name, "Karen Gillan");
@@ -135,15 +135,15 @@ suite("pull", () => {
                 assert.equal(query.params._nodeUuid, "00000000-0000-0000-0000-000000001234");
             });
             test("buildCypherQuery - matching with WHERE filter", () => {
-                const query = buildCypherQuery(basicPersonRequest, {where: "@this.name = $nameMatch", params: {nameMatch: "Dwayne Johnson"}});
+                const query = buildCypherQuery(basicPersonRequest, {where: C`@this.name = ${"Dwayne Johnson"}`});
 
                 assert.equal(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)
-                    WHERE _node.name = $nameMatch
+                    WHERE _node.name = $whereParam1
                     
                     RETURN _node.uuid AS uuid, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
                 `);
-                assert.equal(query.params.nameMatch, "Dwayne Johnson");
+                assert.equal(query.params.whereParam1, "Dwayne Johnson");
             });
         });
 
@@ -262,7 +262,7 @@ suite("pull", () => {
         suite("Get a movie's franchise", () => {
             const request = VNodeDataRequest(Movie).title.franchise(f => f.name);
             // This filter will match two movies: "Avengers: Infinity War" (MCU franchise) and "The Spy Who Dumped Me" (no franchise)
-            const filter: DataRequestFilter = {where: "@this.year = 2018"};
+            const filter: DataRequestFilter = {where: C`@this.year = 2018`};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
                 assert.equal(query.query, dedent`
