@@ -1,8 +1,7 @@
-import { suite, test, assertRejects, configureTestData, assert } from "./lib/intern-tests";
+import { suite, test, assertRejects, configureTestData, assert, log } from "./lib/intern-tests";
 import {
     C,
     UUID,
-    log
 } from ".";
 import { testGraph,  CreatePerson, Person, CreateMovieFranchise, CreateMovie, Movie } from "./test-project";
 

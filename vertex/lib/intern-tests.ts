@@ -6,6 +6,7 @@ import { reverseAllMigrations, runMigrations } from "../migrator";
 import { testGraph, createTestData } from "../test-project";
 import { VertexTestDataSnapshot } from "../vertex-interface";
 import { log } from "./log";
+export { log };
 
 export const { registerSuite } = intern.getPlugin("interface.object");
 export const { suite, test, before, beforeEach, after, afterEach } = intern.getPlugin("interface.tdd");

@@ -67,10 +67,5 @@ export {
 } from "./vnode";
 
 export {
-    log,
-} from "./lib/log";
-
-
-export {
     UUID,
 } from "./lib/uuid";
