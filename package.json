@@ -2,7 +2,7 @@
   "name": "vertex-framework",
   "version": "0.0.1",
   "description": "Backend framework for graph-based web applications",
-  "main": "vertex/vertex.ts",
+  "main": "vertex/index.ts",
   "scripts": {
     "test": "NODE_ENV=test intern",
     "lint": "eslint . --ext .js,.ts",
