@@ -14,7 +14,12 @@ export interface VertexCore {
     snapshotDataForTesting(): Promise<VertexTestDataSnapshot>;
     resetDBToSnapshot(snapshot: VertexTestDataSnapshot): Promise<void>;
 
+    // Migration related code:
     readonly migrations: {[name: string]: Migration};
+    getAppliedMigrationIds(): Promise<string[]>;
+    runMigrations(): Promise<void>;
+    reverseMigration(id: string): Promise<void>;
+    reverseAllMigrations(): Promise<void>;
 }
 
 type dbWriteType = <T>(code: (tx: Transaction) => Promise<T>) => Promise<T>;

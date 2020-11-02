@@ -201,4 +201,93 @@ export class Vertex implements VertexCore {
             }
         });
     }
+
+    /**
+     * Get an ordered list of the migration IDs that have been applied to this database already,
+     * possibly including unknown migrations (from other git branches, etc.)
+     */
+    public async getAppliedMigrationIds(): Promise<string[]> {
+        const dbResult = await this.read(tx => tx.run("MATCH (m:Migration) RETURN m.id"));
+        // Get an un-ordered set of applied migrations, including some which may no longer exist in the "migrations" global
+        const appliedIdSet = new Set(dbResult.records.map(record => record.get("m.id")));
+        const result: string[] = [];
+        // Build "result" by removing IDs from appliedIdSet in order:
+        for (const migrationId in this.migrations) {
+            if (appliedIdSet.delete(migrationId)) {
+                result.push(migrationId);
+            }
+        }
+        // Are there any migration IDs in the database but not in the 'migrations' global?
+        appliedIdSet.forEach(unknonwId => { result.push(unknonwId); })
+        return result;
+    }
+
+    public async runMigrations(): Promise<void> {
+        const appliedMigrationIds = new Set(await this.getAppliedMigrationIds());
+        const dbWrite = this._restrictedWrite.bind(this);
+        for (const migrationId in this.migrations) {
+            if (appliedMigrationIds.has(migrationId)) {
+                log.debug(`"${migrationId}" is already applied.`);
+            } else {
+                const migration = this.migrations[migrationId];
+                // Check dependencies
+                migration.dependsOn.forEach(depId => {
+                    if (!appliedMigrationIds.has(depId)) {
+                        throw new Error(`Unable to apply migration "${migrationId}": depends on "${depId}" which is not applied.`);
+                    }
+                });
+                // Apply the migration
+                log(`Applying migration "${migrationId}"`);
+                await this._restrictedAllowWritesWithoutAction(async () => {
+                    await migration.forward(dbWrite);
+                    await dbWrite(tx =>
+                        tx.run(`
+                            CREATE (m:Migration {id: $migrationId})
+                            WITH m as m2
+                            MATCH (deps:Migration) WHERE deps.id IN $dependsOn
+                            CREATE (m2)-[:DEPENDS_ON]->(deps)
+                        `, {migrationId, dependsOn: migration.dependsOn})
+                    );
+                });
+                appliedMigrationIds.add(migrationId);
+            }
+        }
+        log.success("Migrations applied.");
+    }
+
+    public async reverseMigration(id: string): Promise<void> {
+        const dbWrite = this._restrictedWrite.bind(this);
+        const migration: Migration = this.migrations[id];
+        if (migration === undefined) {
+            throw new Error(`Unknown migration: "${id}"`);
+        }
+        // Do any migrations currently in the database depend on this one?
+        const blockers = await this.read(tx => tx.run(`MATCH(b:Migration)-[:DEPENDS_ON]->(m:Migration {id: $id}) RETURN b`, {id, }));
+        if (blockers.records.length > 0) {
+            throw new Error(`Cannot reverse migration "${id}": another migration, ${blockers.records[0].get("id")} depends on it.`);
+        }
+        // Reverse the migration
+        log(`Reversing migration "${id}"`);
+        await this._restrictedAllowWritesWithoutAction(async () => {
+            await migration.backward(dbWrite);
+            await dbWrite(tx => tx.run(`MATCH (m:Migration {id: $id}) DETACH DELETE m`, {id, }));
+        });
+    }
+
+
+    public async reverseAllMigrations(): Promise<void> {
+        // Get the applied migration IDs in reverse order.
+        // Any "orphaned" migrations (in the DB but not defined in code) will now be listed first.
+        const appliedMigrationIds = (await this.getAppliedMigrationIds()).reverse();
+        log.debug(`Removing applied migrations: ${appliedMigrationIds}`);
+        for (const id of appliedMigrationIds) {
+            const migration = this.migrations[id];
+            if (migration === undefined) {
+                throw new Error(`Cannot reset migrations due to orphaned migration "${id}". Are you on the right git branch?`);
+            }
+            await this.reverseMigration(id);
+        }
+        log.success("Migrations reset.");
+    }
+
 }

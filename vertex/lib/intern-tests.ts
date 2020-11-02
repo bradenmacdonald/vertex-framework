@@ -2,7 +2,6 @@
 import intern from "intern";
 export { intern };
 
-import { reverseAllMigrations, runMigrations } from "../migrator";
 import { testGraph, createTestData } from "../test-project";
 import { VertexTestDataSnapshot } from "../vertex-interface";
 import { log } from "./log";
@@ -27,9 +26,9 @@ let dataSnapshot: VertexTestDataSnapshot;
 intern.on("beforeRun", async () => {
     try {
         // Wipe out all existing Neo4j data
-        await reverseAllMigrations(testGraph);
+        await testGraph.reverseAllMigrations();
         // Apply pending migrations
-        await runMigrations(testGraph);
+        await testGraph.runMigrations();
         // Take a snapshot, for test isolation
         dataSnapshot = await testGraph.snapshotDataForTesting();
     } catch (err) {
