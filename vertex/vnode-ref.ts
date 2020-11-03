@@ -34,7 +34,10 @@ const vnodeRefProxyHandler: ProxyHandler<FakeVNodeType> = {
     getPrototypeOf: (refData) => { return Reflect.getPrototypeOf(getVNode(refData)); },
     has: (refData, propKey) => { return Reflect.has(getVNode(refData), propKey); },
     construct: (refData, argArray, newTarget) => { return Reflect.construct(getVNode(refData), argArray, newTarget); },
-    getOwnPropertyDescriptor: (refData, propKey) => { return Reflect.getOwnPropertyDescriptor(getVNode(refData), propKey); },
+    getOwnPropertyDescriptor: (refData, propKey) => { 
+        // This might be necessary in some cases? But seems like a bug so let's leave it out unless needed.
+        // if (propKey === "prototype") { return Reflect.getOwnPropertyDescriptor(refData, propKey); }
+        return Reflect.getOwnPropertyDescriptor(getVNode(refData), propKey); },
     apply: (refData, thisArg, argArray) => { return Reflect.apply(getVNode(refData), thisArg, argArray); },
     ownKeys: (refData) => { return Reflect.ownKeys(getVNode(refData)); },
 };
@@ -58,11 +61,12 @@ const vnodeRefProxyHandler: ProxyHandler<FakeVNodeType> = {
  */
 export const VNodeTypeRef = <VNT extends VNodeType>(label_: string): VNT => {
 
+    const name = `${label_}Placeholder`;
     // Dynamically construct a VNodeType class to use as the internal data ("target") for the proxy.
     // We need this because the "target" must be somewhat similar in terms of prototype to the real VNode type
     // for the proxy to work.
     const classBuilder = {
-        FakeVNodeType: class extends VNodeType {
+        [name]: class extends VNodeType {
             static label = label_;
             static loadedVNodeType?: VNodeType;  // <-- the real VNodeType will be loaded on demand (later) and stored here
             static relationshipsProxy: any;
@@ -71,9 +75,9 @@ export const VNodeTypeRef = <VNT extends VNodeType>(label_: string): VNT => {
 
     // Create a sub-proxy used to make relationships partially available via ThisProxy.rel.REL_NAME even before the
     // VNodeType is loaded, if necssary.
-    classBuilder.FakeVNodeType.relationshipsProxy = new Proxy(classBuilder.FakeVNodeType, RelationshipsProxyHandler);
+    classBuilder[name].relationshipsProxy = new Proxy(classBuilder[name], RelationshipsProxyHandler);
 
-    return new Proxy(classBuilder.FakeVNodeType, vnodeRefProxyHandler) as any as VNT;
+    return new Proxy(classBuilder[name], vnodeRefProxyHandler) as any as VNT;
 }
 
 
