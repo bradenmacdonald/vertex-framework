@@ -8,7 +8,7 @@ import {
     defaultUpdateActionFor,
     defaultCreateFor,
 } from "../";
-import { Movie } from "./Movie";
+import { MovieRef as Movie } from "./Movie";
 
 /**
  * A Movie Franchise VNode for testing

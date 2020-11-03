@@ -9,8 +9,12 @@ import {
     ShortIdProperty,
     VirtualPropType,
 } from "../";
+import { VNodeTypeRef } from "../vnode-ref";
 
+// When necessary to avoid circular references, this pattern can be used to create a "Forward Reference" to a VNodeType:
+export const MovieRef: typeof Movie = VNodeTypeRef("TestMovie");
 import { MovieFranchise } from "./MovieFranchise";
+
 
 /**
  * A Movie VNode for testing

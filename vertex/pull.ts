@@ -211,6 +211,10 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
             throw new Error("Can't have non-string property keys on a VNodeDataRequest");
         }
 
+        if (vnodeType === undefined) {
+            throw new Error(`Can't access .${propKey} because its VNodeType is undefined. There is probably a circular import issue.`);
+        }
+
         // Note: in this handler code, "return requestObj" will return the Proxy, i.e. the VNodeDataRequest, so that
         // multiple calls can be chained:
         //     const r = VNodeDataRequest(type).property1.property2.property3IfFlag("flag").property4 etc.

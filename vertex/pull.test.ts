@@ -292,6 +292,35 @@ suite("pull", () => {
             });
         });
 
+        suite("Test a to-one virtual property/relationship with a circular reference:", () => {
+            const request = VNodeDataRequest(Movie).title.franchise(f => f.name.movies(m => m.title));
+            const filter: DataRequestFilter = {key: "infinity-war"};
+            test("buildCypherQuery", () => {
+                const query = buildCypherQuery(request, filter);
+                assert.equal(query.query, dedent`
+                    MATCH (_node:TestMovie:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
+                    
+                    CALL {
+                        WITH _node
+                        OPTIONAL MATCH (_node)-[:FRANCHISE_IS]->(_moviefranchise1:TestMovieFranchise:VNode)
+                        RETURN _moviefranchise1 LIMIT 1
+                    }
+                    
+                    OPTIONAL MATCH (_moviefranchise1)<-[:FRANCHISE_IS]-(_movie1:TestMovie:VNode)
+                    WITH _node, _moviefranchise1, _movie1 ORDER BY _movie1.year DESC
+                    WITH _node, _moviefranchise1, collect(_movie1 {.title}) AS _movies1
+                    WITH _node, _moviefranchise1 {.name, movies: _movies1} AS _franchise1
+                    
+                    RETURN _node.title AS title, _franchise1 AS franchise ORDER BY _node.year DESC
+                `);
+            });
+            test("pull", async () => {
+                const infinityWar = await testGraph.pullOne(request, filter);
+                assert.equal(infinityWar.franchise?.name, "Marvel Cinematic Universe");
+                assert.equal(infinityWar.franchise?.movies[0].title, "Avengers: Infinity War");
+            });
+        });
+
         suite("Cypher expression: get a person's age", () => {
             // This tests the "age" virtual property, which computes the Person's age within Neo4j and returns it
             const request = VNodeDataRequest(Person).name.dateOfBirth.age();
