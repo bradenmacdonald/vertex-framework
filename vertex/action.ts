@@ -132,27 +132,23 @@ export class Action extends VNodeType {
             throw new ValidationError("Invalid JSON in Action data.");
         }
     }
-    static readonly relationshipsFrom = {
+    static readonly rel = Action.hasRelationshipsFromThisTo({
         /** What VNodes were modified by this action */
-        MODIFIED: {
-            toLabels: ["*"],
-            properties: {},
-        },
+        MODIFIED: {},
         /** This Action reverted another one */
         REVERTED: {
-            toLabels: ["Action"],
-            properties: {},
+            to: [Action],
         },
-    };
+    });
     static readonly virtualProperties = {
         revertedBy: {
             type: VirtualPropType.OneRelationship,
-            query: C`(@target:Action)-[:REVERTED]->(@this)`,
+            query: C`(@target:${Action})-[:${Action.rel.REVERTED}]->(@this)`,
             target: Action,
         },
         revertedAction: {
             type: VirtualPropType.OneRelationship,
-            query: C`(@this)-[:REVERTED]->(@target:Action)`,
+            query: C`(@this)-[:${Action.rel.REVERTED}]->(@target:${Action})`,
             target: Action,
         },
     };

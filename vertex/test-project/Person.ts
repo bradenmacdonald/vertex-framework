@@ -22,42 +22,42 @@ export class Person extends VNodeType {
         name: Joi.string(),
         dateOfBirth: Joi.date().iso(),//.options({convert: false}),
     };
-    static readonly relationshipsFrom = {
+    static readonly rel = Person.hasRelationshipsFromThisTo({
         /** This Person acted in a given movie */
         ACTED_IN: {
-            toLabels: [Movie.label],
+            to: [Movie],
             properties: {
                 role: Joi.string(),
             },
         },
         /** This Person is a friend of the given person (non-directed relationship) */
         FRIEND_OF: {
-            toLabels: [Person.label],
+            to: [Person],
             properties: {},
         },
-    };
+    });
     static readonly virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[@rel:ACTED_IN]->(@target:${Movie})`,
-            relationshipProps: Person.relationshipsFrom.ACTED_IN.properties,
+            query: C`(@this)-[@rel:${Person.rel.ACTED_IN}]->(@target:${Movie})`,
+            relationship: Person.rel.ACTED_IN,
             target: Movie,
         },
         moviesOrderedByRole: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[@rel:ACTED_IN]->(@target:${Movie})`,
-            relationshipProps: Person.relationshipsFrom.ACTED_IN.properties,
+            query: C`(@this)-[@rel:${Person.rel.ACTED_IN}]->(@target:${Movie})`,
+            relationship: Person.rel.ACTED_IN,
             target: Movie,
             defaultOrderBy: "@rel.role",  // Just to test ordering a Many virtual property based on a property of the relationship; ordering by movie year (as happens by default) makes more sense
         },
         costars: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[:ACTED_IN]->(:${Movie})<-[:ACTED_IN]-(@target:${Person})`,
+            query: C`(@this)-[:${Person.rel.ACTED_IN}]->(:${Movie})<-[:${Person.rel.ACTED_IN}]-(@target:${Person})`,
             target: Person,
         },
         friends: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[:FRIEND_OF]-(@target:${Person})`,
+            query: C`(@this)-[:${Person.rel.FRIEND_OF}]-(@target:${Person})`,
             target: Person,
         },
         age: {

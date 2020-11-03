@@ -17,7 +17,8 @@ export const UuidProperty = Joi.string().custom(uuidValidator);
 // In order to prevent any ambiguity between UUIDs and shortIds, shortIds are required to be shorter than UUID strings
 // A UUID string like 00000000-0000-0000-0000-000000000000 is 36 characters long, so shortIds are limited to 32.
 export const ShortIdProperty = Joi.string().regex(/^[A-Za-z0-9.-]{1,32}$/).required();
-
+// An empty object that can be used as a default value for read-only properties
+const emptyObj = Object.freeze({});
 
 /**
  * Abstract base class for a "VNode".
@@ -33,8 +34,9 @@ abstract class _VNodeType {
     public constructor() { throw new Error("VNodeType should never be instantiated. Use it statically only."); }
     // static label: string;
     static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
-    static readonly relationshipsFrom: RelationshipsFromSchema = {};
-    static readonly virtualProperties: VirtualPropsSchema = {};
+    /** Relationships allowed/available _from_ this VNode type to other VNodes */
+    static readonly rel: {[K: string]: VNodeRelationship} = emptyObj;
+    static readonly virtualProperties: VirtualPropsSchema = emptyObj;
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
     static readonly defaultOrderBy: string|undefined = undefined;
 
@@ -47,6 +49,15 @@ abstract class _VNodeType {
             throw validation.error;
         }
     }
+
+    // Do not override this method:
+    static hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsData>(relationshipDetails: Rels): VNodeRelationshipsFor<Rels> {
+        const result: {[K in keyof Rels]: VNodeRelationship} = {} as any;
+        for (const relName in relationshipDetails) {
+            result[relName] = new VNodeRelationship(relName, relationshipDetails[relName]);
+        }
+        return result as any;
+    }
 }
 
 // This little trick (and the VNodeType interface below) are required so that this class is only used statically,
@@ -57,10 +68,13 @@ export interface VNodeType {
     new(): _VNodeType;
     readonly label: string;
     readonly properties: PropSchemaWithUuid;
-    readonly relationshipsFrom: RelationshipsFromSchema;
+    /** Relationships allowed/available _from_ this VNode type to other VNodes */
+    readonly rel: {[RelName: string]: VNodeRelationship};
     readonly virtualProperties: VirtualPropsSchema;
     readonly defaultOrderBy: string|undefined;
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
+
+    hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsData>(relationshipDetails: Rels): VNodeRelationshipsFor<Rels>;
 }
 
 /** Helper function to check if some object is a VNodeType */
@@ -102,19 +116,40 @@ export type RawVNode<T extends VNodeType> = {
     [K in keyof T["properties"]]: PropertyDataType<T["properties"], K>;
 } & { _identity: number; _labels: string[]; };
 
-/**
- * Define an allowed relationship from a VNode to other nodes in the graph.
- */
-interface RelationshipDefinition {
-    /** The labels (VNode types) that this relationship goes _to_ */
-    toLabels: string[];
-    /** The properties that are expected/allowed on this relationship */
-    properties: PropSchema;
+
+interface VNodeRelationshipsData {
+    [RelName: string]: VNodeRelationshipData;
 }
+/** Parameters used when defining a VNode; this simpler data is used to construct more complete VNodeRelationship objects */
+interface VNodeRelationshipData {
+    /**
+     * This relationship is allowed to point _to_ VNodes of these types.
+     * Omit if it can point to any VNode.
+     */
+    to?: ReadonlyArray<_VNodeType>;  // For some reason ReadonlyArray<VNodeType> doesn't work
+    /** The properties that are expected/allowed on this relationship */
+    properties?: Readonly<PropSchema>;
+}
+
 /**
- * Define the allowed relationships from a VNode to other nodes in the graph.
+ * Defines a relationship that is allowed between a VNodeType and other VNodes in the graph
  */
-type RelationshipsFromSchema = { [K: string]: RelationshipDefinition };
+export class VNodeRelationship<PS extends PropSchema = PropSchema> {
+    readonly label: string;  // e.g. IS_FRIEND_OF
+    readonly #data: Readonly<VNodeRelationshipData>;
+
+    constructor(label: string, initData: VNodeRelationshipData) {
+        this.label = label;
+        this.#data = initData;
+    }
+    get to(): ReadonlyArray<VNodeType>|undefined { return this.#data.to as ReadonlyArray<VNodeType>|undefined; }
+    get properties(): Readonly<PS> { return this.#data.properties || emptyObj as any; }
+}
+
+// Internal helper to get a typed result when converting from a map of VNodeRelationshipData entries to VNodeRelationship entries
+type VNodeRelationshipsFor<Rels extends VNodeRelationshipsData> = {
+    [K in keyof Rels]: VNodeRelationship<Rels[K]["properties"] extends PropSchema ? Rels[K]["properties"] : PropSchema>
+};
 
 /**
  * Every VNode can declare "virtual properties" which are computed properties
@@ -140,7 +175,7 @@ export interface VirtualManyRelationshipProperty {
     target: VNodeType;
     // One of the relationships in the query can be assigned to the variable @rel, and if so, specify its props here so
     // that the relationship properties can be optionally included (as part of the target node)
-    relationshipProps?: PropSchema,
+    relationship?: VNodeRelationship,
     // How should this relationship be ordered by default, if not by the default ordering of the target VNode?
     // Should be a cypher expression that can reference fields on @this, @target, or @rel (if @rel is used in the query)
     defaultOrderBy?: string,

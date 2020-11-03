@@ -1,8 +1,8 @@
-import { ActionImplementation, defineAction, ActionData } from "./action";
+import { ActionImplementation, defineAction, ActionData, Action } from "./action";
 import { C } from "./cypher-sugar";
 import { UUID } from "./lib/uuid";
 import { WrappedTransaction } from "./transaction";
-import { PropertyDataType, RawVNode, VNodeType } from "./vnode";
+import { PropertyDataType, RawVNode, VNodeRelationship, VNodeType } from "./vnode";
 
 
 // Useful action generators to reduce boilerplate
@@ -235,7 +235,7 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
                 OPTIONAL MATCH (s:ShortId)-[rel:IDENTIFIES]->(node)
                 DELETE rel, s
                 WITH node
-                OPTIONAL MATCH (a:Action:VNode)-[rel:MODIFIED]->(node)
+                OPTIONAL MATCH (a:${Action})-[rel:${Action.rel.MODIFIED}]->(node)
                 DELETE rel
                 WITH node
                 DELETE node
@@ -275,7 +275,7 @@ export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementat
         apply: async (tx, data) => {
             // We cannot use the HAS KEY lookup since it deliberately ignores :DeletedVNodes
             const result = await tx.queryOne(C`
-                MATCH (node:${C(type.label)}:DeletedVNode {uuid: $uuid})
+                MATCH (node:${C(type.label)}:DeletedVNode {uuid: ${data.uuid}})
                 SET node:VNode
                 REMOVE node:DeletedVNode
             `);
@@ -310,30 +310,30 @@ function forceIntegers(propertiesMap: Record<string, any>): void {
  * Designed for use in an "Update"-type Action, this helper method will update a relationship from the current VNode,
  * pointing to either another VNode or null. (an "x:1" relationship, e.g. "1:1" or "many:1")
  */
-export async function updateToOneRelationship<VNT extends VNodeType>({fromType, uuid, tx, relName, newId, allowNull}: {
+export async function updateToOneRelationship<VNT extends VNodeType>({fromType, uuid, rel, tx, newId, allowNull}: {
     fromType: VNT,
-    relName: keyof VNT["relationshipsFrom"],
     uuid: UUID,
+    rel: VNodeRelationship,
     tx: WrappedTransaction,
     newId: string|null,
     allowNull: boolean,
 }): Promise<{previousUuid: UUID|null}> {
-    if (typeof relName !== "string") {
-        throw new Error(`Relationship name ${relName} must be a string.`);
+    if (fromType.rel[rel.label] !== rel) {
+        throw new Error(`Mismatch between relationship ${rel.label} and VNodeType ${fromType.label} which doesn't declare that exact relationship.`);
     }
-    if (fromType.relationshipsFrom[relName as any]?.toLabels?.length !== 1) {
+    if (rel.to === undefined || rel.to.length !== 1) {
         throw new Error("Unsupported: updateToOneRelationship doesn't yet work on relationships to multiple labels");
     }
-    const targetLabel = fromType.relationshipsFrom[relName as any].toLabels[0];
+    const targetLabel = rel.to[0].label;
 
     if (newId === null) {
         // We want to clear this x:1 relationship (set it to null)
         if (!allowNull) {
-            throw new Error(`The x:1 relationship ${fromType.name}.${relName} is not allowed to be null.`);
+            throw new Error(`The x:1 relationship ${fromType.name}.${rel.label} is not allowed to be null.`);
         }
         // Simply delete any existing relationship, returning the ID of the target.
         const delResult = await tx.query(C`
-            MATCH (:${fromType} {uuid: ${uuid}})-[rel:${C(relName)}]->(target:${C(targetLabel)}:VNode)
+            MATCH (:${fromType} {uuid: ${uuid}})-[rel:${rel}]->(target:${C(targetLabel)}:VNode)
             DELETE rel
         `.RETURN({"target.uuid": "uuid"}));
         return {previousUuid: delResult.length ? delResult[0]["target.uuid"] : null};
@@ -342,10 +342,10 @@ export async function updateToOneRelationship<VNT extends VNodeType>({fromType, 
         const mergeResult = await tx.queryOne(C`
             MATCH (self:${fromType} {uuid: ${uuid}})
             MATCH (target:${C(targetLabel)}), target HAS KEY ${newId}
-            MERGE (self)-[rel:${C(relName)}]->(target)
+            MERGE (self)-[rel:${rel}]->(target)
 
             WITH self, target
-            OPTIONAL MATCH (self)-[oldRel:${C(relName)}]->(oldTarget) WHERE oldTarget <> target
+            OPTIONAL MATCH (self)-[oldRel:${rel}]->(oldTarget) WHERE oldTarget <> target
             DELETE oldRel
 
             WITH collect(oldTarget {.uuid}) AS oldTargets

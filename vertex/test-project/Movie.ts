@@ -24,17 +24,17 @@ export class Movie extends VNodeType {
         year: Joi.number().integer().min(1888).max(2200).required(),
     };
     static readonly defaultOrderBy = "@this.year DESC";
-    static readonly relationshipsFrom = {
+    static readonly rel = Movie.hasRelationshipsFromThisTo({
         /** This Movie is part of a franchise */
         FRANCHISE_IS: {
-            toLabels: [MovieFranchise.label],
+            to: [MovieFranchise],
             properties: {},
         },
-    };
+    });
     static readonly virtualProperties = {
         franchise: {
             type: VirtualPropType.OneRelationship,
-            query: C`(@this)-[:FRANCHISE_IS]->(@target:${MovieFranchise})`,
+            query: C`(@this)-[:${Movie.rel.FRANCHISE_IS}]->(@target:${MovieFranchise})`,
             target: MovieFranchise,
         },
     };
@@ -53,7 +53,7 @@ export const UpdateMovie = defaultUpdateActionFor(Movie, ["shortId", "title", "y
                 fromType: Movie,
                 uuid: nodeSnapshot.uuid,
                 tx,
-                relName: "FRANCHISE_IS",
+                rel: Movie.rel.FRANCHISE_IS,
                 newId: args.franchiseId,
                 allowNull: true,
             });

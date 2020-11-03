@@ -54,6 +54,7 @@ export {
     ShortIdProperty,
     UuidProperty,
     VNodeType,
+    VNodeRelationship,
     ValidationError,
     VirtualManyRelationshipProperty,
     VirtualOneRelationshipProperty,

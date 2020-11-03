@@ -3,7 +3,7 @@
  */
 import { Record as Neo4jRecord, int as neo4jinteger } from "neo4j-driver";
 import { ReturnShape, TypedResult } from "./cypher-return-shape";
-import { isVNodeType } from "./vnode";
+import { isVNodeType, VNodeRelationship } from "./vnode";
 
 /**
  * Wrapper around a cypher statement/query string, with optional parameters.
@@ -79,9 +79,15 @@ export class CypherQuery {
                 // Using a VNodeType in a string means you want the label, e.g. "MATCH (u:${User})"
                 // It gets evaluated lazily in case the VNodeType is undefined at first due to circular references
                 if (compiledString[compiledString.length - 1] !== ":") {
-                    throw new Error("Interpolating a VNodeType into a string is only supported for matching labels, and should come after a ':'. Use ${C.raw(vnodeType.label)} if you need the label in some other way.");
+                    throw new Error("Interpolating a VNodeType into a string is only supported for matching labels, and should come after a ':'. Use ${C(vnodeType.label)} if you need the label in some other way.");
                 }
                 compiledString += paramValue.label + ":VNode";  // The VNode label is always required too, to ensure it's not a deleted node and that indexes are used.
+            } else if (paramValue instanceof VNodeRelationship) {
+                // Using a VNodeRelationship in a string means you want the relationship label, e.g. "(u)-[:${User.rel.IS_FRIEND_OF}]->(otherUser)"
+                if (compiledString[compiledString.length - 1] !== ":") {
+                    throw new Error("Interpolating a VNodeRelationship into a string is only supported for matching labels, and should come after a ':'. Use ${C(relationship.label)} if you need the label in some other way.");
+                }
+                compiledString += paramValue.label;
             } else if (paramValue instanceof CypherQuery) {
                 // Embeding another compiled Cypher clause, merging its parameters:
                 let clause = paramValue.queryString;

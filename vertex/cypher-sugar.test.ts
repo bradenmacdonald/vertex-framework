@@ -33,6 +33,17 @@ suite("Cypher syntactic sugar", () => {
         assert.isEmpty(query.params);
     });
 
+    test("Lazily interpolates VNodeTypeRelationship labels", () => {
+        // Lazy interpolation is important as it reduces worries about circular references. You can interpolate a
+        // VNode type into a query string even while the variable's value it undefined (module is still loading), and
+        // later when it's actually needed, we'll load the .label value from the fully loaded VNode type.
+        const query = C`MATCH (p:${Person})-[:${Person.rel.FRIEND_OF}]->(friend:${Person})`;
+        assert.isFalse(query.isCompiled);
+        assert.equal(query.queryString, "MATCH (p:TestPerson:VNode)-[:FRIEND_OF]->(friend:TestPerson:VNode)");
+        assert.isTrue(query.isCompiled);
+        assert.isEmpty(query.params);
+    });
+
     test("Doesn't interpolate a VNodeType as a value", () => {
         const query = C`MATCH (p:VNode) SET p.someField = ${Person} RETURN p.uuid`;
         assert.throws(() => query.queryString, "Interpolating a VNodeType into a string is only supported for matching labels");
@@ -86,23 +97,23 @@ suite("Cypher syntactic sugar", () => {
         const uuid = UUID("4f33680a-d7a8-4a9f-8d50-4c40fc05997f");
         const shortId = "jessie"
         const makeQuery = (key: string): CypherQuery => C`
-            MATCH (p:${Person})-[:FRIEND_OF]-(f:Friend), p HAS KEY ${key}
+            MATCH (p:${Person})-[:${Person.rel.FRIEND_OF}]-(f:Friend), p HAS KEY ${key}
             RETURN p, f
         `;
 
         const withUuid = makeQuery(uuid);
         assert.equal(withUuid.queryString, `
-            MATCH (p:TestPerson:VNode)-[:FRIEND_OF]-(f:Friend), (p:VNode {uuid: $p1})
+            MATCH (p:TestPerson:VNode)-[:FRIEND_OF]-(f:Friend), (p:VNode {uuid: $p2})
             RETURN p, f
         `);
-        assert.deepEqual(withUuid.params, {p1: uuid});
+        assert.deepEqual(withUuid.params, {p2: uuid});
 
         const withShortId = makeQuery(shortId);
         assert.equal(withShortId.queryString, `
-            MATCH (p:TestPerson:VNode)-[:FRIEND_OF]-(f:Friend), (p:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $p1})
+            MATCH (p:TestPerson:VNode)-[:FRIEND_OF]-(f:Friend), (p:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $p2})
             RETURN p, f
         `);
-        assert.deepEqual(withShortId.params, {p1: shortId});
+        assert.deepEqual(withShortId.params, {p2: shortId});
     });
 
     suite("PROFILE with real data", () => {

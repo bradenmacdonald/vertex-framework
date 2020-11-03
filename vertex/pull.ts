@@ -8,6 +8,7 @@ import {
     VirtualCypherExpressionProperty,
     VirtualPropType,
     PropSchema,
+    VNodeRelationship,
 } from "./vnode";
 import type { WrappedTransaction } from "./transaction";
 import type { ReturnTypeFor } from "./cypher-return-shape";
@@ -90,7 +91,7 @@ type VNDR_AddVirtualProp<
             <SubSpec extends VNodeDataRequest<VNT["virtualProperties"][K]["target"]>, FlagType extends string|undefined = undefined>
             // This is the method:
             (subRequest: (
-                buildSubequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"] & ProjectRelationshipProps<VNT["virtualProperties"][K]["relationshipProps"]>>) => SubSpec,
+                buildSubequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"] & ProjectRelationshipProps<VNT["virtualProperties"][K]["relationship"]>>) => SubSpec,
                 options?: {ifFlag?: FlagType}
             )
             // The return value of the method is the same VNodeDataRequest, with the additional virtual property added in:
@@ -148,11 +149,13 @@ type IncludedVirtualCypherExpressionProp<propType extends VirtualCypherExpressio
 // For example, if there is a (:Person)-[:ACTED_IN]->(:Movie) where "Person" is the main VNode and "Person.movies" is a
 // virtual property to list the movies they acted in, and the ACTED_IN relationship has a "role" property, then this is
 // used to make the "role" property appear as a virtual property on the Movie VNode.
-type ProjectRelationshipProps<PS extends PropSchema|undefined> = {
-    virtualProperties: {
-        [K in keyof PS]: VirtualCypherExpressionPropertyForRelationshipProp<PS[K]>
-    }
-};
+type ProjectRelationshipProps<Rel extends VNodeRelationship|undefined> = (
+    Rel extends VNodeRelationship ? {
+        virtualProperties: {
+            [K in keyof Rel["properties"]]: VirtualCypherExpressionPropertyForRelationshipProp<Rel["properties"][K]>
+        }
+    } : {virtualProperties: {/* empty */}}
+);
 type VirtualCypherExpressionPropertyForRelationshipProp<Prop> = (
     // This is a generated VirtualCypherExpressionProperty, used to make a property from the relationship appear as an
     // available virtual property on the target VNode. (e.g. the "role" property from the ACTED_IN relationship now
@@ -166,7 +169,7 @@ type VirtualCypherExpressionPropertyForRelationshipProp<Prop> = (
             Prop extends Joi.NumberSchema ? "number" :
             Prop extends Joi.BooleanSchema ? "boolean" :
             Prop extends Joi.DateSchema ? "string" :
-            any
+            "any"
         )}
     }
 );
@@ -306,10 +309,10 @@ const vndrProxyHandler: ProxyHandler<VNDRInternalData> = {
  */
 function virtualPropsForRelationship(virtualProp: VirtualManyRelationshipProperty): {[propName: string]: VirtualCypherExpressionProperty} {
     const extraProps: {[propName: string]: VirtualCypherExpressionProperty} = {}
-    if (virtualProp.relationshipProps !== undefined) {
+    if (virtualProp.relationship !== undefined) {
         // Add properties from the relationship to the target VNode data request, so they can be optionally selected for inclusion:
-        for (const relationshipPropName in virtualProp.relationshipProps) {
-            const joiValidator = virtualProp.relationshipProps[relationshipPropName];
+        for (const relationshipPropName in virtualProp.relationship.properties) {
+            const joiValidator = virtualProp.relationship.properties[relationshipPropName];
             extraProps[relationshipPropName] = {
                 type: VirtualPropType.CypherExpression,
                 cypherExpression: C("@rel." + relationshipPropName),
