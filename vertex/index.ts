@@ -68,5 +68,9 @@ export {
 } from "./vnode";
 
 export {
+    VNodeTypeRef,
+} from "./vnode-ref";
+
+export {
     UUID,
 } from "./lib/uuid";

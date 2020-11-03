@@ -8,7 +8,7 @@ import {
     defaultUpdateActionFor,
     defaultCreateFor,
 } from "../";
-import { Movie } from "./Movie";
+import { MovieRef as Movie } from "./Movie";
 
 /**
  * A Movie Franchise VNode for testing
@@ -24,7 +24,7 @@ export class MovieFranchise extends VNodeType {
     static readonly virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)<-[:FRANCHISE_IS]-(@target:${Movie})`,
+            query: C`(@this)<-[:${Movie.rel.FRANCHISE_IS}]-(@target:${Movie})`,
             target: Movie,
         },
     };
