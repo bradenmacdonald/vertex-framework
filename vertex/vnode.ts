@@ -58,6 +58,11 @@ abstract class _VNodeType {
         }
         return result as any;
     }
+
+    // This method is not used for anything, but without at least one non-static method, TypeScript allows this:
+    //     const test: _VNodeType = "some string which is not a VNodeType!";
+    protected __vnode(): void {/* */}
+    protected static __vnode(): void {/* */}
 }
 
 // This little trick (and the VNodeType interface below) are required so that this class is only used statically,
