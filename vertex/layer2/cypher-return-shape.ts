@@ -1,5 +1,5 @@
 import { Node, Record as Neo4jRecord } from "neo4j-driver";
-import { UUID } from "./lib/uuid";
+import { UUID } from "../lib/uuid";
 import { VNodeType, isVNodeType, RawVNode } from "./vnode";
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

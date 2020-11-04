@@ -1,9 +1,9 @@
 import {
     isVNodeType,
     VNodeType,
-} from "./";
-import { suite, test, assert } from "./lib/intern-tests";
-import { registerVNodeType } from "./vnode";
+    registerVNodeType,
+} from "../";
+import { suite, test, assert } from "../lib/intern-tests";
 
 /** A VNode type that exists just within this file, for very basic tests */
 class SomeVNT extends VNodeType {

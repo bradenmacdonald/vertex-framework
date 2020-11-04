@@ -1,8 +1,8 @@
 import * as Joi from "@hapi/joi";
 import type { CypherQuery } from "./cypher-sugar";
 import type { FieldType } from "./cypher-return-shape";
-import { UUID } from "./lib/uuid";
-import { WrappedTransaction } from "./transaction";
+import { UUID } from "../lib/uuid";
+import { WrappedTransaction } from "../transaction";
 
 /** Strict UUID Validator for Joi */
 export const uuidValidator: Joi.CustomValidator = (stringValue, helpers) => {

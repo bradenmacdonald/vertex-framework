@@ -1,10 +1,10 @@
 import neo4j, { Driver } from "neo4j-driver";
-import { Action, ActionData, ActionResult, ActionType, getActionImplementation } from "./action";
-import { runAction } from "./action-runner";
+import { Action, ActionData, ActionResult, ActionType, getActionImplementation } from "./layer2/action";
+import { runAction } from "./layer2/action-runner";
 import { log } from "./lib/log";
 import { UUID } from "./lib/uuid";
 import { PullNoTx, PullOneNoTx } from "./pull";
-import { migrations as coreMigrations, SYSTEM_UUID } from "./schema";
+import { migrations as coreMigrations, SYSTEM_UUID } from "./layer2/schema";
 import { WrappedTransaction, wrapTransaction } from "./transaction";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
 

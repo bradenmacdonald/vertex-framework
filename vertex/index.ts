@@ -11,24 +11,24 @@ export {
     ActionResult,
     ActionType,
     defineAction,
-} from "./action";
+} from "./layer2/action";
 
 export {
     defaultCreateFor,
     defaultDeleteAndUnDeleteFor,
     defaultUpdateActionFor,
     updateToOneRelationship,
-} from "./action-templates";
+} from "./layer2/action-templates";
 
 export {
     C,
     CypherQuery,
-} from "./cypher-sugar";
+} from "./layer2/cypher-sugar";
 
 export {
     ReturnShape,
     TypedResult
-} from "./cypher-return-shape";
+} from "./layer2/cypher-return-shape";
 
 export {
     DataRequestFilter,
@@ -65,11 +65,11 @@ export {
     getVNodeType,
     isVNodeType,
     registerVNodeType,
-} from "./vnode";
+} from "./layer2/vnode";
 
 export {
     VNodeTypeRef,
-} from "./vnode-ref";
+} from "./layer2/vnode-ref";
 
 export {
     UUID,

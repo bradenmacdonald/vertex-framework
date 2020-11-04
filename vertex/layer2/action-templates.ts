@@ -1,7 +1,7 @@
 import { ActionImplementation, defineAction, ActionData, Action } from "./action";
 import { C } from "./cypher-sugar";
-import { UUID } from "./lib/uuid";
-import { WrappedTransaction } from "./transaction";
+import { UUID } from "../lib/uuid";
+import { WrappedTransaction } from "../transaction";
 import { PropertyDataType, RawVNode, VNodeRelationship, VNodeType } from "./vnode";
 
 

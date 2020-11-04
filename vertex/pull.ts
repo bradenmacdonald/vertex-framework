@@ -9,10 +9,10 @@ import {
     VirtualPropType,
     PropSchema,
     VNodeRelationship,
-} from "./vnode";
+} from "./layer2/vnode";
 import type { WrappedTransaction } from "./transaction";
-import type { ReturnTypeFor } from "./cypher-return-shape";
-import { C, CypherQuery } from "./cypher-sugar";
+import type { ReturnTypeFor } from "./layer2/cypher-return-shape";
+import { C, CypherQuery } from "./layer2/cypher-sugar";
 
 ////////////////////////////// VNode Data Request format ////////////////////////////////////////////////////////////
 

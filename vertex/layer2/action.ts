@@ -4,13 +4,12 @@
  * transform it to another state. Many actions are invertable, making it easy to revert edits, undo changes, etc.
  */
 import Joi from "@hapi/joi";
-import { Transaction } from "neo4j-driver";
 
-import { NominalType } from "./lib/ts-utils";
-import { UUID } from "./lib/uuid";
-import { log } from "./lib/log";
+import { NominalType } from "../lib/ts-utils";
+import { UUID } from "../lib/uuid";
+import { log } from "../lib/log";
 import { VNodeType, RawVNode, ValidationError, registerVNodeType, VirtualPropType } from "./vnode";
-import { WrappedTransaction } from "./transaction";
+import { WrappedTransaction } from "../transaction";
 import { C } from "./cypher-sugar";
 
 

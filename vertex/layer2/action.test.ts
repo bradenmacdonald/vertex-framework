@@ -1,8 +1,8 @@
-import { suite, test, assertRejects, assert, configureTestData, log } from "./lib/intern-tests";
+import { suite, test, assertRejects, assert, configureTestData, log } from "../lib/intern-tests";
 
-import { testGraph, CreatePerson, Person } from "./test-project";
+import { testGraph, CreatePerson, Person } from "../test-project";
 import { SYSTEM_UUID } from "./schema";
-import { C, UUID } from ".";
+import { C, UUID } from "..";
 
 // Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
 

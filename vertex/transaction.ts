@@ -1,7 +1,7 @@
 import { Transaction } from "neo4j-driver";
-import { CypherQuery, QueryResponse } from "./cypher-sugar";
+import { CypherQuery, QueryResponse } from "./layer2/cypher-sugar";
 import { pull, PullNoTx, pullOne, PullOneNoTx } from "./pull";
-import { query, queryOne } from "./query";
+import { query, queryOne } from "./layer2/query";
 
 /** A Neo4j Transaction with some Vertex Framework convenience methods */
 export interface WrappedTransaction extends Transaction {

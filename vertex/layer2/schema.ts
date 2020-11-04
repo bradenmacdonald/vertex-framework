@@ -8,8 +8,8 @@
  *  :ShortId - label for ShortId nodes, used to allow looking up a VNode by its current _or_ past shortId values
  *  :User:VNode - label for the User VNode type; must exist and be a VNode but details are up to the application
  */
-import { Migration } from "./vertex-interface";
-import { UUID } from "./lib/uuid";
+import { Migration } from "../vertex-interface";
+import { UUID } from "../lib/uuid";
 
 // The UUID of the system user.
 export const SYSTEM_UUID: UUID = UUID("00000000-0000-0000-0000-000000000000");
