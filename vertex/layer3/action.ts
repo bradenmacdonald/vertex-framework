@@ -8,9 +8,9 @@ import Joi from "@hapi/joi";
 import { NominalType } from "../lib/ts-utils";
 import { UUID } from "../lib/uuid";
 import { log } from "../lib/log";
-import { VNodeType, RawVNode, ValidationError, registerVNodeType, VirtualPropType } from "./vnode";
+import { VNodeType, RawVNode, ValidationError, registerVNodeType, VirtualPropType } from "../layer2/vnode";
 import { WrappedTransaction } from "../transaction";
-import { C } from "./cypher-sugar";
+import { C } from "../layer2/cypher-sugar";
 
 
 // A type of action, e.g. 'createUser'

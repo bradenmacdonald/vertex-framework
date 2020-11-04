@@ -1,8 +1,8 @@
 import { ActionImplementation, defineAction, ActionData, Action } from "./action";
-import { C } from "./cypher-sugar";
+import { C } from "../layer2/cypher-sugar";
 import { UUID } from "../lib/uuid";
 import { WrappedTransaction } from "../transaction";
-import { PropertyDataType, RawVNode, VNodeRelationship, VNodeType } from "./vnode";
+import { PropertyDataType, RawVNode, VNodeRelationship, VNodeType } from "../layer2/vnode";
 
 
 // Useful action generators to reduce boilerplate

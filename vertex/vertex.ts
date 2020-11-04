@@ -1,12 +1,26 @@
-import neo4j, { Driver } from "neo4j-driver";
-import { Action, ActionData, ActionResult, ActionType, getActionImplementation } from "./layer2/action";
-import { runAction } from "./layer2/action-runner";
+import neo4j, { Driver, Transaction } from "neo4j-driver";
+import { Action, ActionData, ActionResult, ActionType, getActionImplementation } from "./layer3/action";
+import { runAction } from "./layer3/action-runner";
 import { log } from "./lib/log";
 import { UUID } from "./lib/uuid";
-import { PullNoTx, PullOneNoTx } from "./pull";
-import { migrations as coreMigrations, SYSTEM_UUID } from "./layer2/schema";
-import { WrappedTransaction, wrapTransaction } from "./transaction";
+import { pull, PullNoTx, pullOne, PullOneNoTx } from "./pull";
+import { migrations as coreMigrations } from "./layer2/schema";
+import { migrations as actionMigrations, SYSTEM_UUID } from "./layer3/schema";
+import { WrappedTransaction } from "./transaction";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
+import { query, queryOne } from "./layer2/query";
+
+
+/** Wrap a Neo4j Transaction with some convenience methods. */
+export function wrapTransaction(tx: Transaction): WrappedTransaction {
+    const mutableTx: any = tx;
+    mutableTx.query = (q: any) => query(q, tx);
+    mutableTx.queryOne = (q: any) => queryOne(q, tx);
+    mutableTx.pull = (a: any, b: any, c: any) => pull(tx as any, a, b, c);
+    mutableTx.pullOne = (a: any, b: any, c: any) => pullOne(tx as any, a, b, c);
+    return mutableTx;
+}
+
 
 export interface InitArgs {
     neo4jUrl: string; // e.g. "bolt://neo4j"
@@ -26,7 +40,7 @@ export class Vertex implements VertexCore {
             neo4j.auth.basic(config.neo4jUser, config.neo4jPassword),
             { disableLosslessIntegers: true },
         );
-        this.migrations = {...coreMigrations, ...config.extraMigrations};
+        this.migrations = {...coreMigrations, ...actionMigrations, ...config.extraMigrations};
     }
 
     /** Await this when your application prepares to shut down */

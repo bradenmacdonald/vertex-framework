@@ -2,10 +2,10 @@ import { ActionData, getActionImplementation, ActionResult, Action } from "./act
 import { UUID } from "../lib/uuid";
 import { SYSTEM_UUID } from "./schema";
 import { log } from "../lib/log";
-import { getVNodeType, RawVNode } from "./vnode";
+import { getVNodeType, RawVNode } from "../layer2/vnode";
 import { VertexCore } from "../vertex-interface";
 import { Node } from "neo4j-driver";
-import { neoNodeToRawVNode } from "./cypher-return-shape";
+import { neoNodeToRawVNode } from "../layer2/cypher-return-shape";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
