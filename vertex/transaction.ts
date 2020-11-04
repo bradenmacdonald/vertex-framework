@@ -1,7 +1,6 @@
-import { Transaction } from "neo4j-driver";
-import { CypherQuery, QueryResponse } from "./cypher-sugar";
-import { pull, PullNoTx, pullOne, PullOneNoTx } from "./pull";
-import { query, queryOne } from "./query";
+import type { Transaction } from "neo4j-driver";
+import type { CypherQuery, QueryResponse } from "./layer2/cypher-sugar";
+import type { PullNoTx, PullOneNoTx } from "./layer4/pull";
 
 /** A Neo4j Transaction with some Vertex Framework convenience methods */
 export interface WrappedTransaction extends Transaction {
@@ -13,14 +12,4 @@ export interface WrappedTransaction extends Transaction {
     pull: PullNoTx;
     
     pullOne: PullOneNoTx;
-}
-
-/** Wrap a Neo4j Transaction with some convenience methods. */
-export function wrapTransaction(tx: Transaction): WrappedTransaction {
-    const mutableTx: any = tx;
-    mutableTx.query = (q: any) => query(q, tx);
-    mutableTx.queryOne = (q: any) => queryOne(q, tx);
-    mutableTx.pull = (a: any, b: any, c: any) => pull(tx as any, a, b, c);
-    mutableTx.pullOne = (a: any, b: any, c: any) => pullOne(tx as any, a, b, c);
-    return mutableTx;
 }

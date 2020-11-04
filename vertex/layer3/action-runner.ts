@@ -1,11 +1,12 @@
 import { ActionData, getActionImplementation, ActionResult, Action } from "./action";
-import { UUID } from "./lib/uuid";
+import { UUID } from "../lib/uuid";
 import { SYSTEM_UUID } from "./schema";
-import { log } from "./lib/log";
-import { getVNodeType, RawVNode } from "./vnode";
-import { VertexCore } from "./vertex-interface";
+import { log } from "../lib/log";
+import { getVNodeType } from "../layer2/vnode";
+import { VertexCore } from "../vertex-interface";
 import { Node } from "neo4j-driver";
-import { neoNodeToRawVNode } from "./cypher-return-shape";
+import { neoNodeToRawVNode } from "../layer2/cypher-return-shape";
+import { C } from "../layer2/cypher-sugar";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
@@ -26,9 +27,14 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
     const [result, tookMs] = await graph._restrictedWrite(async (tx) => {
         if (isRevertOfAction) {
             // We're reverting a previously applied action. Make sure it exists and isn't already reverted:
-            const prevAction = await tx.pullOne(Action, a => a.revertedBy(x => x.uuid), {key: isRevertOfAction});
-            if (prevAction.revertedBy) {
-                throw new Error(`Action ${isRevertOfAction} has already been reverted, by Action ${prevAction.revertedBy.uuid}`);
+            const prevAction = await tx.queryOne(C`
+                MATCH (prevAction:${Action} {uuid: ${isRevertOfAction}})
+                OPTIONAL MATCH (prevAction)<-[:${Action.rel.REVERTED}]-(existingRevert:${Action})
+                WITH prevAction.uuid AS prevUuid, collect(existingRevert {.uuid}) AS existingRevert
+            `.RETURN({"prevUuid" : "uuid", existingRevert: {list: {map: {uuid: "string"}}}}));
+            //const prevAction = await tx.pullOne(Action, a => a.revertedBy(x => x.uuid), {key: isRevertOfAction});
+            if (prevAction.existingRevert.length > 0) {
+                throw new Error(`Action ${isRevertOfAction} has already been reverted, by Action ${prevAction.existingRevert[0].uuid}`);
             }
         }
 
@@ -47,19 +53,15 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
         if (modifiedNodeUUIDs.length > 0) {
             // Mark the Action as having :MODIFIED any affects nodes, and also retrieve the current version of them.
             // (If a node was deleted, this will ignore it.)
-            const result = await tx.run(`
-                MERGE (a:Action:VNode {uuid: $actionUuid})
+            const result = await tx.query(C`
+                MERGE (a:${Action} {uuid: ${actionUuid}})
                 WITH a
-                MATCH (n:VNode) WHERE n.uuid IN $modifiedNodeUUIDs
-                MERGE (a)-[:MODIFIED]->(n)
-                RETURN n
-            `, {
-                actionUuid,
-                modifiedNodeUUIDs,
-            });
+                MATCH (n:VNode) WHERE n.uuid IN ${modifiedNodeUUIDs}
+                MERGE (a)-[:${Action.rel.MODIFIED}]->(n)
+            `.RETURN({n: "any"}));
             // Then, validate all nodes that had changes:
-            for (const resultRow of result.records) {
-                const node: Node<number> = resultRow.get("n");
+            for (const resultRow of result) {
+                const node: Node<number> = resultRow.n;
                 for (const label of node.labels) {
                     if (label === "VNode") {
                         continue;

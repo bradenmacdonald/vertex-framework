@@ -4,14 +4,11 @@
  * transform it to another state. Many actions are invertable, making it easy to revert edits, undo changes, etc.
  */
 import Joi from "@hapi/joi";
-import { Transaction } from "neo4j-driver";
 
-import { NominalType } from "./lib/ts-utils";
-import { UUID } from "./lib/uuid";
-import { log } from "./lib/log";
-import { VNodeType, RawVNode, ValidationError, registerVNodeType, VirtualPropType } from "./vnode";
-import { WrappedTransaction } from "./transaction";
-import { C } from "./cypher-sugar";
+import { NominalType } from "../lib/ts-utils";
+import { UUID } from "../lib/uuid";
+import { VNodeType, RawVNode, ValidationError } from "../layer2/vnode";
+import { WrappedTransaction } from "../transaction";
 
 
 // A type of action, e.g. 'createUser'
@@ -140,17 +137,8 @@ export class Action extends VNodeType {
             to: [Action],
         },
     });
-    static readonly virtualProperties = {
-        revertedBy: {
-            type: VirtualPropType.OneRelationship,
-            query: C`(@target:${Action})-[:${Action.rel.REVERTED}]->(@this)`,
-            target: Action,
-        },
-        revertedAction: {
-            type: VirtualPropType.OneRelationship,
-            query: C`(@this)-[:${Action.rel.REVERTED}]->(@target:${Action})`,
-            target: Action,
-        },
-    };
+    // In layer 4, this class is extended to include some virtual properties.
+    // Hence this base class is not registered using registerVNodeType(), as
+    // ActionWithVirtualProperties is used instead at runtime.
 }
-registerVNodeType(Action);
+// registerVNodeType(Action); is not called, on purpose ^

@@ -1,8 +1,6 @@
 import * as Joi from "@hapi/joi";
-import type { CypherQuery } from "./cypher-sugar";
-import type { FieldType } from "./cypher-return-shape";
-import { UUID } from "./lib/uuid";
-import { WrappedTransaction } from "./transaction";
+import { UUID } from "../lib/uuid";
+import { WrappedTransaction } from "../transaction";
 
 /** Strict UUID Validator for Joi */
 export const uuidValidator: Joi.CustomValidator = (stringValue, helpers) => {
@@ -36,7 +34,7 @@ abstract class _VNodeType {
     static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     static readonly rel: {[K: string]: VNodeRelationship} = emptyObj;
-    static readonly virtualProperties: VirtualPropsSchema = emptyObj;
+    static readonly virtualProperties = emptyObj;  // This is defined in Layer 4
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
     static readonly defaultOrderBy: string|undefined = undefined;
 
@@ -75,7 +73,6 @@ export interface VNodeType {
     readonly properties: PropSchemaWithUuid;
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     readonly rel: {[RelName: string]: VNodeRelationship};
-    readonly virtualProperties: VirtualPropsSchema;
     readonly defaultOrderBy: string|undefined;
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 
@@ -155,52 +152,6 @@ export class VNodeRelationship<PS extends PropSchema = PropSchema> {
 type VNodeRelationshipsFor<Rels extends VNodeRelationshipsData> = {
     [K in keyof Rels]: VNodeRelationship<Rels[K]["properties"] extends PropSchema ? Rels[K]["properties"] : PropSchema>
 };
-
-/**
- * Every VNode can declare "virtual properties" which are computed properties
- * (such as related VNodes) that can be loaded from the graph or other sources.
- * For example, a "User" node could have "age" (now() - dateOfBirth) or "friends"
- * (list of related User nodes) as virtual properties.
- */
-export interface VirtualPropsSchema {
-    [K: string]: VirtualPropertyDefinition,
-}
-
-export const VirtualPropType = {
-    // What type of virtual property this is. Note this can't be a const enum, because doing so breaks useful type
-    // inference unless it's always explicitly used as "VirtualPropType.ManyRelationship as const", which is annoying.
-    ManyRelationship: "many-relationship" as const,
-    OneRelationship: "one-relationship" as const,
-    CypherExpression: "cypher-expression" as const,
-}
-
-export interface VirtualManyRelationshipProperty {
-    type: typeof VirtualPropType.ManyRelationship;
-    query: CypherQuery;
-    target: VNodeType;
-    // One of the relationships in the query can be assigned to the variable @rel, and if so, specify its props here so
-    // that the relationship properties can be optionally included (as part of the target node)
-    relationship?: VNodeRelationship,
-    // How should this relationship be ordered by default, if not by the default ordering of the target VNode?
-    // Should be a cypher expression that can reference fields on @this, @target, or @rel (if @rel is used in the query)
-    defaultOrderBy?: string,
-}
-export interface VirtualOneRelationshipProperty {
-    type: typeof VirtualPropType.OneRelationship,
-    query: CypherQuery,
-    target: VNodeType;
-}
-export interface VirtualCypherExpressionProperty {
-    type: typeof VirtualPropType.CypherExpression,
-    cypherExpression: CypherQuery,
-    valueType: FieldType,
-}
-
-export type VirtualPropertyDefinition = (
-    |VirtualManyRelationshipProperty
-    |VirtualOneRelationshipProperty
-    |VirtualCypherExpressionProperty
-);
 
 const registeredNodeTypes: {[label: string]: VNodeType} = {};
 

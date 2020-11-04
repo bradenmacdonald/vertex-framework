@@ -6,10 +6,10 @@ import {
     updateToOneRelationship,
     registerVNodeType,
     VNodeType,
+    VNodeTypeRef,
     ShortIdProperty,
     VirtualPropType,
 } from "../";
-import { VNodeTypeRef } from "../vnode-ref";
 
 // When necessary to avoid circular references, this pattern can be used to create a "Forward Reference" to a VNodeType:
 export const MovieRef: typeof Movie = VNodeTypeRef("TestMovie");

@@ -1,11 +1,10 @@
-import { C, VirtualPropType, VNodeType, VNodeTypeRef } from ".";
-import { suite, test, assert, dedent } from "./lib/intern-tests";
-import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "./lib/ts-utils";
+import { C, VirtualPropType, VNodeType, VNodeTypeRef, isVNodeType, PropSchema, VNodeRelationship } from "..";
+import { suite, test, assert, dedent } from "../lib/intern-tests";
+import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils";
 import {
     Movie,
     MovieRef,
-} from "./test-project";
-import { isVNodeType, PropSchema, VNodeRelationship } from "./vnode";
+} from "../test-project";
 
 // Forward reference to the type below
 const OtherVNTRef: typeof OtherVNT = VNodeTypeRef("OtherVNT");

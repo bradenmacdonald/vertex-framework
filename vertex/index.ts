@@ -4,46 +4,28 @@
  * Applications using this framework shouldn't import from outside of this file.
  */
 
-export {
-    Action,
-    ActionData,
-    ActionImplementation,
-    ActionResult,
-    ActionType,
-    defineAction,
-} from "./action";
+//// Lib ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
-    defaultCreateFor,
-    defaultDeleteAndUnDeleteFor,
-    defaultUpdateActionFor,
-    updateToOneRelationship,
-} from "./action-templates";
+    UUID,
+} from "./lib/uuid";
+
+//// Layer 1 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// "Layer 1" is conceptually regular Neo4j functions, like tx.run()
+// Nothing specific is exported here.
+
+//// Layer 2 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
     C,
     CypherQuery,
-} from "./cypher-sugar";
+} from "./layer2/cypher-sugar";
 
 export {
     ReturnShape,
     TypedResult
-} from "./cypher-return-shape";
-
-export {
-    DataRequestFilter,
-    VNodeDataRequest,
-    VNodeDataRequestBuilder,
-    buildCypherQuery,
-} from "./pull";
-
-export {
-    WrappedTransaction,
-} from "./transaction";
-
-export {
-    Vertex,
-} from "./vertex";
+} from "./layer2/cypher-return-shape";
  
 export {
     PropSchema,
@@ -53,24 +35,73 @@ export {
     RawVNode,
     ShortIdProperty,
     UuidProperty,
-    VNodeType,
+    // VNodeType: we use VNodeTypeWithVirtualProps (from layer 4) in its place
     VNodeRelationship,
     ValidationError,
+    getVNodeType,
+    isVNodeType,
+    registerVNodeType,
+} from "./layer2/vnode";
+
+export {
+    VNodeTypeRef,
+} from "./layer2/vnode-ref";
+
+//// Layer 3 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export {
+    // Action: we use ActionWithVirtualProperties (from layer 4) in its place
+    ActionData,
+    ActionImplementation,
+    ActionResult,
+    ActionType,
+    defineAction,
+} from "./layer3/action";
+
+export {
+    defaultCreateFor,
+    defaultDeleteAndUnDeleteFor,
+    defaultUpdateActionFor,
+    updateToOneRelationship,
+} from "./layer3/action-templates";
+
+export {
+    SYSTEM_UUID
+} from "./layer3/schema";
+
+//// Layer 4 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export {
+    ActionWithVirtualProperties as Action,
+} from "./layer4/action";
+
+export {
     VirtualManyRelationshipProperty,
     VirtualOneRelationshipProperty,
     VirtualCypherExpressionProperty,
     VirtualPropType,
     VirtualPropertyDefinition,
     VirtualPropsSchema,
-    getVNodeType,
-    isVNodeType,
-    registerVNodeType,
-} from "./vnode";
+} from "./layer4/virtual-props";
+
 
 export {
-    VNodeTypeRef,
-} from "./vnode-ref";
+    VNodeTypeWithVirtualProps as VNodeType,
+} from "./layer4/vnode-with-virt-props";
 
 export {
-    UUID,
-} from "./lib/uuid";
+    DataRequestFilter,
+    VNodeDataRequest,
+    VNodeDataRequestBuilder,
+    buildCypherQuery,
+} from "./layer4/pull";
+
+//// High Level ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export {
+    WrappedTransaction,
+} from "./transaction";
+
+export {
+    Vertex,
+} from "./vertex";
