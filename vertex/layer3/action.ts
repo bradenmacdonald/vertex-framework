@@ -7,10 +7,8 @@ import Joi from "@hapi/joi";
 
 import { NominalType } from "../lib/ts-utils";
 import { UUID } from "../lib/uuid";
-import { log } from "../lib/log";
-import { VNodeType, RawVNode, ValidationError, registerVNodeType, VirtualPropType } from "../layer2/vnode";
+import { VNodeType, RawVNode, ValidationError } from "../layer2/vnode";
 import { WrappedTransaction } from "../transaction";
-import { C } from "../layer2/cypher-sugar";
 
 
 // A type of action, e.g. 'createUser'
@@ -139,17 +137,8 @@ export class Action extends VNodeType {
             to: [Action],
         },
     });
-    static readonly virtualProperties = {
-        revertedBy: {
-            type: VirtualPropType.OneRelationship,
-            query: C`(@target:${Action})-[:${Action.rel.REVERTED}]->(@this)`,
-            target: Action,
-        },
-        revertedAction: {
-            type: VirtualPropType.OneRelationship,
-            query: C`(@this)-[:${Action.rel.REVERTED}]->(@target:${Action})`,
-            target: Action,
-        },
-    };
+    // In layer 4, this class is extended to include some virtual properties.
+    // Hence this base class is not registered using registerVNodeType(), as
+    // ActionWithVirtualProperties is used instead at runtime.
 }
-registerVNodeType(Action);
+// registerVNodeType(Action); is not called, on purpose ^

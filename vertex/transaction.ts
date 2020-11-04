@@ -1,6 +1,6 @@
 import type { Transaction } from "neo4j-driver";
 import type { CypherQuery, QueryResponse } from "./layer2/cypher-sugar";
-import type { PullNoTx, PullOneNoTx } from "./pull";
+import type { PullNoTx, PullOneNoTx } from "./layer4/pull";
 
 /** A Neo4j Transaction with some Vertex Framework convenience methods */
 export interface WrappedTransaction extends Transaction {

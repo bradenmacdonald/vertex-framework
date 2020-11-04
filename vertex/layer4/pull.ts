@@ -1,18 +1,20 @@
 import Joi from "@hapi/joi";
-import { log } from "./lib/log";
+import { log } from "../lib/log";
 import {
     PropertyDataType,
     VNodeType,
+    VNodeRelationship,
+} from "../layer2/vnode";
+import {
     VirtualManyRelationshipProperty,
     VirtualOneRelationshipProperty,
     VirtualCypherExpressionProperty,
     VirtualPropType,
-    PropSchema,
-    VNodeRelationship,
-} from "./layer2/vnode";
-import type { WrappedTransaction } from "./transaction";
-import type { ReturnTypeFor } from "./layer2/cypher-return-shape";
-import { C, CypherQuery } from "./layer2/cypher-sugar";
+} from "./virtual-props";
+import type { WrappedTransaction } from "../transaction";
+import type { ReturnTypeFor } from "../layer2/cypher-return-shape";
+import { C, CypherQuery } from "../layer2/cypher-sugar";
+import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 
 ////////////////////////////// VNode Data Request format ////////////////////////////////////////////////////////////
 
@@ -32,7 +34,7 @@ import { C, CypherQuery } from "./layer2/cypher-sugar";
  *     );
  */
 type VNodeDataRequest<
-    VNT extends VNodeType,
+    VNT extends VNodeTypeWithVirtualProps,
     includedProperties extends keyof VNT["properties"] = never,
     flaggedProperties extends keyof VNT["properties"] = never,
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT> = {}  // eslint-disable-line @typescript-eslint/ban-types
@@ -49,7 +51,7 @@ type VNodeDataRequest<
 
 /** Each VNodeDataRequest has a .allProps attribute which requests all raw properties and returns the same request object */
 type VNDR_AddAllProps<
-    VNT extends VNodeType,
+    VNT extends VNodeTypeWithVirtualProps,
     includedProperties extends keyof VNT["properties"],
     flaggedProperties extends keyof VNT["properties"],
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
@@ -59,7 +61,7 @@ type VNDR_AddAllProps<
 
 /** For each raw property like "uuid", the data request has a .uuid attribute which requests that property and returns the same request object */
 type VNDR_AddRawProp<
-    VNT extends VNodeType,
+    VNT extends VNodeTypeWithVirtualProps,
     includedProperties extends keyof VNT["properties"],
     flaggedProperties extends keyof VNT["properties"],
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
@@ -69,7 +71,7 @@ type VNDR_AddRawProp<
 
 /** For each raw property like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that property */
 type VNDR_AddFlags<
-    VNT extends VNodeType,
+    VNT extends VNodeTypeWithVirtualProps,
     includedProperties extends keyof VNT["properties"],
     flaggedProperties extends keyof VNT["properties"],
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
@@ -79,7 +81,7 @@ type VNDR_AddFlags<
 
 /** For each virtual property of the VNodeType, there is a .propName(p => p...) method for requesting it. */
 type VNDR_AddVirtualProp<
-    VNT extends VNodeType,
+    VNT extends VNodeTypeWithVirtualProps,
     includedProperties extends keyof VNT["properties"],
     flaggedProperties extends keyof VNT["properties"],
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
@@ -113,7 +115,7 @@ type VNDR_AddVirtualProp<
 };
 
 /** Type data about virtual properties that have been requested so far in a VNodeDataRequest */
-type RecursiveVirtualPropRequest<VNT extends VNodeType> = {
+type RecursiveVirtualPropRequest<VNT extends VNodeTypeWithVirtualProps> = {
     [K in keyof VNT["virtualProperties"]]?: (
         VNT["virtualProperties"][K] extends VirtualManyRelationshipProperty ?
             IncludedVirtualManyProp<VNT["virtualProperties"][K], any> :
@@ -185,7 +187,7 @@ const _internalData = Symbol("internalData");
 /** Internal data in a VNodeDataRequest object */
 interface VNDRInternalData {
     // The VNodeType that this data request is for
-    [_vnodeType]: VNodeType;
+    [_vnodeType]: VNodeTypeWithVirtualProps;
     // Raw properties to pull from the database.
     // Keys represent the property names; string values indicate they should only be pulled when a flag is set.
     [_includedProperties]: {[propName: string]: true|string}
@@ -333,7 +335,7 @@ function virtualPropsForRelationship(virtualProp: VirtualManyRelationshipPropert
 }
 
 // The full VNodeDataRequest<A, B, C, D> type is private and not exported, but it's necessary/useful to export the basic version:
-export type VNodeDataRequestBuilder<VNT extends VNodeType> = VNodeDataRequest<VNT>;
+export type VNodeDataRequestBuilder<VNT extends VNodeTypeWithVirtualProps> = VNodeDataRequest<VNT>;
 
 /**
  * Base "constructor" for a VNodeDataRequest.
@@ -341,7 +343,7 @@ export type VNodeDataRequestBuilder<VNT extends VNodeType> = VNodeDataRequest<VN
  * Returns an empty VNodeDataRequest for the specified VNode type, which can be used to build a complete request.
  * @param vnt The VNode Type for which the request is being built
  */
-export function VNodeDataRequest<VNT extends VNodeType>(vnt: VNT): VNodeDataRequestBuilder<VNT> {
+export function VNodeDataRequest<VNT extends VNodeTypeWithVirtualProps>(vnt: VNT): VNodeDataRequestBuilder<VNT> {
     const data: VNDRInternalData = {
         [_vnodeType]: vnt,
         [_includedProperties]: {},
@@ -603,7 +605,7 @@ export function buildCypherQuery<Request extends VNodeDataRequest<any, any, any,
 }
 
 
-export function pull<VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
+export function pull<VNT extends VNodeTypeWithVirtualProps, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
     tx: WrappedTransaction,
     vnt: VNT,
     vndr: ((builder: VNodeDataRequestBuilder<VNT>) => VNDR),
@@ -617,7 +619,7 @@ export function pull<VNDR extends VNodeDataRequest<any, any, any, any>>(
 ): Promise<VNodeDataResponse<VNDR>[]>;
 
 export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?: any): Promise<any> {
-    const request: VNodeDataRequest<VNodeType> = typeof arg2 === "function" ? arg2(VNodeDataRequest(arg1)) : arg1;
+    const request: VNodeDataRequest<VNodeTypeWithVirtualProps> = typeof arg2 === "function" ? arg2(VNodeDataRequest(arg1)) : arg1;
     const requestData: VNDRInternalData = getInternalData(request);
     const filter: DataRequestFilter = (typeof arg2 === "function" ? arg3 : arg2) || {};
     const topLevelFields = getAllPropertiesIncludedIn(requestData, filter);
@@ -636,7 +638,7 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
     });
 }
 
-export function pullOne<VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
+export function pullOne<VNT extends VNodeTypeWithVirtualProps, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
     tx: WrappedTransaction,
     vnt: VNT,
     vndr: ((builder: VNodeDataRequestBuilder<VNT>) => VNDR),
@@ -662,7 +664,7 @@ export async function pullOne(tx: WrappedTransaction, arg1: any, arg2?: any, arg
 // These types match the overload signature for pull(), but have no "tx" parameter; used in WrappedTransaction and Vertex for convenience.
 export type PullNoTx = (
     (
-        <VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
+        <VNT extends VNodeTypeWithVirtualProps, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
             vnt: VNT,
             vndr: ((builder: VNodeDataRequestBuilder<VNT>) => VNDR),
             filter?: DataRequestFilter,
@@ -677,7 +679,7 @@ export type PullNoTx = (
 
 export type PullOneNoTx = (
     (
-        <VNT extends VNodeType, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
+        <VNT extends VNodeTypeWithVirtualProps, VNDR extends VNodeDataRequest<VNT, any, any, any>>(
             vnt: VNT,
             vndr: ((builder: VNodeDataRequestBuilder<VNT>) => VNDR),
             filter?: DataRequestFilter,

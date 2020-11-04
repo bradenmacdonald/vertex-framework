@@ -4,8 +4,53 @@
  * Applications using this framework shouldn't import from outside of this file.
  */
 
+//// Lib ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 export {
-    Action,
+    UUID,
+} from "./lib/uuid";
+
+//// Layer 1 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// "Layer 1" is conceptually regular Neo4j functions, like tx.run()
+// Nothing specific is exported here.
+
+//// Layer 2 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export {
+    C,
+    CypherQuery,
+} from "./layer2/cypher-sugar";
+
+export {
+    ReturnShape,
+    TypedResult
+} from "./layer2/cypher-return-shape";
+ 
+export {
+    PropSchema,
+    PropertyDataType,
+    InvalidNodeLabel,
+    PublicValidationError,
+    RawVNode,
+    ShortIdProperty,
+    UuidProperty,
+    // VNodeType: we use VNodeTypeWithVirtualProps (from layer 4) in its place
+    VNodeRelationship,
+    ValidationError,
+    getVNodeType,
+    isVNodeType,
+    registerVNodeType,
+} from "./layer2/vnode";
+
+export {
+    VNodeTypeRef,
+} from "./layer2/vnode-ref";
+
+//// Layer 3 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export {
+    // Action: we use ActionWithVirtualProperties (from layer 4) in its place
     ActionData,
     ActionImplementation,
     ActionResult,
@@ -21,21 +66,37 @@ export {
 } from "./layer3/action-templates";
 
 export {
-    C,
-    CypherQuery,
-} from "./layer2/cypher-sugar";
+    SYSTEM_UUID
+} from "./layer3/schema";
+
+//// Layer 4 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
-    ReturnShape,
-    TypedResult
-} from "./layer2/cypher-return-shape";
+    ActionWithVirtualProperties as Action,
+} from "./layer4/action";
+
+export {
+    VirtualManyRelationshipProperty,
+    VirtualOneRelationshipProperty,
+    VirtualCypherExpressionProperty,
+    VirtualPropType,
+    VirtualPropertyDefinition,
+    VirtualPropsSchema,
+} from "./layer4/virtual-props";
+
+
+export {
+    VNodeTypeWithVirtualProps as VNodeType,
+} from "./layer4/vnode-with-virt-props";
 
 export {
     DataRequestFilter,
     VNodeDataRequest,
     VNodeDataRequestBuilder,
     buildCypherQuery,
-} from "./pull";
+} from "./layer4/pull";
+
+//// High Level ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
     WrappedTransaction,
@@ -44,37 +105,3 @@ export {
 export {
     Vertex,
 } from "./vertex";
- 
-export {
-    PropSchema,
-    PropertyDataType,
-    InvalidNodeLabel,
-    PublicValidationError,
-    RawVNode,
-    ShortIdProperty,
-    UuidProperty,
-    VNodeType,
-    VNodeRelationship,
-    ValidationError,
-    VirtualManyRelationshipProperty,
-    VirtualOneRelationshipProperty,
-    VirtualCypherExpressionProperty,
-    VirtualPropType,
-    VirtualPropertyDefinition,
-    VirtualPropsSchema,
-    getVNodeType,
-    isVNodeType,
-    registerVNodeType,
-} from "./layer2/vnode";
-
-export {
-    VNodeTypeRef,
-} from "./layer2/vnode-ref";
-
-export {
-    UUID,
-} from "./lib/uuid";
-
-export {
-    SYSTEM_UUID
-} from "./layer3/schema";
