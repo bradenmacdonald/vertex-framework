@@ -15,6 +15,7 @@ import type { WrappedTransaction } from "../transaction";
 import type { ReturnTypeFor } from "../layer2/cypher-return-shape";
 import { C, CypherQuery } from "../layer2/cypher-sugar";
 import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { DerivedProperty } from "./derived-props";
 
 ////////////////////////////// VNode Data Request format ////////////////////////////////////////////////////////////
 
@@ -38,20 +39,21 @@ type VNodeDataRequest<
     includedProperties extends keyof VNT["properties"] = never,
     flaggedProperties extends keyof VNT["properties"] = never,
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT> = {},  // eslint-disable-line @typescript-eslint/ban-types
+    includedDerivedProperties extends DerivedPropsRequest<VNT> = {},  // eslint-disable-line @typescript-eslint/ban-types
 > = (
     // Each VNodeDataRequest has a .allProps attribute which requests all raw (non-virtual) properties and returns the same request object
-    VNDR_AddAllProps<VNT, includedProperties, flaggedProperties, includedVirtualProperties> &
+    VNDR_AddAllProps<VNT, includedProperties, flaggedProperties, includedVirtualProperties, includedDerivedProperties> &
     // For each raw property like "uuid", the data request has a .uuid attribute which requests that property and returns the same request object
-    VNDR_AddRawProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties> &
+    VNDR_AddRawProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties, includedDerivedProperties> &
     // For each raw property like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that property
-    VNDR_AddFlags<VNT, includedProperties, flaggedProperties, includedVirtualProperties> &
+    VNDR_AddFlags<VNT, includedProperties, flaggedProperties, includedVirtualProperties, includedDerivedProperties> &
     // For each virtual property of the VNodeType, there is a .propName(p => p...) method for requesting it.
-    VNDR_AddVirtualProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties> &
+    VNDR_AddVirtualProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties, includedDerivedProperties> &
     // For each derived property of the VNodeType, there is a .propName() method for requesting it.
     // However, if the type system hints that this VNodeType extends {ignoreDerivedProps: true}, then we skip this,
     // which prevents circular type definition errors when defining derived properties, and also prevents derived props
     // from declaring a dependency on other derived props, which is not allowed.
-    ( VNT extends {ignoreDerivedProps: true} ? any : VNDR_AddDerivedProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties> )
+    ( VNT extends {ignoreDerivedProps: true} ? any : VNDR_AddDerivedProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties, includedDerivedProperties> )
 );
 
 /** Each VNodeDataRequest has a .allProps attribute which requests all raw properties and returns the same request object */
@@ -60,8 +62,9 @@ type VNDR_AddAllProps<
     includedProperties extends keyof VNT["properties"],
     flaggedProperties extends keyof VNT["properties"],
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
+    includedDerivedProperties extends DerivedPropsRequest<VNT>,
 > = {
-    allProps: VNodeDataRequest<VNT, keyof VNT["properties"], flaggedProperties, includedVirtualProperties>
+    allProps: VNodeDataRequest<VNT, keyof VNT["properties"], flaggedProperties, includedVirtualProperties, includedDerivedProperties>
 };
 
 /** For each raw property like "uuid", the data request has a .uuid attribute which requests that property and returns the same request object */
@@ -70,8 +73,9 @@ type VNDR_AddRawProp<
     includedProperties extends keyof VNT["properties"],
     flaggedProperties extends keyof VNT["properties"],
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
+    includedDerivedProperties extends DerivedPropsRequest<VNT>,
 > = {
-    [K in keyof VNT["properties"]/* as Exclude<K, includedProperties|flaggedProperties>*/]: VNodeDataRequest<VNT, includedProperties|K, flaggedProperties, includedVirtualProperties>
+    [K in keyof VNT["properties"]/* as Exclude<K, includedProperties|flaggedProperties>*/]: VNodeDataRequest<VNT, includedProperties|K, flaggedProperties, includedVirtualProperties, includedDerivedProperties>
 };
 
 /** For each raw property like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that property */
@@ -80,8 +84,9 @@ type VNDR_AddFlags<
     includedProperties extends keyof VNT["properties"],
     flaggedProperties extends keyof VNT["properties"],
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
+    includedDerivedProperties extends DerivedPropsRequest<VNT>,
 > = {
-    [K in keyof VNT["properties"] as K extends string ? `${K}IfFlag` : never]: (flagName: string) => VNodeDataRequest<VNT, includedProperties, flaggedProperties|K, includedVirtualProperties>
+    [K in keyof VNT["properties"] as K extends string ? `${K}IfFlag` : never]: (flagName: string) => VNodeDataRequest<VNT, includedProperties, flaggedProperties|K, includedVirtualProperties, includedDerivedProperties>
 };
 
 /** For each virtual property of the VNodeType, there is a .propName(p => p...) method for requesting it. */
@@ -90,6 +95,7 @@ type VNDR_AddVirtualProp<
     includedProperties extends keyof VNT["properties"],
     flaggedProperties extends keyof VNT["properties"],
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
+    includedDerivedProperties extends DerivedPropsRequest<VNT>,
 > = {
     [K in keyof VNT["virtualProperties"]]: (
 
@@ -102,18 +108,18 @@ type VNDR_AddVirtualProp<
                 options?: {ifFlag?: FlagType}
             )
             // The return value of the method is the same VNodeDataRequest, with the additional virtual property added in:
-            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "many"}}>
+            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "many"}}, includedDerivedProperties>
 
         : VNT["virtualProperties"][K] extends VirtualOneRelationshipProperty ?
             // For each x:one virtual property, add a method for requesting that virtual property:
             <SubSpec extends VNodeDataRequest<VNT["virtualProperties"][K]["target"]>, FlagType extends string|undefined = undefined>
             (subRequest: (buildSubequest: VNodeDataRequest<VNT["virtualProperties"][K]["target"]>) => SubSpec, options?: {ifFlag: FlagType})
-            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "one"}}>
+            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[K2 in K]: {ifFlag: FlagType, spec: SubSpec, type: "one"}}, includedDerivedProperties>
 
         : VNT["virtualProperties"][K] extends VirtualCypherExpressionProperty ?
             // Add a method to include this [virtual property based on a cypher expression], optionally toggled via a flag:
             <FlagType extends string|undefined = undefined>(options?: {ifFlag: FlagType})
-            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[K2 in K]: {ifFlag: FlagType, type: "cypher", propertyDefinition: VNT["virtualProperties"][K]}}>
+            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[K2 in K]: {ifFlag: FlagType, type: "cypher", propertyDefinition: VNT["virtualProperties"][K]}}, includedDerivedProperties>
 
         : never
     )
@@ -125,10 +131,15 @@ type VNDR_AddDerivedProp<
     includedProperties extends keyof VNT["properties"],
     flaggedProperties extends keyof VNT["properties"],
     includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
+    includedDerivedProperties extends DerivedPropsRequest<VNT>,
 > = (
     VNT extends VNodeTypeWithVirtualAndDerivedProps ? {
         // Method to add each derived property to the data request:
-        [K in keyof VNT["derivedProperties"]]: () => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties>
+        [K in keyof VNT["derivedProperties"]]:
+            <FlagType extends string|undefined = undefined>(options?: {ifFlag: FlagType})
+            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties, (
+                includedDerivedProperties & {[K2 in K]: {ifFlag: FlagType, propertyDefinition: VNT["derivedProperties"][K]}}
+            )>
     } : never
 );
 
@@ -161,6 +172,15 @@ type IncludedVirtualCypherExpressionProp<propType extends VirtualCypherExpressio
     ifFlag: string|undefined,
     type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
     propertyDefinition: propType;  // This field also doesn't exist, but is required for type inference to work
+};
+
+type DerivedPropsRequest<VNT extends VNodeTypeWithVirtualProps> = (
+    {[K: string]: IncludedDerivedProp<any>}
+);
+
+type IncludedDerivedProp<propType extends DerivedProperty<any, any, any>> = {
+    ifFlag: string|undefined,
+    propertyDefinition: propType;  // This field doesn't really exist, but is required for type inference to work
 };
 
 // When using a virtual property to join some other VNode to another node, this ProjectRelationshipProps type is used to
