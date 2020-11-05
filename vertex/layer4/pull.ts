@@ -14,7 +14,7 @@ import {
 import type { WrappedTransaction } from "../transaction";
 import type { ReturnTypeFor } from "../layer2/cypher-return-shape";
 import { C, CypherQuery } from "../layer2/cypher-sugar";
-import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 
 ////////////////////////////// VNode Data Request format ////////////////////////////////////////////////////////////
 
@@ -37,7 +37,7 @@ type VNodeDataRequest<
     VNT extends VNodeTypeWithVirtualProps,
     includedProperties extends keyof VNT["properties"] = never,
     flaggedProperties extends keyof VNT["properties"] = never,
-    includedVirtualProperties extends RecursiveVirtualPropRequest<VNT> = {}  // eslint-disable-line @typescript-eslint/ban-types
+    includedVirtualProperties extends RecursiveVirtualPropRequest<VNT> = {},  // eslint-disable-line @typescript-eslint/ban-types
 > = (
     // Each VNodeDataRequest has a .allProps attribute which requests all raw (non-virtual) properties and returns the same request object
     VNDR_AddAllProps<VNT, includedProperties, flaggedProperties, includedVirtualProperties> &
@@ -46,7 +46,12 @@ type VNodeDataRequest<
     // For each raw property like "uuid", the data request has a .uuidIfFlag() method which conditionally requests that property
     VNDR_AddFlags<VNT, includedProperties, flaggedProperties, includedVirtualProperties> &
     // For each virtual property of the VNodeType, there is a .propName(p => p...) method for requesting it.
-    VNDR_AddVirtualProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties>
+    VNDR_AddVirtualProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties> &
+    // For each derived property of the VNodeType, there is a .propName() method for requesting it.
+    // However, if the type system hints that this VNodeType extends {ignoreDerivedProps: true}, then we skip this,
+    // which prevents circular type definition errors when defining derived properties, and also prevents derived props
+    // from declaring a dependency on other derived props, which is not allowed.
+    ( VNT extends {ignoreDerivedProps: true} ? any : VNDR_AddDerivedProp<VNT, includedProperties, flaggedProperties, includedVirtualProperties> )
 );
 
 /** Each VNodeDataRequest has a .allProps attribute which requests all raw properties and returns the same request object */
@@ -113,6 +118,19 @@ type VNDR_AddVirtualProp<
         : never
     )
 };
+
+/** For each derived property of the VNodeType, there is a .propName(p => p...) method for requesting it. */
+type VNDR_AddDerivedProp<
+    VNT extends VNodeTypeWithVirtualProps,
+    includedProperties extends keyof VNT["properties"],
+    flaggedProperties extends keyof VNT["properties"],
+    includedVirtualProperties extends RecursiveVirtualPropRequest<VNT>,
+> = (
+    VNT extends VNodeTypeWithVirtualAndDerivedProps ? {
+        // Method to add each derived property to the data request:
+        [K in keyof VNT["derivedProperties"]]: () => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties>
+    } : never
+);
 
 /** Type data about virtual properties that have been requested so far in a VNodeDataRequest */
 type RecursiveVirtualPropRequest<VNT extends VNodeTypeWithVirtualProps> = {
@@ -620,7 +638,7 @@ export function pull<VNDR extends VNodeDataRequest<any, any, any, any>>(
 ): Promise<VNodeDataResponse<VNDR>[]>;
 
 export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?: any): Promise<any> {
-    const request: VNodeDataRequest<VNodeTypeWithVirtualProps> = typeof arg2 === "function" ? arg2(VNodeDataRequest(arg1)) : arg1;
+    const request: VNodeDataRequest<VNodeTypeWithVirtualAndDerivedProps> = typeof arg2 === "function" ? arg2(VNodeDataRequest(arg1)) : arg1;
     const requestData: VNDRInternalData = getInternalData(request);
     const filter: DataRequestFilter = (typeof arg2 === "function" ? arg3 : arg2) || {};
     const topLevelFields = getAllPropertiesIncludedIn(requestData, filter);

@@ -16,7 +16,7 @@ export const UuidProperty = Joi.string().custom(uuidValidator);
 // A UUID string like 00000000-0000-0000-0000-000000000000 is 36 characters long, so shortIds are limited to 32.
 export const ShortIdProperty = Joi.string().regex(/^[A-Za-z0-9.-]{1,32}$/).required();
 // An empty object that can be used as a default value for read-only properties
-const emptyObj = Object.freeze({});
+export const emptyObj = Object.freeze({});
 
 /**
  * Abstract base class for a "VNode".
@@ -34,7 +34,6 @@ abstract class _VNodeType {
     static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     static readonly rel: {[K: string]: VNodeRelationship} = emptyObj;
-    static readonly virtualProperties = emptyObj;  // This is defined in Layer 4
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
     static readonly defaultOrderBy: string|undefined = undefined;
 
@@ -48,13 +47,19 @@ abstract class _VNodeType {
         }
     }
 
-    // Do not override this method:
+    /**
+     * Helper method used to declare relationships with correct typing. Do not override this.
+     * Usage:
+     *     static readonly rel = MyVNodeType.hasRelationshipsFromThisTo({
+     *         ...
+     *     });
+     */
     static hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsData>(relationshipDetails: Rels): VNodeRelationshipsFor<Rels> {
         const result: {[K in keyof Rels]: VNodeRelationship} = {} as any;
         for (const relName in relationshipDetails) {
             result[relName] = new VNodeRelationship(relName, relationshipDetails[relName]);
         }
-        return result as any;
+        return Object.freeze(result) as any;
     }
 
     // This method is not used for anything, but without at least one non-static method, TypeScript allows this:

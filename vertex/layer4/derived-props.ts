@@ -7,16 +7,16 @@ import { VNodeDataRequestBuilder, VNodeDataRequestBuilt, VNodeDataResponse } fro
  * Derived properties are a special type of virtual property which gets computed with the help of some callback function
  * (i.e. computed by JavaScript code), and which have access to values from other raw and virtual properties.
  */
-export interface DerivedPropsSchema<VNT extends VNodeTypeWithVirtualProps> {
+export interface DerivedPropsSchema<VNT extends VNodeTypeWithVirtualProps&{ignoreDerivedProps: true}> {
     [K: string]: DerivedProperty<VNT, any, any>,
 }
 
-export interface DerivedProperty<VNT extends VNodeTypeWithVirtualProps, DependencyRequest extends VNodeDataRequestBuilt<VNT>, ValueType> {
+export interface DerivedProperty<VNT extends VNodeTypeWithVirtualProps&{ignoreDerivedProps: true}, DependencyRequest extends VNodeDataRequestBuilt<VNT>, ValueType> {
     dependencies: (x: VNodeDataRequestBuilder<VNT>) => DependencyRequest,
     computeValue: (x: VNodeDataResponse<DependencyRequest>) => ValueType,
 }
 
-export function DerivedProperty<VNT extends VNodeTypeWithVirtualProps, DependencyRequest extends VNodeDataRequestBuilt<VNT>, ValueType>(
-    dependencies: (x: VNodeDataRequestBuilder<VNT>) => DependencyRequest,
+export function DerivedProperty<VNT extends VNodeTypeWithVirtualProps&{ignoreDerivedProps: true}, DependencyRequest extends VNodeDataRequestBuilt<VNT>, ValueType>(
+    dependencies: (x: VNodeDataRequestBuilder<VNT&{ignoreDerivedProps: true}>) => DependencyRequest,
     computeValue: (x: VNodeDataResponse<DependencyRequest>) => ValueType,
 ): DerivedProperty<VNT, DependencyRequest, ValueType> { return {dependencies, computeValue}; }

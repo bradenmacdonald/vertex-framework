@@ -86,7 +86,7 @@ export {
 
 
 export {
-    VNodeTypeWithVirtualProps as VNodeType,
+    VNodeTypeWithVirtualAndDerivedProps as VNodeType,
 } from "./layer4/vnode-with-virt-props";
 
 export {

@@ -423,4 +423,10 @@ suite("pull", () => {
             });
         });
     });
+
+    suite("Queries including derived properties", () => {
+        test("Compute a property in JavaScript, using data from a raw property and virtual property that are explicitly fetched.", async () => {
+            const result = await testGraph.pullOne(Person, p => p.dateOfBirth.age().ageJS(), {key: "chris-pratt"});
+        });
+    });
 });
