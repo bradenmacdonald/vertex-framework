@@ -336,6 +336,7 @@ function virtualPropsForRelationship(virtualProp: VirtualManyRelationshipPropert
 
 // The full VNodeDataRequest<A, B, C, D> type is private and not exported, but it's necessary/useful to export the basic version:
 export type VNodeDataRequestBuilder<VNT extends VNodeTypeWithVirtualProps> = VNodeDataRequest<VNT>;
+export type VNodeDataRequestBuilt<VNT extends VNodeTypeWithVirtualProps> = VNodeDataRequest<VNT, any, any, any>;
 
 /**
  * Base "constructor" for a VNodeDataRequest.
@@ -356,7 +357,7 @@ export function VNodeDataRequest<VNT extends VNodeTypeWithVirtualProps>(vnt: VNT
 /**
  * When a VNodeDataRequest is executed ("pulled") from the database, this defines the shape/type of the response
  */
-type VNodeDataResponse<VNDR extends VNodeDataRequest<any, any, any, any>> = (
+export type VNodeDataResponse<VNDR extends VNodeDataRequest<any, any, any, any>> = (
     VNDR extends VNodeDataRequest<infer VNT, infer includedProperties, infer flaggedProperties, infer includedVirtualProperties> ? (
         // Raw properties that are definitely included:
         {[rawProp in includedProperties]: PropertyDataType<VNT["properties"], rawProp>} &
