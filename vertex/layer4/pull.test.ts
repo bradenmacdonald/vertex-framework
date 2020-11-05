@@ -2,7 +2,7 @@ import { suite, test, assert, dedent, configureTestData } from "../lib/intern-te
 
 import { buildCypherQuery, DataRequestFilter, VNodeDataRequest } from "./pull";
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils";
-import { testGraph, Person, Movie, createTestData } from "../test-project";
+import { testGraph, Person, Movie } from "../test-project";
 import { C, UUID } from "..";
 
 // Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -427,7 +427,21 @@ suite("pull", () => {
     suite("Queries including derived properties", () => {
         test("Compute a property in JavaScript, using data from a raw property and virtual property that are explicitly fetched.", async () => {
             const chrisPratt = await testGraph.pullOne(Person, p => p.dateOfBirth.age().ageJS(), {key: "chris-pratt"});
-            assert.strictEqual(chrisPratt.age, chrisPratt.ageJS);
+            assert.strictEqual(chrisPratt.age, chrisPratt.ageJS.ageJS);
+            assert.strictEqual(chrisPratt.age, chrisPratt.ageJS.ageNeo);
+            assert.isAtLeast(chrisPratt.ageJS.ageJS, 40);
+            assert.isAtMost(chrisPratt.ageJS.ageJS, 70);
+            // Check typing:
+            checkType<AssertPropertyPresent<typeof chrisPratt.ageJS, "ageJS", number>>();
+            checkType<AssertPropertyPresent<typeof chrisPratt.ageJS, "ageNeo", number>>();
+            checkType<AssertPropertyAbsent<typeof chrisPratt.ageJS, "other">>();
+        });
+        test("Compute a property in JavaScript, using data from a raw property and virtual property that are NOT explicitly fetched.", async () => {
+            const age = (await testGraph.pullOne(Person, p => p.age(), {key: "chris-pratt"})).age;
+            const chrisPratt = await testGraph.pullOne(Person, p => p.ageJS(), {key: "chris-pratt"});
+            assert.strictEqual(age, chrisPratt.ageJS.ageJS);
+            assert.isAtLeast(chrisPratt.ageJS.ageJS, 40);
+            assert.isAtMost(chrisPratt.ageJS.ageJS, 70);
         });
     });
 });

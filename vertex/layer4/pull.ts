@@ -138,7 +138,7 @@ type VNDR_AddDerivedProp<
         [K in keyof VNT["derivedProperties"]]:
             <FlagType extends string|undefined = undefined>(options?: {ifFlag: FlagType})
             => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties, (
-                includedDerivedProperties & {[K2 in K]: {ifFlag: FlagType, propertyDefinition: VNT["derivedProperties"][K]}}
+                includedDerivedProperties & {[K2 in K]: {ifFlag: FlagType, valueType: ReturnType<VNT["derivedProperties"][K]["computeValue"]>}}
             )>
     } : never
 );
@@ -178,9 +178,9 @@ type DerivedPropsRequest<VNT extends VNodeTypeWithVirtualProps> = (
     {[K: string]: IncludedDerivedProp<any>}
 );
 
-type IncludedDerivedProp<propType extends DerivedProperty<any, any, any>> = {
+type IncludedDerivedProp<ValueType> = {
     ifFlag: string|undefined,
-    propertyDefinition: propType;  // This field doesn't really exist, but is required for type inference to work
+    valueType: ValueType;  // This field doesn't really exist, but is required for type inference to work
 };
 
 // When using a virtual property to join some other VNode to another node, this ProjectRelationshipProps type is used to
@@ -396,7 +396,7 @@ export function VNodeDataRequest<VNT extends VNodeTypeWithVirtualProps>(vnt: VNT
  * When a VNodeDataRequest is executed ("pulled") from the database, this defines the shape/type of the response
  */
 export type VNodeDataResponse<VNDR extends VNodeDataRequest<any, any, any, any>> = (
-    VNDR extends VNodeDataRequest<infer VNT, infer includedProperties, infer flaggedProperties, infer includedVirtualProperties> ? (
+    VNDR extends VNodeDataRequest<infer VNT, infer includedProperties, infer flaggedProperties, infer includedVirtualProperties, infer includedDerivedProperties> ? (
         // Raw properties that are definitely included:
         {[rawProp in includedProperties]: PropertyDataType<VNT["properties"], rawProp>} &
         // Raw properties that are conditionally included, depending on whether a certain flag is set or not:
@@ -414,6 +414,11 @@ export type VNodeDataResponse<VNDR extends VNodeDataRequest<any, any, any, any>>
             : includedVirtualProperties[virtualProp] extends IncludedVirtualCypherExpressionProp<infer VirtPropDefinition> ?
                 ReturnTypeFor<VirtPropDefinition["valueType"]> | (includedVirtualProperties[virtualProp]["ifFlag"] extends string ? undefined : never)
             : never
+        )} &
+        // Derived properties that are included, possibly conditional on some flag:
+        {[derivedProp in keyof includedDerivedProperties]: (
+            includedDerivedProperties[derivedProp]["valueType"]
+            | (includedDerivedProperties[derivedProp]["ifFlag"] extends string ? undefined : never)
         )}
     ) : never
 );
