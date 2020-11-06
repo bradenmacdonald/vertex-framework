@@ -9,12 +9,12 @@ export class ActionWithVirtualProperties extends Action {
         revertedBy: {
             type: VirtualPropType.OneRelationship,
             query: C`(@target:${Action})-[:${Action.rel.REVERTED}]->(@this)`,
-            target: Action,
+            target: ActionWithVirtualProperties,
         },
         revertedAction: {
             type: VirtualPropType.OneRelationship,
             query: C`(@this)-[:${Action.rel.REVERTED}]->(@target:${Action})`,
-            target: Action,
+            target: ActionWithVirtualProperties,
         },
     };
 }

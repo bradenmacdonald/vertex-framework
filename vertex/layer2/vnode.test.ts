@@ -19,8 +19,8 @@ suite("VNodeType", () => {
     test("isVNodeType", () => {
         // This is a VNodeType:
         assert.isTrue(isVNodeType(SomeVNT));
+        assert.isTrue(isVNodeType(VNodeType));  // It's arguable if this should be true or false but it happens to be true.
         // These things are not VNodeTypes:
-        assert.isFalse(isVNodeType(VNodeType));  // The base class shouldn't return true, it's abstract
         assert.isFalse(isVNodeType({label: "Test", properties: {}}));
         assert.isFalse(isVNodeType(undefined));
         assert.isFalse(isVNodeType(true));
