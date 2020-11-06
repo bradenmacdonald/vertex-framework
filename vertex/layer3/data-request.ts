@@ -12,35 +12,33 @@ interface None {}
 type BaseDataRequest<
     VNT extends VNodeType,
     requestedProperties extends keyof VNT["properties"] = never,
+    Mixins = None,
 > = (
     { [isDataRequest]: true, } &
-    AddRawProperties<VNT, requestedProperties> &
-    AddAllProperties<VNT, requestedProperties> 
+    AddRawProperties<VNT, requestedProperties, Mixins> &
+    AddAllProperties<VNT, requestedProperties, Mixins> &
+    Mixins
 );
 
 
 type AddRawProperties<
     VNT extends VNodeType,
-    requestedProperties extends keyof VNT["properties"]
+    requestedProperties extends keyof VNT["properties"],
+    Mixins,
 > = {
-    [propName in keyof Omit<VNT["properties"], requestedProperties>]: <X>(this: X) => (
-        X extends BaseDataRequest<VNT, requestedProperties> & infer Other ?
-            BaseDataRequest<VNT, requestedProperties | propName> & Other
-        : never
+    [propName in keyof Omit<VNT["properties"], requestedProperties>]: (
+        BaseDataRequest<VNT, requestedProperties | propName, Mixins>
     );
 }
 
 type AddAllProperties<
     VNT extends VNodeType,
-    requestedProperties extends keyof VNT["properties"]
+    requestedProperties extends keyof VNT["properties"],
+    Mixins,
 > = (
     // If all properties are not yet included, create a .allProps property which requests all properties of this VNodeType.
     keyof VNT["properties"] extends requestedProperties ? None : {
-        allProps: <X>(this: X) => (
-            X extends BaseDataRequest<VNT, requestedProperties> & infer Other ?
-                BaseDataRequest<VNT, keyof VNT["properties"]> & Other
-            : never
-        )
+        allProps: BaseDataRequest<VNT, keyof VNT["properties"], Mixins>
     }
 )
 
@@ -56,16 +54,14 @@ type ConditionalRawPropsRequest<
     conditionallyRequestedProperties extends keyof VNT["properties"] = never,
 > = ({
     [propName in keyof Omit<VNT["properties"], conditionallyRequestedProperties> as `${string & propName}IfFlag`]:
-        <X>(this: X, flagName: string) => (
-            X extends ConditionalRawPropsRequest<VNT, conditionallyRequestedProperties> & infer Other ?
-            ConditionalRawPropsRequest<VNT, conditionallyRequestedProperties | propName> & Other
+        <ThisRequest>(this: ThisRequest, flagName: string) => (
+            ThisRequest extends BaseDataRequest<VNT, infer requestedProperties, ConditionalRawPropsRequest<VNT, conditionallyRequestedProperties> & infer Other> ?
+                BaseDataRequest<VNT, requestedProperties, ConditionalRawPropsRequest<VNT, conditionallyRequestedProperties | propName> & Other>
             : never
         )
 });
 
 
-
-
-export function EmptyDataRequestWithFlags<VNT extends VNodeType>(vnt: VNT): BaseDataRequest<VNT>&ConditionalRawPropsRequest<VNT> {
-    return {} as BaseDataRequest<VNT>&ConditionalRawPropsRequest<VNT>;
+export function EmptyDataRequestWithFlags<VNT extends VNodeType>(vnt: VNT): BaseDataRequest<VNT, never, ConditionalRawPropsRequest<VNT>> {
+    return {} as BaseDataRequest<VNT, never, ConditionalRawPropsRequest<VNT>>;
 }
