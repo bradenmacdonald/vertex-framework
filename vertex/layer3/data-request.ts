@@ -37,11 +37,8 @@ export interface None {}
 
 ///////////////// BaseDataRequest //////////////////////////////////////////////////////////////////////////////////////
 
-const isDataRequest = Symbol("isDataRequest");
-
 /** The base data request type. All data requests allow choosing among a VNodeType's raw properties. */
 export type BaseDataRequest<VNT extends VNodeType, requestedProperties extends keyof VNT["properties"] = never, Mixins = None> = (
-    { [isDataRequest]: true, } &
     // For each raw property of the VNode that's not yet included in the request, add a property to add it to the request:
     AddRawProperties<VNT, requestedProperties, Mixins> &
     // Add the "allProps" helper that adds all properties to the request:
@@ -67,11 +64,125 @@ export type UpdateMixin<VNT extends VNodeType, ThisRequest, CurrentMixin, NewMix
     : never
 );
 
-export function EmptyDataRequest<VNT extends VNodeType>(vnt: VNT): BaseDataRequest<VNT> {
-    return {} as BaseDataRequest<VNT>;
+///////////////// Inner implementation of DataRequest //////////////////////////////////////////////////////////////////
+
+// Data Requests have a simple TypeScript API (e.g. p => p.name.uuid) which is achieved by wrapping a "DataRequestState"
+// immutable object in a Proxy, which intercepts calls to non-existent properties like ".name" or ".uuid" and uses them
+// to update the state and then return the an updated DataRequestState object.
+
+
+
+/**
+ * Internal data in a VNodeDataRequest object
+ * 
+ * This class wraps itself in a Proxy, which lets it act like the "BaseDataRequest" type, with dynamic properties.
+ */
+export class DataRequestState {
+    // The VNodeType that this data request is for
+    readonly vnodeType: VNodeType;
+    // Raw properties of this VNodeType to pull from the database for this request.
+    readonly includedProperties: ReadonlyArray<string>;
+    // What mixins are available on this DataRequest object, to provide high-level functionality like virtual fields
+    readonly #activeMixins: ReadonlyArray<MixinImplementation>;
+    // Additional data used to hold mixin state, such as the set of virtual properties selected for inclusion:
+    readonly #mixinData: Readonly<{[mixinName: string]: any}>;
+
+    private constructor(
+        vnt: VNodeType,
+        includedProperties: ReadonlyArray<string>,
+        activeMixins: ReadonlyArray<MixinImplementation>,
+        mixinData: Readonly<{[mixinName: string]: any}>,
+    ) {
+        this.vnodeType = vnt;
+        this.includedProperties = includedProperties;
+        this.#activeMixins = activeMixins;
+        this.#mixinData = mixinData;
+    }
+
+    /**
+     * Construct a new data request.
+     * 
+     * Returns a new DataRequestState object, wrapped in a Proxy so that it implements the BaseDataRequest interface.
+     * 
+     * On the returned object, you can call properties like .uuid.name.dateOfBirth to add those properties to the
+     * underlying request.
+     */
+    static newRequest<VNT extends VNodeType, Mixins>(vnodeType: VNT, mixins: MixinImplementation[]): BaseDataRequest<VNT, never, Mixins> {
+        const newObj = new DataRequestState(vnodeType, [], mixins.slice(), {});
+        return new Proxy(newObj, DataRequestState.proxyHandler) as any as BaseDataRequest<VNT, never, Mixins>;
+    }
+
+    cloneWithChanges(args: {newIncludedProperties?: ReadonlyArray<string>, newMixinData?: Readonly<{[mixinName: string]: any}>}): any {
+        const includedProperties = args.newIncludedProperties ? [
+            // If we're adding new properties to the request:
+            // First keep all existing requested/included properties, in order:
+            ...this.includedProperties,
+            // Then add any newly requested properties, preserving order, unless they're already included:
+            ...args.newIncludedProperties.filter(propName => !this.includedProperties.includes(propName))
+        ] : this.includedProperties;
+        const mixinData = args.newMixinData ? {...this.#mixinData, ...args.newMixinData} : this.#mixinData;
+        const newObj = new DataRequestState(this.vnodeType, includedProperties, this.#activeMixins, mixinData);
+        // Return the new DataRequestState wrapped in a proxy so it still implements the BaseDataRequest interface
+        return new Proxy(newObj, DataRequestState.proxyHandler);
+    }
+
+    private getRequestProperty(propKey: string): any {
+        // Is this a regular, raw property of the VNodeType?
+        if (this.vnodeType.properties[propKey] !== undefined) {
+            // Add it to the request and return the new request object with that included:
+            return this.cloneWithChanges({newIncludedProperties: [propKey]});
+        }
+        // The special "allProps" property means "add all raw properties to this request"
+        if (propKey === "allProps") {
+            return this.cloneWithChanges({newIncludedProperties: Object.keys(this.vnodeType.properties)});
+        }
+        // Otherwise, perhaps this is a virtual property or something implemented by a mixin:
+        throw new Error(`Unknown property ${propKey}`);
+    }
+
+    // A key used to get the internal state (an instance of DataRequestState) from the proxy that wraps it
+    private static readonly _internalState = Symbol("internalState");
+
+    static getInternalState<VNT extends VNodeType>(request: BaseDataRequest<VNT, any, any>): DataRequestState {
+        return request[this._internalState];
+    }
+
+    static proxyHandler: ProxyHandler<DataRequestState> = {
+        set: (dataRequestState, propKey, value, proxyObj) => false,  // Disallow setting properties on the Data Request
+        get: (dataRequestState, propKey, proxyObj) => {
+            if (propKey === DataRequestState._internalState) {
+                return dataRequestState;
+            } else if (typeof propKey !== "string") {
+                throw new Error("Can't have non-string property keys on a Data Request");
+            }
+    
+            if (dataRequestState.vnodeType === undefined) {
+                throw new Error(`Can't access .${propKey} because its VNodeType is undefined. There is probably a circular import issue.`);
+            }
+            return dataRequestState.getRequestProperty(propKey);
+        },
+    };
 }
 
+interface MixinImplementation {
+    provideRequestMethod: (dataRequest: DataRequestState, methodName: string) => (() => any)|undefined;
+}
 
+///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
+
+export type RequestVNodeRawProperties<VNT extends VNodeType, SelectedProps extends keyof VNT["properties"] = any> = (emptyRequest: BaseDataRequest<VNT>) => BaseDataRequest<VNT, SelectedProps>;
+
+export function getRequestedRawProperties<VNT extends VNodeType, SelectedProps extends keyof VNT["properties"] = string & keyof VNT["properties"]>(vnodeType: VNT, requestFn: RequestVNodeRawProperties<VNT, SelectedProps>):
+    Array<SelectedProps>
+{
+    // Create an empty data request, with no mixins, so it can only select from the VNodeType's raw properties:
+    const emptyRequest = DataRequestState.newRequest<VNT, None>(vnodeType, []);
+    // Call the provided function to construct a complete request, starting with the empty request as a starting point:
+    const completeRequest = requestFn(emptyRequest);
+    const requestState = DataRequestState.getInternalState(completeRequest);
+
+    return requestState.includedProperties as Array<SelectedProps>;
+}
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 

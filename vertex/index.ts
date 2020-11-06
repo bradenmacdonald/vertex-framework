@@ -50,6 +50,12 @@ export {
 //// Layer 3 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
+    BaseDataRequest,
+    RequestVNodeRawProperties,
+    getRequestedRawProperties,
+} from "./layer3/data-request";
+
+export {
     // Action: we use ActionWithVirtualProperties (from layer 4) in its place
     ActionData,
     ActionImplementation,
