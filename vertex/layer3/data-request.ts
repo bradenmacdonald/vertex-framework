@@ -6,10 +6,10 @@ import {
 const isDataRequest = Symbol("isDataRequest");
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-interface None {}
+export interface None {}
 
 
-type BaseDataRequest<
+export type BaseDataRequest<
     VNT extends VNodeType,
     requestedProperties extends keyof VNT["properties"] = never,
     Mixins = None,
@@ -47,21 +47,32 @@ export function EmptyDataRequest<VNT extends VNodeType>(vnt: VNT): BaseDataReque
 }
 
 
+/** A helper that mixins can use to update their state in a data request. */
+export type UpdateMixin<VNT extends VNodeType, ThisRequest, CurrentMixin, NewMixin> = (
+    ThisRequest extends BaseDataRequest<VNT, infer requestedProperties, CurrentMixin & infer Other> ?
+        BaseDataRequest<VNT, requestedProperties, NewMixin & Other>
+    : never
+);
+
+
 ///////////////////////////// Allow requesting properties conditionally, based on some sort of flag:
 
-type ConditionalRawPropsRequest<
+export type ConditionalRawPropsMixin<
     VNT extends VNodeType,
     conditionallyRequestedProperties extends keyof VNT["properties"] = never,
 > = ({
     [propName in keyof Omit<VNT["properties"], conditionallyRequestedProperties> as `${string & propName}IfFlag`]:
         <ThisRequest>(this: ThisRequest, flagName: string) => (
-            ThisRequest extends BaseDataRequest<VNT, infer requestedProperties, ConditionalRawPropsRequest<VNT, conditionallyRequestedProperties> & infer Other> ?
-                BaseDataRequest<VNT, requestedProperties, ConditionalRawPropsRequest<VNT, conditionallyRequestedProperties | propName> & Other>
-            : never
+            UpdateMixin<VNT, ThisRequest,
+                // Change this mixin from:
+                ConditionalRawPropsMixin<VNT, conditionallyRequestedProperties>,
+                // to:
+                ConditionalRawPropsMixin<VNT, conditionallyRequestedProperties | propName>
+            >
         )
 });
 
 
-export function EmptyDataRequestWithFlags<VNT extends VNodeType>(vnt: VNT): BaseDataRequest<VNT, never, ConditionalRawPropsRequest<VNT>> {
-    return {} as BaseDataRequest<VNT, never, ConditionalRawPropsRequest<VNT>>;
+export function EmptyDataRequestWithFlags<VNT extends VNodeType>(vnt: VNT): BaseDataRequest<VNT, never, ConditionalRawPropsMixin<VNT>> {
+    return {} as BaseDataRequest<VNT, never, ConditionalRawPropsMixin<VNT>>;
 }
