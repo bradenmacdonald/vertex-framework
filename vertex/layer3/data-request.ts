@@ -168,7 +168,7 @@ interface MixinImplementation {
     provideRequestMethod: (dataRequest: DataRequestState, methodName: string) => (() => any)|undefined;
 }
 
-///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
+///////////////// Request specific raw properties of a VNoteTyp ////////////////////////////////////////////////////////
 
 export type RequestVNodeRawProperties<VNT extends VNodeType, SelectedProps extends keyof VNT["properties"] = any> = (emptyRequest: BaseDataRequest<VNT>) => BaseDataRequest<VNT, SelectedProps>;
 
@@ -191,27 +191,3 @@ export function getRequestedRawProperties<VNT extends VNodeType, SelectedProps e
 export type GetRequestedRawProperties<Request extends RequestVNodeRawProperties<any, any>> = (
     Request extends RequestVNodeRawProperties<infer VNT, infer SelectedProps> ? SelectedProps : never
 );
-
-///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
-
-
-/** Allow requesting raw properties conditionally, based on whether or not a "flag" is set: */
-export type ConditionalRawPropsMixin<
-    VNT extends VNodeType,
-    conditionallyRequestedProperties extends keyof VNT["properties"] = never,
-> = ({
-    [propName in keyof Omit<VNT["properties"], conditionallyRequestedProperties> as `${string & propName}IfFlag`]:
-        <ThisRequest>(this: ThisRequest, flagName: string) => (
-            UpdateMixin<VNT, ThisRequest,
-                // Change this mixin from:
-                ConditionalRawPropsMixin<VNT, conditionallyRequestedProperties>,
-                // to:
-                ConditionalRawPropsMixin<VNT, conditionallyRequestedProperties | propName>
-            >
-        )
-});
-
-
-export function EmptyDataRequestWithFlags<VNT extends VNodeType>(vnt: VNT): BaseDataRequest<VNT, never, ConditionalRawPropsMixin<VNT>> {
-    return {} as BaseDataRequest<VNT, never, ConditionalRawPropsMixin<VNT>>;
-}
