@@ -1,33 +1,8 @@
-import { VNodeType } from "../layer2/vnode";
+import Joi from "@hapi/joi";
+import { VNodeRelationship, VNodeType } from "../layer2/vnode";
 import { BaseDataRequest, UpdateMixin, None } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
 import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
-
-
-type ResetMixins<Request extends BaseDataRequest<any, any, any>, newVNodeType extends VNodeType> = (
-    Request extends BaseDataRequest<any, any, infer Mixins> ? (
-        ResetMixins1<Mixins, None, newVNodeType>
-    ) : never
-);
-
-type ResetMixins1<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
-    ResetMixins2<OldMixins, 
-        OldMixins extends ConditionalRawPropsMixin<any, any> ?
-            NewMixins & ConditionalRawPropsMixin<newVNodeType>
-        : NewMixins
-    , newVNodeType>
-);
-
-type ResetMixins2<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
-    OldMixins extends VirtualPropsMixin<any, any> ?
-        NewMixins & (
-            newVNodeType extends VNodeTypeWithVirtualProps ?
-                VirtualPropsMixin<newVNodeType>
-            : None
-        )
-    : NewMixins
-);
-
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
@@ -61,8 +36,7 @@ export type VirtualPropsMixin<
             <ThisRequest, SubSpec extends BaseDataRequest<VNT["virtualProperties"][propName]["target"], any, any>, FlagType extends string|undefined = undefined>
             // This is the method:
             (this: ThisRequest,
-                //buildSubequest: VNodeDataRequest<VNT["virtualProperties"][propName]["target"] & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]>>) => SubSpec,
-                subRequest: (buildSubrequest: BaseDataRequest<VNT["virtualProperties"][propName]["target"], never, ResetMixins<ThisRequest, VNT["virtualProperties"][propName]["target"]>>) => SubSpec,
+                subRequest: (buildSubrequest: BaseDataRequest<VNT["virtualProperties"][propName]["target"], never, ResetMixins<ThisRequest, VNT["virtualProperties"][propName]["target"] & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]> >>) => SubSpec,
                 options?: {ifFlag?: FlagType}
             ) => (
                 UpdateMixin<VNT, ThisRequest,
@@ -132,6 +106,39 @@ type IncludedVirtualCypherExpressionProp<propType extends VirtualCypherExpressio
     propertyDefinition: propType;  // This field also doesn't exist, but is required for type inference to work
 };
 
+// When using a virtual property to join some other VNode to another node, this ProjectRelationshipProps type is used to
+// "project" properties from the *relationship* so that they appear as virtual properties on the target VNode.
+//
+// For example, if there is a (:Person)-[:ACTED_IN]->(:Movie) where "Person" is the main VNode and "Person.movies" is a
+// virtual property to list the movies they acted in, and the ACTED_IN relationship has a "role" property, then this is
+// used to make the "role" property appear as a virtual property on the Movie VNode.
+type ProjectRelationshipProps<Rel extends VNodeRelationship|undefined> = (
+    Rel extends VNodeRelationship ? {
+        virtualProperties: {
+            [K in keyof Rel["properties"]]: VirtualCypherExpressionPropertyForRelationshipProp<Rel["properties"][K]>
+        }
+    } : {virtualProperties: {/* empty */}}
+);
+type VirtualCypherExpressionPropertyForRelationshipProp<Prop> = (
+    // This is a generated VirtualCypherExpressionProperty, used to make a property from the relationship appear as an
+    // available virtual property on the target VNode. (e.g. the "role" property from the ACTED_IN relationship now
+    // appears as a VirtualCypherExpressionProperty on the Movie VNode when accessed via the "person.movies.role"
+    // virtual property, even though there is normally no "movies.role" virtual property.)
+    Omit<VirtualCypherExpressionProperty, "valueType"> & {
+        // We don't really enforce relationship properties or know when they're nullable so assume they can always be null:
+        valueType: {nullOr: (
+            // "Prop" is the property definition (Joi validator) defined in the VNode.relationshipsFrom section
+            Prop extends Joi.StringSchema ? "string" :
+            Prop extends Joi.NumberSchema ? "number" :
+            Prop extends Joi.BooleanSchema ? "boolean" :
+            Prop extends Joi.DateSchema ? "string" :
+            "any"
+        )}
+    }
+);
+
+///////////////// Misc /////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 
 type AllMixins<VNT extends VNodeTypeWithVirtualProps> = ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT>
@@ -142,3 +149,34 @@ export type RequestVNodeProperties<
     SelectedProps extends keyof VNT["properties"] = any,
     MixinData = any,
 > = (emptyRequest: BaseDataRequest<VNT, never, AllMixins<VNT>>) => BaseDataRequest<VNT, SelectedProps, MixinData>;
+
+///////////////// ResetMixins //////////////////////////////////////////////////////////////////////////////////////////
+
+
+// The mixin types contain type information about specific selected properties. When creating a recursive request for
+// virtual properties (e.g. to select which fields to include for the target of one-to-many relationship), it's
+// necessary to incude the same mixins, but with a different VNodeType specified and the data about which fields are
+// included reset.
+type ResetMixins<Request extends BaseDataRequest<any, any, any>, newVNodeType extends VNodeType> = (
+    Request extends BaseDataRequest<any, any, infer Mixins> ? (
+        ResetMixins1<Mixins, None, newVNodeType>
+    ) : never
+);
+
+type ResetMixins1<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
+    ResetMixins2<OldMixins, 
+        OldMixins extends ConditionalRawPropsMixin<any, any> ?
+            NewMixins & ConditionalRawPropsMixin<newVNodeType>
+        : NewMixins
+    , newVNodeType>
+);
+
+type ResetMixins2<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
+    OldMixins extends VirtualPropsMixin<any, any> ?
+        NewMixins & (
+            newVNodeType extends VNodeTypeWithVirtualProps ?
+                VirtualPropsMixin<newVNodeType>
+            : None
+        )
+    : NewMixins
+);
