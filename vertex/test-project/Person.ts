@@ -82,9 +82,9 @@ export class Person extends VNodeType {
 registerVNodeType(Person);
 
 
-export const UpdatePerson = defaultUpdateActionFor(Person, ["name", "dateOfBirth"]);
+export const UpdatePerson = defaultUpdateActionFor(Person, p => p.name.dateOfBirth);
 
-export const CreatePerson = defaultCreateFor(Person, ["shortId", "name"], UpdatePerson);
+export const CreatePerson = defaultCreateFor(Person, p => p.shortId.name, UpdatePerson);
 
 export const ActedIn = defineAction<{personId: string, movieId: string, role: string}, {/* */}>({
     type: "ActedIn",

@@ -32,4 +32,4 @@ export class MovieFranchise extends VNodeType {
 registerVNodeType(MovieFranchise);
 
 // Note: for MovieFranchise, we test having only a Create action; no update.
-export const CreateMovieFranchise = defaultCreateFor(MovieFranchise, ["shortId", "name"]);
+export const CreateMovieFranchise = defaultCreateFor(MovieFranchise, f => f.shortId.name);

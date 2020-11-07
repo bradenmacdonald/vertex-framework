@@ -184,6 +184,14 @@ export function getRequestedRawProperties<VNT extends VNodeType, SelectedProps e
     return requestState.includedProperties as Array<SelectedProps>;
 }
 
+/**
+ * TypeScript type helper: given a RequestVNodeRawProperties<VNT, any>, this returns the selected raw properties as a
+ * type, e.g. "uuid"|"name"|"username"
+ */
+export type GetRequestedRawProperties<Request extends RequestVNodeRawProperties<any, any>> = (
+    Request extends RequestVNodeRawProperties<infer VNT, infer SelectedProps> ? SelectedProps : never
+);
+
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
 

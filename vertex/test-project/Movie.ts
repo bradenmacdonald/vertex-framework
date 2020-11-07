@@ -49,7 +49,7 @@ interface UpdateMovieExtraArgs {
     franchiseId?: string|null;
 }
 
-export const UpdateMovie = defaultUpdateActionFor(Movie, ["shortId", "title", "year"], {
+export const UpdateMovie = defaultUpdateActionFor(Movie, m => m.shortId.title.year, {
     otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot, changes) => {
         const previousValues: Partial<UpdateMovieExtraArgs> = {};
         if (args.franchiseId !== undefined) {
@@ -70,4 +70,4 @@ export const UpdateMovie = defaultUpdateActionFor(Movie, ["shortId", "title", "y
     },
 });
 
-export const CreateMovie = defaultCreateFor(Movie, ["shortId", "title", "year"], UpdateMovie);
+export const CreateMovie = defaultCreateFor(Movie, m => m.shortId.title.year, UpdateMovie);
