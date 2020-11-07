@@ -4,6 +4,30 @@ import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, Virtu
 import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 
 
+type ResetMixins<Request extends BaseDataRequest<any, any, any>, newVNodeType extends VNodeType> = (
+    Request extends BaseDataRequest<any, any, infer Mixins> ? (
+        ResetMixins1<Mixins, None, newVNodeType>
+    ) : never
+);
+
+type ResetMixins1<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
+    ResetMixins2<OldMixins, 
+        OldMixins extends ConditionalRawPropsMixin<any, any> ?
+            NewMixins & ConditionalRawPropsMixin<newVNodeType>
+        : NewMixins
+    , newVNodeType>
+);
+
+type ResetMixins2<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
+    OldMixins extends VirtualPropsMixin<any, any> ?
+        NewMixins & (
+            newVNodeType extends VNodeTypeWithVirtualProps ?
+                VirtualPropsMixin<newVNodeType>
+            : None
+        )
+    : NewMixins
+);
+
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
@@ -32,21 +56,29 @@ export type VirtualPropsMixin<
     includedVirtualProps extends RecursiveVirtualPropRequest<VNT> = None,
 > = ({
     [propName in keyof Omit<VNT["virtualProperties"], keyof includedVirtualProps>]:
-        /*VNT["virtualProperties"][propName] extends VirtualManyRelationshipProperty ?
+        VNT["virtualProperties"][propName] extends VirtualManyRelationshipProperty ?
             // For each x:many virtual property, add a method for requesting that virtual property:
-            <ThisRequest, SubSpec extends VNodeDataRequest<VNT["virtualProperties"][propName]["target"]>, FlagType extends string|undefined = undefined>
+            <ThisRequest, SubSpec extends BaseDataRequest<VNT["virtualProperties"][propName]["target"], any, any>, FlagType extends string|undefined = undefined>
             // This is the method:
-            (this: ThisRequest, subRequest: (
-                buildSubequest: VNodeDataRequest<VNT["virtualProperties"][propName]["target"] & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]>>) => SubSpec,
+            (this: ThisRequest,
+                //buildSubequest: VNodeDataRequest<VNT["virtualProperties"][propName]["target"] & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]>>) => SubSpec,
+                subRequest: (buildSubrequest: BaseDataRequest<VNT["virtualProperties"][propName]["target"], never, ResetMixins<ThisRequest, VNT["virtualProperties"][propName]["target"]>>) => SubSpec,
                 options?: {ifFlag?: FlagType}
+            ) => (
+                UpdateMixin<VNT, ThisRequest,
+                    VirtualPropsMixin<VNT, includedVirtualProps>,
+                    VirtualPropsMixin<VNT, includedVirtualProps & {
+                        [PN in propName]: {ifFlag: FlagType, spec: SubSpec, type: "many"}
+                    }>
+                >
             )
             // The return value of the method is the same VNodeDataRequest, with the additional virtual property added in:
-            => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[PN in propName]: {ifFlag: FlagType, spec: SubSpec, type: "many"}}, includedDerivedProperties>
+            // => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[PN in propName]: {ifFlag: FlagType, spec: SubSpec, type: "many"}}, includedDerivedProperties>
 
-        :*/ VNT["virtualProperties"][propName] extends VirtualOneRelationshipProperty ?
+        : VNT["virtualProperties"][propName] extends VirtualOneRelationshipProperty ?
             // For each x:one virtual property, add a method for requesting that virtual property:
             <ThisRequest, SubSpec extends BaseDataRequest<VNT["virtualProperties"][propName]["target"], any, any>, FlagType extends string|undefined = undefined>
-            (this: ThisRequest, subRequest: (buildSubequest: BaseDataRequest<VNT["virtualProperties"][propName]["target"]>) => SubSpec, options?: {ifFlag: FlagType}) => (
+            (this: ThisRequest, subRequest: (buildSubequest: BaseDataRequest<VNT["virtualProperties"][propName]["target"], never, ResetMixins<ThisRequest, VNT["virtualProperties"][propName]["target"]>>) => SubSpec, options?: {ifFlag: FlagType}) => (
                 UpdateMixin<VNT, ThisRequest,
                     VirtualPropsMixin<VNT, includedVirtualProps>,
                     VirtualPropsMixin<VNT, includedVirtualProps & {
