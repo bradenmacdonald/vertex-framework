@@ -6,13 +6,12 @@ import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
-
 /** Allow requesting raw properties conditionally, based on whether or not a "flag" is set: */
 export type ConditionalRawPropsMixin<
     VNT extends VNodeType,
     conditionallyRequestedProperties extends keyof VNT["properties"] = never,
 > = ({
-    [propName in keyof Omit<VNT["properties"], conditionallyRequestedProperties> as `${string & propName}IfFlag`]:
+    [propName in keyof VNT["properties"] as `${string & propName}IfFlag`]:
         <ThisRequest>(this: ThisRequest, flagName: string) => (
             UpdateMixin<VNT, ThisRequest,
                 // Change this mixin from:
@@ -30,7 +29,7 @@ export type VirtualPropsMixin<
     VNT extends VNodeTypeWithVirtualProps,
     includedVirtualProps extends RecursiveVirtualPropRequest<VNT> = None,
 > = ({
-    [propName in keyof Omit<VNT["virtualProperties"], keyof includedVirtualProps>]:
+    [propName in keyof VNT["virtualProperties"]]://Omit<VNT["virtualProperties"], keyof includedVirtualProps>]:
         VNT["virtualProperties"][propName] extends VirtualManyRelationshipProperty ?
             // For each x:many virtual property, add a method for requesting that virtual property:
             <ThisRequest, SubSpec extends BaseDataRequest<VNT["virtualProperties"][propName]["target"], any, any>, FlagType extends string|undefined = undefined>
@@ -88,19 +87,19 @@ type RecursiveVirtualPropRequest<VNT extends VNodeTypeWithVirtualProps> = {
     )
 }
 
-type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends BaseDataRequest<propType["target"], any, any>> = {
+export type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends BaseDataRequest<propType["target"], any, any>> = {
     ifFlag: string|undefined,
     spec: Spec,
     type: "many",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
 
-type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends BaseDataRequest<propType["target"], any, any>> = {
+export type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends BaseDataRequest<propType["target"], any, any>> = {
     ifFlag: string|undefined,
     spec: Spec,
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
 
-type IncludedVirtualCypherExpressionProp<propType extends VirtualCypherExpressionProperty> = {
+export type IncludedVirtualCypherExpressionProp<propType extends VirtualCypherExpressionProperty> = {
     ifFlag: string|undefined,
     type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
     propertyDefinition: propType;  // This field also doesn't exist, but is required for type inference to work

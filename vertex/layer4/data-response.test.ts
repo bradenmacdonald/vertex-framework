@@ -1,0 +1,120 @@
+import { suite, test } from "../lib/intern-tests";
+
+import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils";
+import type { BaseDataRequest, UUID } from "..";
+import { Person } from "../test-project";
+import type { DataResponse } from "./data-response";
+import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { ConditionalRawPropsMixin, VirtualPropsMixin } from "./data-request-with-virt-props";
+import { VNodeType } from "../layer2/vnode";
+
+
+suite("DataResponse", () => {
+    // Compile-time tests of DataResponse typing
+
+    suite("Requests with only raw properties and conditional/flagged raw properties", () => {
+
+        // A helper function to create a typed DataRequest that supports raw properties and conditional (flagged) raw properties.
+        // This does not include the mixins to support virtual or derived properties.
+        function newDataRequest<VNT extends VNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, ConditionalRawPropsMixin<VNT>> {
+            // These tests only test typing so we don't have to actually implement this method.
+            return undefined as any;
+        }
+
+        test("Request a single raw property", () => {
+
+            const request = newDataRequest(Person).name;
+            const response: DataResponse<typeof request> = undefined as any;
+
+            checkType<AssertEqual<typeof response.name, string>>();
+            checkType<AssertPropertyPresent<typeof response, "name", string>>();
+            checkType<AssertPropertyAbsent<typeof response, "uuid">>();
+        });
+
+        test("Request all properties", () => {
+
+            const request = newDataRequest(Person).allProps;
+            const response: DataResponse<typeof request> = undefined as any;
+
+            checkType<AssertEqual<typeof response.name, string>>();
+            checkType<AssertPropertyPresent<typeof response, "name", string>>();
+            checkType<AssertPropertyPresent<typeof response, "uuid", UUID>>();
+            checkType<AssertPropertyPresent<typeof response, "dateOfBirth", string>>();
+            checkType<AssertPropertyPresent<typeof response, "shortId", string>>();
+            checkType<AssertPropertyAbsent<typeof response, "other">>();
+        });
+
+        test("Conditionally Request a single raw property", () => {
+
+            const request = newDataRequest(Person).nameIfFlag("someFlag");
+            const response: DataResponse<typeof request> = undefined as any;
+
+            checkType<AssertPropertyOptional<typeof response, "name", string>>();
+            checkType<AssertPropertyAbsent<typeof response, "uuid">>();
+        });
+    });
+
+    suite("Requests with only raw properties, conditional/flagged raw properties, and virtual properties", () => {
+
+        // A helper function to create a typed DataRequest that supports raw properties and virtual properties.
+        // This does not include the mixins to support derived properties.
+        function newDataRequest<VNT extends VNodeTypeWithVirtualProps>(vnodeType: VNT): BaseDataRequest<VNT, never, ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT>> {
+            // These tests only test typing so we don't have to actually implement this method.
+            return undefined as any;
+        }
+
+        test("Request a single raw property", () => {
+
+            const request = newDataRequest(Person).name;
+            const response: DataResponse<typeof request> = undefined as any;
+
+            checkType<AssertEqual<typeof response.name, string>>();
+            checkType<AssertPropertyPresent<typeof response, "name", string>>();
+            checkType<AssertPropertyAbsent<typeof response, "uuid">>();
+        });
+
+        test("Request all properties", () => {
+
+            const request = newDataRequest(Person).allProps;
+            const response: DataResponse<typeof request> = undefined as any;
+
+            checkType<AssertEqual<typeof response.name, string>>();
+            checkType<AssertPropertyPresent<typeof response, "name", string>>();
+            checkType<AssertPropertyPresent<typeof response, "uuid", UUID>>();
+            checkType<AssertPropertyPresent<typeof response, "dateOfBirth", string>>();
+            checkType<AssertPropertyPresent<typeof response, "shortId", string>>();
+            checkType<AssertPropertyAbsent<typeof response, "other">>();
+        });
+
+        test("Conditionally Request a single raw property", () => {
+
+            const request = newDataRequest(Person).nameIfFlag("someFlag");
+            const response: DataResponse<typeof request> = undefined as any;
+
+            checkType<AssertPropertyOptional<typeof response, "name", string>>();
+            checkType<AssertPropertyAbsent<typeof response, "uuid">>();
+        });
+
+        test("Request a raw property and conditionally Request another raw property", () => {
+
+            const request = newDataRequest(Person).shortId.nameIfFlag("someFlag");
+            const response: DataResponse<typeof request> = undefined as any;
+
+            checkType<AssertPropertyPresent<typeof response, "shortId", string>>();
+            checkType<AssertPropertyOptional<typeof response, "name", string>>();
+            checkType<AssertPropertyAbsent<typeof response, "uuid">>();
+        });
+
+        test("Request a virtual property", () => {
+
+            const request = newDataRequest(Person).age().uuid.shortIdIfFlag("d").dateOfBirthIfFlag("test");
+            const response: DataResponse<typeof request> = undefined as any;
+
+            checkType<AssertPropertyPresent<typeof response, "age", number>>();
+            checkType<AssertPropertyPresent<typeof response, "uuid", UUID>>();
+            checkType<AssertPropertyOptional<typeof response, "shortId", string>>();
+            checkType<AssertPropertyOptional<typeof response, "dateOfBirth", string>>();
+            checkType<AssertPropertyAbsent<typeof response, "other">>();
+        });
+    });
+});
