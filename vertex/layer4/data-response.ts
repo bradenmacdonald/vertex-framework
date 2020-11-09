@@ -2,9 +2,9 @@ import { ReturnTypeFor } from "../layer2/cypher-return-shape";
 import { PropertyDataType, VNodeType } from "../layer2/vnode";
 import { BaseDataRequest } from "../layer3/data-request";
 import {
-    ConditionalRawPropsMixin, IncludedVirtualCypherExpressionProp, IncludedVirtualManyProp, IncludedVirtualOneProp, VirtualPropsMixin
+    ConditionalRawPropsMixin, DerivedPropsMixin, IncludedDerivedPropRequest, IncludedVirtualCypherExpressionProp, IncludedVirtualManyProp, IncludedVirtualOneProp, VirtualPropsMixin
 } from "./data-request-mixins";
-import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 
 /**
  * When a Data Request is executed ("pulled") from the database, this defines the shape/type of the response
@@ -32,17 +32,24 @@ export type DataResponse<Request extends BaseDataRequest<VNodeType, any, any>> =
                             // 1:1 relationships are currently always optional at the DB level, so this may be null
                             DataResponse<Spec> | null | (includedVirtualProps[virtualProp]["ifFlag"] extends string ? undefined : never)
                         // A cypher expression virtual property is included:
-                        : includedVirtualProps[virtualProp] extends IncludedVirtualCypherExpressionProp<infer VirtPropDefinition> ?
-                            ReturnTypeFor<VirtPropDefinition["valueType"]> | (includedVirtualProps[virtualProp]["ifFlag"] extends string ? undefined : never)
+                        : includedVirtualProps[virtualProp] extends IncludedVirtualCypherExpressionProp<infer ValueType> ?
+                            ReturnTypeFor<ValueType> | (includedVirtualProps[virtualProp]["ifFlag"] extends string ? undefined : never)
                         : never
                     )}
                 : unknown
             : unknown
-        )
+        ) &
         // Derived properties that are included, possibly conditional on some flag:
-        // {[derivedProp in keyof includedDerivedProperties]: (
-        //     includedDerivedProperties[derivedProp]["valueType"]
-        //     | (includedDerivedProperties[derivedProp]["ifFlag"] extends string ? undefined : never)
-        // )}
+        (
+            VNT extends VNodeTypeWithVirtualAndDerivedProps ?
+                Mixins extends DerivedPropsMixin<VNT, infer includedDerivedProps> & infer Other?
+                    {[propName in keyof includedDerivedProps]: (
+                        includedDerivedProps[propName] extends IncludedDerivedPropRequest<infer ValueType> ?
+                            ValueType | (includedDerivedProps[propName]["ifFlag"] extends string ? undefined : never)
+                        : {error: boolean}
+                    )}
+                : unknown
+            : unknown
+        )
     ) : never
 );

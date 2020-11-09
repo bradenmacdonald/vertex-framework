@@ -9,10 +9,11 @@
  */
 
 import Joi from "@hapi/joi";
+import { FieldType } from "../layer2/cypher-return-shape";
 import { VNodeRelationship, VNodeType } from "../layer2/vnode";
-import { BaseDataRequest, UpdateMixin, MixinImplementation, DataRequestState } from "../layer3/data-request";
+import { BaseDataRequest, UpdateMixin } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty, VirtualPropType } from "./virtual-props";
-import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
@@ -55,8 +56,6 @@ export type VirtualPropsMixin<
                     }>
                 >
             )
-            // The return value of the method is the same VNodeDataRequest, with the additional virtual property added in:
-            // => VNodeDataRequest<VNT, includedProperties, flaggedProperties, includedVirtualProperties&{[PN in propName]: {ifFlag: FlagType, spec: SubSpec, type: "many"}}, includedDerivedProperties>
 
         : VNT["virtualProperties"][propName] extends VirtualOneRelationshipProperty ?
             // For each x:one virtual property, add a method for requesting that virtual property:
@@ -77,7 +76,7 @@ export type VirtualPropsMixin<
                 UpdateMixin<VNT, ThisRequest,
                     VirtualPropsMixin<VNT, includedVirtualProps>,
                     VirtualPropsMixin<VNT, includedVirtualProps & {
-                        [PN in propName]: {ifFlag: FlagType, type: "cypher", propertyDefinition: VNT["virtualProperties"][propName]}
+                        [PN in propName]: {ifFlag: FlagType, type: "cypher", valueType: VNT["virtualProperties"][propName]["valueType"]}
                     }>
                 >
             )
@@ -92,7 +91,7 @@ type RecursiveVirtualPropRequest<VNT extends VNodeTypeWithVirtualProps> = {
         VNT["virtualProperties"][K] extends VirtualOneRelationshipProperty ?
             IncludedVirtualOneProp<VNT["virtualProperties"][K], any> :
         VNT["virtualProperties"][K] extends VirtualCypherExpressionProperty ?
-            IncludedVirtualCypherExpressionProp<VNT["virtualProperties"][K]> :
+            IncludedVirtualCypherExpressionProp<VNT["virtualProperties"][K]["valueType"]> :
         never
     )
 }
@@ -109,10 +108,10 @@ export type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProper
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
 
-export type IncludedVirtualCypherExpressionProp<propType extends VirtualCypherExpressionProperty> = {
+export type IncludedVirtualCypherExpressionProp<FT extends FieldType> = {
     ifFlag: string|undefined,
     type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
-    propertyDefinition: propType;  // This field also doesn't exist, but is required for type inference to work
+    valueType: FT;  // This field also doesn't exist, but is required for type inference to work
 };
 
 // When using a virtual property to join some other VNode to another node, this ProjectRelationshipProps type is used to
@@ -146,6 +145,37 @@ type VirtualCypherExpressionPropertyForRelationshipProp<Prop> = (
     }
 );
 
+///////////////// DerivedPropsMixin ////////////////////////////////////////////////////////////////////////////////////
+
+/** Allow requesting derived properties, optionally based on whether or not a flag is set */
+export type DerivedPropsMixin<
+    VNT extends VNodeTypeWithVirtualAndDerivedProps,
+    includedDerivedProps extends DerivedPropRequest<VNT>|unknown = unknown,
+> = ({
+    [propName in keyof VNT["derivedProperties"]]:
+        // For each derived property, add a method for requesting that derived property:
+        <ThisRequest, FlagType extends string|undefined = undefined>
+        (this: ThisRequest, options?: {ifFlag?: FlagType}) => (
+            UpdateMixin<VNT, ThisRequest,
+                DerivedPropsMixin<VNT, includedDerivedProps>,
+                DerivedPropsMixin<VNT, includedDerivedProps & { [PN in propName]: {
+                    ifFlag: FlagType,
+                    valueType: ReturnType<VNT["derivedProperties"][propName]["computeValue"]>,
+                } }>
+            >
+        )
+});
+
+/** Type data about derived properties that have been requested so far in a VNodeDataRequest */
+type DerivedPropRequest<VNT extends VNodeTypeWithVirtualAndDerivedProps> = {
+    [K in keyof VNT["derivedProperties"]]?: IncludedDerivedPropRequest<any>;
+}
+
+export type IncludedDerivedPropRequest<ValueType> = {
+    ifFlag: string|undefined,
+    valueType: ValueType,
+};
+
 ///////////////// ResetMixins //////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -168,10 +198,23 @@ type ResetMixins1<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
 );
 
 type ResetMixins2<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
-    OldMixins extends VirtualPropsMixin<any, any> ?
+    ResetMixins3<OldMixins,
+        OldMixins extends VirtualPropsMixin<any, any> ?
+            NewMixins & (
+                newVNodeType extends VNodeTypeWithVirtualProps ?
+                    VirtualPropsMixin<newVNodeType>
+                : unknown
+            )
+        : NewMixins
+    , newVNodeType>
+);
+
+
+type ResetMixins3<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
+    OldMixins extends DerivedPropsMixin<any, any> ?
         NewMixins & (
-            newVNodeType extends VNodeTypeWithVirtualProps ?
-                VirtualPropsMixin<newVNodeType>
+            newVNodeType extends VNodeTypeWithVirtualAndDerivedProps ?
+                DerivedPropsMixin<newVNodeType>
             : unknown
         )
     : NewMixins

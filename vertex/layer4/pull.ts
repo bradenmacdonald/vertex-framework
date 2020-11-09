@@ -8,16 +8,16 @@ import {
 } from "./virtual-props";
 import type { WrappedTransaction } from "../transaction";
 import { CypherQuery } from "../layer2/cypher-sugar";
-import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 import { BaseDataRequest, DataRequestState } from "../layer3/data-request";
-import { ConditionalRawPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
+import { ConditionalRawPropsMixin, DerivedPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
 import type { DataResponse } from "./data-response";
 import { conditionalRawPropsMixinImplementation, getConditionalRawPropsData, getProjectedVirtualPropsData, getVirtualPropsData, virtualPropsMixinImplementation } from "./data-request-mixins-impl";
 
-type PullMixins<VNT extends VNodeTypeWithVirtualProps> = ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT>
+type PullMixins<VNT extends VNodeTypeWithVirtualAndDerivedProps> = ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT>
 
 /** Create an empty data request to use with pull() or pullOne() */
-export function newDataRequest<VNT extends VNodeTypeWithVirtualProps>(vnodeType: VNT): BaseDataRequest<VNT, never, PullMixins<VNT>> {
+export function newDataRequest<VNT extends VNodeTypeWithVirtualAndDerivedProps>(vnodeType: VNT): BaseDataRequest<VNT, never, PullMixins<VNT>> {
     return DataRequestState.newRequest<VNT, PullMixins<VNT>>(vnodeType, [
         conditionalRawPropsMixinImplementation,
         virtualPropsMixinImplementation,
@@ -254,7 +254,7 @@ export function buildCypherQuery<Request extends BaseDataRequest<any, any, any>>
 }
 
 
-export function pull<VNT extends VNodeTypeWithVirtualProps, Request extends BaseDataRequest<VNT, any, any>>(
+export function pull<VNT extends VNodeTypeWithVirtualAndDerivedProps, Request extends BaseDataRequest<VNT, any, any>>(
     tx: WrappedTransaction,
     vnt: VNT,
     request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
@@ -287,7 +287,7 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
     });
 }
 
-export function pullOne<VNT extends VNodeTypeWithVirtualProps, Request extends BaseDataRequest<VNT, any, any>>(
+export function pullOne<VNT extends VNodeTypeWithVirtualAndDerivedProps, Request extends BaseDataRequest<VNT, any, any>>(
     tx: WrappedTransaction,
     vnt: VNT,
     request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
@@ -313,7 +313,7 @@ export async function pullOne(tx: WrappedTransaction, arg1: any, arg2?: any, arg
 // These types match the overload signature for pull(), but have no "tx" parameter; used in WrappedTransaction and Vertex for convenience.
 export type PullNoTx = (
     (
-        <VNT extends VNodeTypeWithVirtualProps, Request extends BaseDataRequest<VNT, any, any>>(
+        <VNT extends VNodeTypeWithVirtualAndDerivedProps, Request extends BaseDataRequest<VNT, any, any>>(
             vnt: VNT,
             request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
             filter?: DataRequestFilter,
@@ -328,7 +328,7 @@ export type PullNoTx = (
 
 export type PullOneNoTx = (
     (
-        <VNT extends VNodeTypeWithVirtualProps, Request extends BaseDataRequest<VNT, any, any>>(
+        <VNT extends VNodeTypeWithVirtualAndDerivedProps, Request extends BaseDataRequest<VNT, any, any>>(
             vnt: VNT,
             request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
             filter?: DataRequestFilter,

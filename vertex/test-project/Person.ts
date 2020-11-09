@@ -9,13 +9,12 @@ import {
     VirtualPropType,
     VNodeType,
 } from "../";
-import { DerivedProperty } from "../layer4/derived-props";
 import { Movie } from "./Movie";
 
 /**
  * A Person VNode type
  */
-export class Person extends VNodeType {
+class Person extends VNodeType {
     static readonly label = "TestPerson";
     static readonly properties = {
         ...VNodeType.properties,
@@ -68,19 +67,21 @@ export class Person extends VNodeType {
             valueType: "number" as const,
         }
     };
-    static readonly derivedProperties = Person.hasDerivedProperties({
-        ageJS: DerivedProperty(p => p.dateOfBirth/*.age()*/, data => {
+    static readonly defaultOrderBy = "@this.name";
+}
+const PersonExtended = Person.augmentWithDerivedProps({
+    ageJS: Person.DerivedProperty(p => p.dateOfBirth.age(),
+        data => {
             const today = new Date(), dob = new Date(data.dateOfBirth);
             const m = today.getMonth() - dob.getMonth();
             const age = (today.getFullYear() - dob.getFullYear()) - (m < 0 || (m === 0 && today.getDate() < dob.getDate()) ? 1 : 0);
             // Return a complex object and test that we can return/access data from virtual props too:
-            return {ageJS: age, /*ageNeo: data.age*/};
-        }),
-    });
-    static readonly defaultOrderBy = "@this.name";
-}
-registerVNodeType(Person);
-
+            return {ageJS: age, ageNeo: data.age};
+        },
+    ),
+});
+registerVNodeType(PersonExtended);
+export { PersonExtended as Person };
 
 export const UpdatePerson = defaultUpdateActionFor(Person, p => p.name.dateOfBirth);
 

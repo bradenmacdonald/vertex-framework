@@ -17,5 +17,6 @@ export class ActionWithVirtualProperties extends Action {
             target: ActionWithVirtualProperties,
         },
     };
+    static readonly derivedProperties = {};
 }
 registerVNodeType(ActionWithVirtualProperties);
