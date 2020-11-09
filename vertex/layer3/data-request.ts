@@ -38,7 +38,7 @@ export interface None {}
 ///////////////// BaseDataRequest //////////////////////////////////////////////////////////////////////////////////////
 
 /** The base data request type. All data requests allow choosing among a VNodeType's raw properties. */
-export type BaseDataRequest<VNT extends VNodeType, requestedProperties extends keyof VNT["properties"] = never, Mixins = None> = (
+export type BaseDataRequest<VNT extends VNodeType, requestedProperties extends keyof VNT["properties"] = never, Mixins = unknown> = (
     // For each raw property of the VNode that's not yet included in the request, add a property to add it to the request:
     AddRawProperties<VNT, requestedProperties, Mixins> &
     // Add the "allProps" helper that adds all properties to the request:
@@ -54,7 +54,7 @@ type AddRawProperties<VNT extends VNodeType, requestedProperties extends keyof V
 
 type AddAllProperties<VNT extends VNodeType, requestedProperties extends keyof VNT["properties"], Mixins> = (
     // If all properties are not yet included, create a .allProps property which requests all properties of this VNodeType.
-    keyof VNT["properties"] extends requestedProperties ? None : { allProps: BaseDataRequest<VNT, keyof VNT["properties"], Mixins>}
+    keyof VNT["properties"] extends requestedProperties ? unknown : { allProps: BaseDataRequest<VNT, keyof VNT["properties"], Mixins>}
 );
 
 /** A helper that mixins can use to update their state in a data request. */
@@ -176,7 +176,7 @@ export function getRequestedRawProperties<VNT extends VNodeType, SelectedProps e
     Array<SelectedProps>
 {
     // Create an empty data request, with no mixins, so it can only select from the VNodeType's raw properties:
-    const emptyRequest = DataRequestState.newRequest<VNT, None>(vnodeType, []);
+    const emptyRequest = DataRequestState.newRequest<VNT, unknown>(vnodeType, []);
     // Call the provided function to construct a complete request, starting with the empty request as a starting point:
     const completeRequest = requestFn(emptyRequest);
     const requestState = DataRequestState.getInternalState(completeRequest);
