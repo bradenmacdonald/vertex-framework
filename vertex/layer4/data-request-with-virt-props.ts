@@ -116,7 +116,7 @@ type ProjectRelationshipProps<Rel extends VNodeRelationship|undefined> = (
         virtualProperties: {
             [K in keyof Rel["properties"]]: VirtualCypherExpressionPropertyForRelationshipProp<Rel["properties"][K]>
         }
-    } : {virtualProperties: {/* empty */}}
+    } : unknown
 );
 type VirtualCypherExpressionPropertyForRelationshipProp<Prop> = (
     // This is a generated VirtualCypherExpressionProperty, used to make a property from the relationship appear as an

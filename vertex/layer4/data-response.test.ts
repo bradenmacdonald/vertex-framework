@@ -54,7 +54,7 @@ suite("DataResponse", () => {
         });
     });
 
-    suite("Requests with only raw properties, conditional/flagged raw properties, and virtual properties", () => {
+    suite("Requests with raw properties, conditional/flagged raw properties, and virtual properties", () => {
 
         // A helper function to create a typed DataRequest that supports raw properties and virtual properties.
         // This does not include the mixins to support derived properties.
@@ -115,6 +115,31 @@ suite("DataResponse", () => {
             checkType<AssertPropertyOptional<typeof response, "shortId", string>>();
             checkType<AssertPropertyOptional<typeof response, "dateOfBirth", string>>();
             checkType<AssertPropertyAbsent<typeof response, "other">>();
+        });
+
+        test("Complex request using all mixins and including a projected property", () => {
+            const request = (newDataRequest(Person)
+                .uuid
+                .friends(f => f
+                    .name
+                    .dateOfBirthIfFlag("flag")
+                    .costars(cs => cs
+                        .name
+                        .movies(m => m.title.year.role())  // <-- note "role" is a projected property, which comes from the relationship and is not normally part of "Movie"
+                    )
+                )
+            );
+            const response: DataResponse<typeof request> = undefined as any;
+            checkType<AssertPropertyPresent<typeof response, "uuid", UUID>>();
+            checkType<AssertPropertyPresent<typeof response.friends[0], "name", string>>();
+            checkType<AssertPropertyOptional<typeof response.friends[0], "dateOfBirth", string>>();
+            const costar = response.friends[0].costars[0];
+            checkType<AssertPropertyPresent<typeof costar, "name", string>>();
+            checkType<AssertPropertyAbsent<typeof costar, "uuid">>();
+            checkType<AssertPropertyPresent<typeof costar.movies[0], "title", string>>();
+            checkType<AssertPropertyPresent<typeof costar.movies[0], "year", number>>();
+            checkType<AssertPropertyPresent<typeof costar.movies[0], "role", string|null>>();  // Projected properties are always nullable
+            checkType<AssertPropertyAbsent<typeof costar.movies[0], "uuid">>();
         });
     });
 });
