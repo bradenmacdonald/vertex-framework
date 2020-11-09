@@ -32,9 +32,6 @@ import {
 } from "../layer2/vnode";
 
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface None {}
-
 ///////////////// BaseDataRequest //////////////////////////////////////////////////////////////////////////////////////
 
 /** The base data request type. All data requests allow choosing among a VNodeType's raw properties. */

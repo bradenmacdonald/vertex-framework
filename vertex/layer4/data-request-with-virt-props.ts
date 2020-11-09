@@ -1,6 +1,6 @@
 import Joi from "@hapi/joi";
 import { VNodeRelationship, VNodeType } from "../layer2/vnode";
-import { BaseDataRequest, UpdateMixin, None } from "../layer3/data-request";
+import { BaseDataRequest, UpdateMixin } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
 import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 
@@ -27,7 +27,7 @@ export type ConditionalRawPropsMixin<
 /** Allow requesting virtual properties, optionally based on whether or not a flag is set */
 export type VirtualPropsMixin<
     VNT extends VNodeTypeWithVirtualProps,
-    includedVirtualProps extends RecursiveVirtualPropRequest<VNT> = None,
+    includedVirtualProps extends RecursiveVirtualPropRequest<VNT>|unknown = unknown,
 > = ({
     [propName in keyof VNT["virtualProperties"]]://Omit<VNT["virtualProperties"], keyof includedVirtualProps>]:
         VNT["virtualProperties"][propName] extends VirtualManyRelationshipProperty ?
@@ -136,19 +136,6 @@ type VirtualCypherExpressionPropertyForRelationshipProp<Prop> = (
     }
 );
 
-///////////////// Misc /////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-type AllMixins<VNT extends VNodeTypeWithVirtualProps> = ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT>
-
-
-export type RequestVNodeProperties<
-    VNT extends VNodeTypeWithVirtualProps,
-    SelectedProps extends keyof VNT["properties"] = any,
-    MixinData = any,
-> = (emptyRequest: BaseDataRequest<VNT, never, AllMixins<VNT>>) => BaseDataRequest<VNT, SelectedProps, MixinData>;
-
 ///////////////// ResetMixins //////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -158,7 +145,7 @@ export type RequestVNodeProperties<
 // included reset.
 type ResetMixins<Request extends BaseDataRequest<any, any, any>, newVNodeType extends VNodeType> = (
     Request extends BaseDataRequest<any, any, infer Mixins> ? (
-        ResetMixins1<Mixins, None, newVNodeType>
+        ResetMixins1<Mixins, unknown, newVNodeType>
     ) : never
 );
 
@@ -175,7 +162,7 @@ type ResetMixins2<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
         NewMixins & (
             newVNodeType extends VNodeTypeWithVirtualProps ?
                 VirtualPropsMixin<newVNodeType>
-            : None
+            : unknown
         )
     : NewMixins
 );

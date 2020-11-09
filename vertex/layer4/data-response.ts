@@ -1,9 +1,6 @@
 import { ReturnTypeFor } from "../layer2/cypher-return-shape";
 import { PropertyDataType, VNodeType } from "../layer2/vnode";
-import {
-    BaseDataRequest,
-    None
-} from "../layer3/data-request";
+import { BaseDataRequest } from "../layer3/data-request";
 import {
     ConditionalRawPropsMixin, IncludedVirtualCypherExpressionProp, IncludedVirtualManyProp, IncludedVirtualOneProp, VirtualPropsMixin
 } from "./data-request-with-virt-props";
