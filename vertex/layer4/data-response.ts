@@ -3,7 +3,7 @@ import { PropertyDataType, VNodeType } from "../layer2/vnode";
 import { BaseDataRequest } from "../layer3/data-request";
 import {
     ConditionalRawPropsMixin, IncludedVirtualCypherExpressionProp, IncludedVirtualManyProp, IncludedVirtualOneProp, VirtualPropsMixin
-} from "./data-request-with-virt-props";
+} from "./data-request-mixins";
 import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 
 /**

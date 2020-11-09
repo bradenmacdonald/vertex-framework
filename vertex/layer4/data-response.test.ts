@@ -5,7 +5,7 @@ import type { BaseDataRequest, UUID } from "..";
 import { Person } from "../test-project";
 import type { DataResponse } from "./data-response";
 import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
-import { ConditionalRawPropsMixin, VirtualPropsMixin } from "./data-request-with-virt-props";
+import { ConditionalRawPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
 import { VNodeType } from "../layer2/vnode";
 
 
@@ -18,7 +18,8 @@ suite("DataResponse", () => {
         // This does not include the mixins to support virtual or derived properties.
         function newDataRequest<VNT extends VNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, ConditionalRawPropsMixin<VNT>> {
             // These tests only test typing so we don't have to actually implement this method.
-            return undefined as any;
+            // Just return a Mock object to allow the chaining to work when building the request.
+            return new Proxy({}, { get: (_, propName, proxy) => (propName in Person.properties ? proxy : () => proxy), }) as any;
         }
 
         test("Request a single raw property", () => {
@@ -60,7 +61,8 @@ suite("DataResponse", () => {
         // This does not include the mixins to support derived properties.
         function newDataRequest<VNT extends VNodeTypeWithVirtualProps>(vnodeType: VNT): BaseDataRequest<VNT, never, ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT>> {
             // These tests only test typing so we don't have to actually implement this method.
-            return undefined as any;
+            // Just return a Mock object to allow the chaining to work when building the request.
+            return new Proxy({}, { get: (_, propName, proxy) => (propName in Person.properties ? proxy : () => proxy), }) as any;
         }
 
         test("Request a single raw property", () => {
@@ -133,7 +135,7 @@ suite("DataResponse", () => {
             checkType<AssertPropertyPresent<typeof response, "uuid", UUID>>();
             checkType<AssertPropertyPresent<typeof response.friends[0], "name", string>>();
             checkType<AssertPropertyOptional<typeof response.friends[0], "dateOfBirth", string>>();
-            const costar = response.friends[0].costars[0];
+            const costar = response?.friends[0].costars[0];  // The ? is just to make this work at runtime since we're using a mock.
             checkType<AssertPropertyPresent<typeof costar, "name", string>>();
             checkType<AssertPropertyAbsent<typeof costar, "uuid">>();
             checkType<AssertPropertyPresent<typeof costar.movies[0], "title", string>>();

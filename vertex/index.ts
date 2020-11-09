@@ -97,8 +97,6 @@ export {
 
 export {
     DataRequestFilter,
-    VNodeDataRequest,
-    VNodeDataRequestBuilder,
     buildCypherQuery,
 } from "./layer4/pull";
 

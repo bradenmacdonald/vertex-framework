@@ -1,7 +1,17 @@
+/**
+ * A standard data request (BaseDataRequest) only allows specifying raw properties of a VNode.
+ * These mixins extend the standard data request, so that one can request "virtual properties" (like related nodes),
+ *  _conditionally_ request raw properties, and other things.
+ *
+ * This file contains the TypeScript types for the mixins, and a separate file contains their actual runtime
+ * implementation, which is quite different. So the types in this file are a bit of a fake facade that provides a nice
+ * developer experience and type checking in the IDE, but don't exactly match how things are implemented underneath.
+ */
+
 import Joi from "@hapi/joi";
 import { VNodeRelationship, VNodeType } from "../layer2/vnode";
-import { BaseDataRequest, UpdateMixin } from "../layer3/data-request";
-import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
+import { BaseDataRequest, UpdateMixin, MixinImplementation, DataRequestState } from "../layer3/data-request";
+import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty, VirtualPropType } from "./virtual-props";
 import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////

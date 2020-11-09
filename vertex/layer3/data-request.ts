@@ -82,7 +82,7 @@ export class DataRequestState {
     // What mixins are available on this DataRequest object, to provide high-level functionality like virtual fields
     readonly #activeMixins: ReadonlyArray<MixinImplementation>;
     // Additional data used to hold mixin state, such as the set of virtual properties selected for inclusion:
-    readonly #mixinData: Readonly<{[mixinName: string]: any}>;
+    readonly mixinData: Readonly<{[mixinName: string]: any}>;
 
     private constructor(
         vnt: VNodeType,
@@ -93,7 +93,7 @@ export class DataRequestState {
         this.vnodeType = vnt;
         this.includedProperties = includedProperties;
         this.#activeMixins = activeMixins;
-        this.#mixinData = mixinData;
+        this.mixinData = Object.freeze(mixinData);
     }
 
     /**
@@ -109,6 +109,11 @@ export class DataRequestState {
         return new Proxy(newObj, DataRequestState.proxyHandler) as any as BaseDataRequest<VNT, never, Mixins>;
     }
 
+    newRequestWithSameMixins<VNT extends VNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, any> {
+        const newObj = new DataRequestState(vnodeType, [], this.#activeMixins, {});
+        return new Proxy(newObj, DataRequestState.proxyHandler) as any as BaseDataRequest<VNT, never, any>;
+    }
+
     cloneWithChanges(args: {newIncludedProperties?: ReadonlyArray<string>, newMixinData?: Readonly<{[mixinName: string]: any}>}): any {
         const includedProperties = args.newIncludedProperties ? [
             // If we're adding new properties to the request:
@@ -117,7 +122,7 @@ export class DataRequestState {
             // Then add any newly requested properties, preserving order, unless they're already included:
             ...args.newIncludedProperties.filter(propName => !this.includedProperties.includes(propName))
         ] : this.includedProperties;
-        const mixinData = args.newMixinData ? {...this.#mixinData, ...args.newMixinData} : this.#mixinData;
+        const mixinData = args.newMixinData ? {...this.mixinData, ...args.newMixinData} : this.mixinData;
         const newObj = new DataRequestState(this.vnodeType, includedProperties, this.#activeMixins, mixinData);
         // Return the new DataRequestState wrapped in a proxy so it still implements the BaseDataRequest interface
         return new Proxy(newObj, DataRequestState.proxyHandler);
@@ -134,6 +139,15 @@ export class DataRequestState {
             return this.cloneWithChanges({newIncludedProperties: Object.keys(this.vnodeType.properties)});
         }
         // Otherwise, perhaps this is a virtual property or something implemented by a mixin:
+        for (const mixinHandler of this.#activeMixins) {
+            const mixinFn = mixinHandler(this, propKey);
+            if (typeof mixinFn === "function") {
+                return mixinFn;
+            } else if (mixinFn === undefined) {
+                continue;  // This mixin doesn't handle this property
+            }
+            throw new Error(`A Data Request Mixin implementation returned an invalid value of type ${typeof mixinFn}; expected a function.`);
+        }
         throw new Error(`Unknown property ${propKey}`);
     }
 
@@ -161,9 +175,20 @@ export class DataRequestState {
     };
 }
 
-interface MixinImplementation {
-    provideRequestMethod: (dataRequest: DataRequestState, methodName: string) => (() => any)|undefined;
-}
+/**
+ * "Mixins" can add additional functionality to the base data request class. Every mixin operates at two levels:
+ * the TypeScript level, which defines the shape of the request, and this implementation level which is used by
+ * DataRequestState to construct the request at runtime.
+ *
+ * This MixinImplementation is a function, called when the user accesses a property of the request. For example,
+ *    p => p.someProp()
+ * will call this function with "someProp" as the method name.
+ * 
+ * This mixin implementation function should return undefined if it does not recognize/accept "methodName" and otherwise
+ * return a function that in turn returns the updated DataRequestState object. To do this, the returned function should
+ * return dataRequest.cloneWithChanges({newMixinData: ...})
+ */
+export type MixinImplementation = (dataRequest: DataRequestState, methodName: string) => ((...args: any) => any)|undefined;
 
 ///////////////// Request specific raw properties of a VNoteTyp ////////////////////////////////////////////////////////
 
