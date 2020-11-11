@@ -14,6 +14,7 @@ import { VNodeRelationship, VNodeType } from "../layer2/vnode";
 import { BaseDataRequest, UpdateMixin } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty, VirtualPropType } from "./virtual-props";
 import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import type { DerivedProperty } from "./derived-props";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
@@ -160,7 +161,7 @@ export type DerivedPropsMixin<
                 DerivedPropsMixin<VNT, includedDerivedProps>,
                 DerivedPropsMixin<VNT, includedDerivedProps & { [PN in propName]: {
                     ifFlag: FlagType,
-                    valueType: ReturnType<VNT["derivedProperties"][propName]["computeValue"]>,
+                    valueType: GetDerivedPropValueType<VNT["derivedProperties"][propName]>,
                 } }>
             >
         )
@@ -175,6 +176,10 @@ export type IncludedDerivedPropRequest<ValueType> = {
     ifFlag: string|undefined,
     valueType: ValueType,
 };
+
+type GetDerivedPropValueType<DerivedProp extends DerivedProperty<any>> = (
+    DerivedProp extends DerivedProperty<infer ValueType> ? ValueType : any
+);
 
 ///////////////// ResetMixins //////////////////////////////////////////////////////////////////////////////////////////
 

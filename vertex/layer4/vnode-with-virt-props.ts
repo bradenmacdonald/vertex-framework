@@ -1,9 +1,7 @@
 import { VNodeType, emptyObj } from "../layer2/vnode";
-import { BaseDataRequest, DataRequestState } from "../layer3/data-request";
-import { VirtualPropsMixin } from "./data-request-mixins";
+import { DataRequestState } from "../layer3/data-request";
 import { virtualPropsMixinImplementation } from "./data-request-mixins-impl";
-import { DataResponse } from "./data-response";
-import { DerivedProperty, DerivedPropsSchema } from "./derived-props";
+import { CompileDerivedPropSchema, DerivedPropertyFactory, DerivedPropsSchema, DerivedPropsSchemaCompiled } from "./derived-props";
 import { VirtualPropsSchema } from "./virtual-props";
 
 
@@ -13,59 +11,51 @@ import { VirtualPropsSchema } from "./virtual-props";
 export class ExtendedVNodeType extends VNodeType {
 
     static readonly virtualProperties = emptyObj;
-    static derivedProperties: DerivedPropsSchema<any> = emptyObj;
+    static derivedProperties: DerivedPropsSchemaCompiled = emptyObj;
 
     /**
      * Helper method used to declare derived properties with correct typing. Do not override this.
      * Usage:
      *     static readonly derivedProperties = MyVNodeType.hasDerivedProperties({
+     *         propName,
      *         ...
      *     });
+     * 
+     * Where propName is a function that accepts a single method parameter (and optionally the VNodeType itself as the
+     * second parameter, if your derived property implementation is shared among multiple VNodeTypes). Call that method once
+     * to configure the property.
      */
-    static hasDerivedProperties<
-        // VNT extends VNodeTypeWithVirtualProps,
-        DPS extends DerivedPropsSchema<any>
-    >(propSchema: DPS): DPS {
-        return Object.freeze(propSchema);
-    }
-
-    static DerivedProperty<VNT extends VNodeTypeWithVirtualProps, DependencyRequest extends BaseDataRequest<VNT, any, any>, ValueType>(
-        this: VNT,
-        dependencies: (spec: BaseDataRequest<VNT, never, VirtualPropsMixin<VNT>>) => DependencyRequest,
-        computeValue: (data: DataResponse<DependencyRequest>) => ValueType,
-    ): DerivedProperty<VNT, DependencyRequest, ValueType> {
-        return {
-            dependencies: dependencies( DataRequestState.newRequest<VNT, VirtualPropsMixin<VNT>>(this, [virtualPropsMixinImplementation]) ),
-            computeValue,
-        };
-    }
-
-
-
-
-    static augmentWithDerivedProps<VNT extends VNodeTypeWithVirtualProps, DPS extends DerivedPropsSchema<VNT>>(this: VNT, schema: DPS): VNodeTypeWithDerivedProps<VNT, DPS> {
-        const baseClassTyped = this as any; // Work around https://github.com/microsoft/TypeScript/issues/37142
-        const newClassHolder = {
-            [this.name]: class extends baseClassTyped {
-                static readonly derivedProperties: DPS = schema;
-            },
-        };
-        return newClassHolder[this.name] as any;
+    static hasDerivedProperties<DPS extends DerivedPropsSchema>(this: any, propSchema: DPS): CompileDerivedPropSchema<DPS> {
+        const newSchema: any = {};     
+        for (const propName in propSchema) {
+            const compileDerivedProp: DerivedPropertyFactory<any> = (appliesTo, dataSpec, computeValue) => {
+                if (appliesTo !== this) {
+                    throw new Error(`Cannot add derived property "${propName}" to ${this.name} because it passed the wrong VNode type to the factory function.`);
+                }
+                if (propName in newSchema) {
+                    throw new Error(`Duplicate definition of derived property "${propName}".`);
+                }
+                newSchema[propName] = {
+                    dataSpec: DataRequestState.getInternalState(dataSpec(
+                        DataRequestState.newRequest(this, [virtualPropsMixinImplementation]) as any
+                    )),
+                    computeValue,
+                };
+            };
+            propSchema[propName](compileDerivedProp, this);
+        }
+        return Object.freeze(newSchema);
     }
 }
+
 
 // In some parts of the "pull" code, it's necessary to refer to a type that has virtual props but not derived props:
 export interface VNodeTypeWithVirtualProps extends VNodeType {
     readonly virtualProperties: VirtualPropsSchema;
 }
 
-
-type VNodeTypeWithDerivedProps<VNT extends VNodeTypeWithVirtualProps, DPS extends DerivedPropsSchema<VNT>> = VNT & {
-    derivedProperties: DPS;
-}
-
 // The following combined value (Class) and type definition is what most Vertex Framework applications use as "VNodeType"
 export const VNodeTypeWithVirtualAndDerivedProps = ExtendedVNodeType;
 export interface VNodeTypeWithVirtualAndDerivedProps extends VNodeTypeWithVirtualProps {
-    readonly derivedProperties: DerivedPropsSchema<this>;
+    readonly derivedProperties: DerivedPropsSchemaCompiled;
 }

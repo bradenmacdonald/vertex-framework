@@ -90,6 +90,10 @@ export {
     VirtualPropsSchema,
 } from "./layer4/virtual-props";
 
+export {
+    DerivedPropertyFactory,
+} from "./layer4/derived-props";
+
 
 export {
     VNodeTypeWithVirtualAndDerivedProps as VNodeType,
