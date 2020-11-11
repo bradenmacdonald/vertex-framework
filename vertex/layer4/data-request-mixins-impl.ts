@@ -10,7 +10,7 @@
 import { C } from "../layer2/cypher-sugar";
 import { BaseDataRequest, MixinImplementation, DataRequestState } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualPropType } from "./virtual-props";
-import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
@@ -172,3 +172,59 @@ function virtualPropsForRelationship(virtualProp: VirtualManyRelationshipPropert
     }
     return extraProps;
 }
+
+
+///////////////// DerivedPropsMixin ////////////////////////////////////////////////////////////////////////////////////
+
+const derivedPropsMixinDataKey = "derivedPropsMixinDataKey";
+
+interface DerivedPropRequest {
+    ifFlag: string|undefined,  // <-- If set to a string, this derived property is only to be included when a flag with that name is set (conditional inclusion)
+}
+
+// Derived properties (like related objects) to pull from the database, optionally only when a flag is specified
+interface DerivedPropsMixinData {
+    [propName: string]: DerivedPropRequest;
+}
+
+/**
+ * For a given data request, get the raw properties that are included conditionally (included only if a flag is set).
+ * Returns an object where the keys are the properties' names and the values are the flag values (string).
+ */
+export function getDerivedPropsData(dataRequest: DataRequestState): DerivedPropsMixinData {
+    return dataRequest.mixinData[derivedPropsMixinDataKey] ?? {};
+}
+export function requestWithDerivedPropAdded(dataRequest: DataRequestState, propName: string, propRequest: DerivedPropRequest): any {
+    const currentData = getDerivedPropsData(dataRequest);
+    const newData: DerivedPropsMixinData = {
+        ...currentData,
+        [propName]: propRequest,
+    };
+    return dataRequest.cloneWithChanges({newMixinData: { [derivedPropsMixinDataKey]: newData }});
+}
+
+/**
+ * A user is building a data request, and they've call a method to potentially add a derived property to the request.
+ * For example, in pull(p => p.age()), the ".age()" is what triggers this code, where propKey would be "age", and the
+ * user is wanting to add the derived property "age" to the request "dataRequest"
+ */
+export const derivedPropsMixinImplementation: MixinImplementation = (dataRequest, propKey) => {
+    if ((dataRequest.vnodeType as VNodeTypeWithVirtualAndDerivedProps).derivedProperties === undefined) {
+        return undefined;
+    }
+    const vnodeType = dataRequest.vnodeType as VNodeTypeWithVirtualAndDerivedProps;
+    const requestedDerivedProps = getDerivedPropsData(dataRequest);
+
+    const derivedProp = vnodeType.derivedProperties[propKey];
+        if (derivedProp !== undefined) {
+            // Operation to add a derived property to the request:
+            if (requestedDerivedProps[propKey] !== undefined) {
+                throw new Error(`Derived property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
+            }
+            return (options?: {ifFlag: string|undefined}) => {
+                // Return the the new request, with this virtual property now included:
+                return requestWithDerivedPropAdded(dataRequest, propKey, {ifFlag: options?.ifFlag});
+            };
+        }
+    return undefined;
+};

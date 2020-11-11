@@ -12,7 +12,7 @@ import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "
 import { BaseDataRequest, DataRequestState } from "../layer3/data-request";
 import { ConditionalRawPropsMixin, DerivedPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
 import type { DataResponse } from "./data-response";
-import { conditionalRawPropsMixinImplementation, getConditionalRawPropsData, getProjectedVirtualPropsData, getVirtualPropsData, virtualPropsMixinImplementation } from "./data-request-mixins-impl";
+import { conditionalRawPropsMixinImplementation, derivedPropsMixinImplementation, getConditionalRawPropsData, getDerivedPropsData, getProjectedVirtualPropsData, getVirtualPropsData, virtualPropsMixinImplementation } from "./data-request-mixins-impl";
 
 type PullMixins<VNT extends VNodeTypeWithVirtualAndDerivedProps> = ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT>
 
@@ -21,6 +21,7 @@ export function newDataRequest<VNT extends VNodeTypeWithVirtualAndDerivedProps>(
     return DataRequestState.newRequest<VNT, PullMixins<VNT>>(vnodeType, [
         conditionalRawPropsMixinImplementation,
         virtualPropsMixinImplementation,
+        derivedPropsMixinImplementation,
     ]);
 }
 
@@ -253,6 +254,11 @@ export function buildCypherQuery<Request extends BaseDataRequest<any, any, any>>
     return {query, params};
 }
 
+/** Create a read-only wrapper around an object to prevent modification */
+function readOnlyView<T extends Record<string, any>>(x: T): Readonly<T> {
+    return new Proxy(x, { set: () => false, defineProperty: () => false, deleteProperty: () => false }) as Readonly<T>;
+}
+
 
 export function pull<VNT extends VNodeTypeWithVirtualAndDerivedProps, Request extends BaseDataRequest<VNT, any, any>>(
     tx: WrappedTransaction,
@@ -270,8 +276,10 @@ export function pull<Request extends BaseDataRequest<any, any, any>>(
 export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?: any): Promise<any> {
     const request: BaseDataRequest<VNodeTypeWithVirtualProps> = typeof arg2 === "function" ? arg2(newDataRequest(arg1)) : arg1;
     const requestData: DataRequestState = DataRequestState.getInternalState(request);
+    const vnodeType = (requestData.vnodeType as VNodeTypeWithVirtualAndDerivedProps);
     const filter: DataRequestFilter = (typeof arg2 === "function" ? arg3 : arg2) || {};
     const topLevelFields = getAllPropertiesIncludedIn(requestData, filter);
+    const derivedProperties = getDerivedPropertiesIncludedIn(requestData, filter);
 
     const query = buildCypherQuery(request, filter);
     log.debug(query.query);
@@ -282,6 +290,13 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
         const newRecord: any = {};
         for (const field of topLevelFields) {
             newRecord[field] = record.get(field);
+        }
+        // Add derived properties, which may use the raw+virtual properties in their computation:
+        if (derivedProperties.length > 0) {
+            const dataSoFar = readOnlyView(newRecord);  // Don't allow the derived property implementation to mutate this directly
+            for (const derivedProp of derivedProperties) {
+                newRecord[derivedProp] = vnodeType.derivedProperties[derivedProp].computeValue(dataSoFar);
+            }
         }
         return newRecord;
     });
@@ -399,3 +414,16 @@ function getAllPropertiesIncludedIn(request: DataRequestState, filter: DataReque
     ];
 }
 
+function getDerivedPropertiesIncludedIn(request: DataRequestState, filter: DataRequestFilter): string[] {
+    const keys = Object.keys((request.vnodeType as VNodeTypeWithVirtualAndDerivedProps).derivedProperties);
+    const requested = getDerivedPropsData(request);
+    return keys.filter(propName =>
+        propName in requested && (
+            requested[propName].ifFlag ?
+                // Conditionally include this derived prop, if a flag is set in the filter:
+                filter.flags?.includes(requested[propName].ifFlag as string)
+            :
+                true
+        )
+    );
+}
