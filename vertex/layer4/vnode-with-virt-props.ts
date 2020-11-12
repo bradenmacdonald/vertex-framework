@@ -1,6 +1,4 @@
 import { VNodeType, emptyObj } from "../layer2/vnode";
-import { DataRequestState } from "../layer3/data-request";
-import { virtualPropsMixinImplementation } from "./data-request-mixins-impl";
 import { CompileDerivedPropSchema, DerivedPropertyFactory, DerivedPropsSchema, DerivedPropsSchemaCompiled } from "./derived-props";
 import { VirtualPropsSchema } from "./virtual-props";
 
@@ -35,12 +33,7 @@ export class ExtendedVNodeType extends VNodeType {
                 if (propName in newSchema) {
                     throw new Error(`Duplicate definition of derived property "${propName}".`);
                 }
-                newSchema[propName] = {
-                    dataSpec: DataRequestState.getInternalState(dataSpec(
-                        DataRequestState.newRequest(this, [virtualPropsMixinImplementation]) as any
-                    )),
-                    computeValue,
-                };
+                newSchema[propName] = { dataSpec, computeValue };
             };
             propSchema[propName](compileDerivedProp, this);
         }

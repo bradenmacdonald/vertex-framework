@@ -1,7 +1,7 @@
-import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
-import { BaseDataRequest, DataRequestState } from "../layer3/data-request";
-import { DataResponse } from "./data-response";
-import { VirtualPropsMixin } from "./data-request-mixins";
+import type { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import type { BaseDataRequest } from "../layer3/data-request";
+import type { DataResponse } from "./data-response";
+import type { VirtualPropsMixin } from "./data-request-mixins";
 
 /**
  * Derived properties are a special type of virtual property which gets computed with the help of some callback function
@@ -41,7 +41,7 @@ export interface DerivedPropsSchemaCompiled {
 }
 
 export interface DerivedProperty<ValueType> {
-    readonly dataSpec: DataRequestState,
+    readonly dataSpec: (rq: BaseDataRequest<any, never, any>) => BaseDataRequest<any, any, any>,
     readonly computeValue: (data: any) => ValueType,
 }
 

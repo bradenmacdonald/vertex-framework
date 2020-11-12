@@ -33,6 +33,9 @@ export const conditionalRawPropsMixinImplementation: MixinImplementation = (data
         // The user wants to conditionally include the property propName/propDefn, based on a flag. Return a function to do that:
         return (flagName: string) => {
             const currentData = getConditionalRawPropsData(dataRequest);
+            if (propName in currentData && currentData[propName] !== flagName) {
+                throw new Error(`Cannot conditionally request the property ${propName} based on two different flags (${currentData[propName]}, ${flagName})`);
+            }
             // Return the data request, but now with the property "propName" conditionally requested (so it will only
             // be retrieved if the flag "flagName" is specified when pulling the data from the graph database.)
             return dataRequest.cloneWithChanges({newMixinData: {
@@ -104,15 +107,24 @@ export const virtualPropsMixinImplementation: MixinImplementation = (dataRequest
     const virtualProp = vnodeType.virtualProperties[propKey] || projectedVirtualProperties[propKey];
         if (virtualProp !== undefined) {
             // Operation to add a virtual property to the request:
-            if (requestedVirtualProps[propKey] !== undefined) {
-                throw new Error(`Virtual Property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
-            }
             if (virtualProp.type === VirtualPropType.ManyRelationship || virtualProp.type === VirtualPropType.OneRelationship) {
                 // Return a method that can be used to build the request for this virtual property type
                 const targetVNodeType = virtualProp.target;
                 return (buildSubRequest: (subRequest: BaseDataRequest<typeof targetVNodeType, never, any>) => BaseDataRequest<typeof targetVNodeType, any, any>, options?: {ifFlag: string|undefined}) => {
-                    // Build the subrequest immediately, using the supplied code:
-                    let subRequestData = dataRequest.newRequestWithSameMixins(targetVNodeType); // An empty request - the buildSubRequest() will use it to pick which properties of the target type should be included.
+                    // Build the subrequest:
+
+                    // Start with an empty request - the buildSubRequest() will use it to pick which properties of the target type should be included.
+                    let subRequestData = dataRequest.newRequestWithSameMixins(targetVNodeType);
+
+                    // But if this virtual property was already requested, merge the existing request with the new request:
+                    if (requestedVirtualProps[propKey] !== undefined) {
+                        const existingShapeData = requestedVirtualProps[propKey].shapeData;
+                        if (existingShapeData === undefined) {
+                            throw new Error(`Unexpectedly missing shape data for previously requested virtual property ${propKey}`);
+                        }
+                        subRequestData = existingShapeData.cloneWithChanges({});  // Convert from DataRequestState back to BaseDataRequest
+                    }
+
                     if (virtualProp.type === VirtualPropType.ManyRelationship) {
                         // "Project" properties from the relationship onto the target VNode data request, so they can be optionally selected for inclusion:
                         const projectedRelationshipProps = virtualPropsForRelationship(virtualProp);
@@ -121,10 +133,7 @@ export const virtualPropsMixinImplementation: MixinImplementation = (dataRequest
                         });
                     }
                     const subRequest = buildSubRequest(subRequestData);
-                    if (requestedVirtualProps[propKey] !== undefined) {
-                        throw new Error(`Virtual Property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
-                    }
-                    // Return the the new request, with this virtual property now included:
+                    // Return the new request, with this virtual property now included:
                     return requestWithVirtualPropAdded(dataRequest, propKey, {
                         ifFlag: options?.ifFlag,
                         shapeData: DataRequestState.getInternalState(subRequest),
@@ -132,8 +141,15 @@ export const virtualPropsMixinImplementation: MixinImplementation = (dataRequest
                 };
             } else if (virtualProp.type === VirtualPropType.CypherExpression) {
                 return (options?: {ifFlag: string|undefined}) => {
-                    // Return the the new request, with this virtual property now included:
-                    return requestWithVirtualPropAdded(dataRequest, propKey, {ifFlag: options?.ifFlag});
+                    let ifFlag = options?.ifFlag;  // undefined: always include this virtual prop; string: include only when that flag is set.
+                    // Return the new request, with this virtual property now included:
+                    if (requestedVirtualProps[propKey] !== undefined) {
+                        // This property was already in the request. If it was conditional and now is not, or vice versa, handle that case:
+                        if (requestedVirtualProps[propKey].ifFlag === undefined) {
+                            ifFlag = undefined;  // This property was already unconditionally included, so ignore any request to conditionally include it based on a flag
+                        }
+                    }
+                    return requestWithVirtualPropAdded(dataRequest, propKey, {ifFlag, });
                 };
             } else {
                 throw new Error(`That virtual property type (${(virtualProp as any).type}) is not supported yet.`);
@@ -222,8 +238,10 @@ export const derivedPropsMixinImplementation: MixinImplementation = (dataRequest
                 throw new Error(`Derived property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
             }
             return (options?: {ifFlag: string|undefined}) => {
-                // Return the the new request, with this virtual property now included:
-                return requestWithDerivedPropAdded(dataRequest, propKey, {ifFlag: options?.ifFlag});
+                // Construct the new request, with this derived property now included:
+                const request = requestWithDerivedPropAdded(dataRequest, propKey, {ifFlag: options?.ifFlag});
+                // And add in any dependencies required:
+                return derivedProp.dataSpec(request);
             };
         }
     return undefined;

@@ -213,6 +213,31 @@ suite("pull", () => {
             });
         });
 
+        test("can merge separate requests for the same virtual property", async () => {
+            // Merging data requests is an important part of how "derived property" dependencies are handled.
+            // Here's a request with overlapping field specification:
+            const request = newDataRequest(Person)
+                .name
+                .movies(m => m.title.franchise(mf => mf.name))
+                .movies(m => m.year.franchise(mf => mf.name.uuid))
+            ;
+            // The above request should be equivalent to:
+            const mergedRequest = newDataRequest(Person)
+                .name
+                .movies(m => m.title.year.franchise(mf => mf.uuid.name))
+            ;
+            const filter: DataRequestFilter = {key: "rdj", };
+
+            assert.deepStrictEqual(
+                buildCypherQuery(request, filter),
+                buildCypherQuery(mergedRequest, filter),
+            );
+            assert.deepStrictEqual(
+                await testGraph.pullOne(request, filter),
+                await testGraph.pullOne(mergedRequest, filter),
+            );
+        });
+
         // Test a to-many virtual property/relationship with a property on the relationship:
         test("Get all Robert Downey Jr. Movies, annotated with role", async () => {
             const rdj = await testGraph.pullOne(Person, p => p
