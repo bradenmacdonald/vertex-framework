@@ -2,7 +2,7 @@ import { ActionData, getActionImplementation, ActionResult, Action } from "./act
 import { UUID } from "../lib/uuid";
 import { SYSTEM_UUID } from "./schema";
 import { log } from "../lib/log";
-import { getVNodeType } from "../layer2/vnode";
+import { getVNodeType } from "../layer2/vnode-base";
 import { VertexCore } from "../vertex-interface";
 import { Node } from "neo4j-driver";
 import { neoNodeToRawVNode } from "../layer2/cypher-return-shape";

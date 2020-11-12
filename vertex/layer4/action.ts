@@ -1,5 +1,5 @@
 import { C } from "../layer2/cypher-sugar";
-import { registerVNodeType } from "../layer2/vnode";
+import { registerVNodeType } from "../layer2/vnode-base";
 import { Action } from "../layer3/action";
 import { VirtualPropType } from "./virtual-props";
 

@@ -1,15 +1,26 @@
-import { VNodeType, emptyObj } from "../layer2/vnode";
+import { BaseVNodeType, emptyObj } from "../layer2/vnode-base";
 import { CompileDerivedPropSchema, DerivedPropertyFactory, DerivedPropsSchema, DerivedPropsSchemaCompiled } from "./derived-props";
 import { VirtualPropsSchema } from "./virtual-props";
 
 
+// In some parts of the code, it's necessary to refer to a type that has virtual props but not derived props:
+export interface VNodeTypeWithVirtualProps extends BaseVNodeType {
+    readonly virtualProperties: VirtualPropsSchema;
+}
+
+export interface VNodeType extends VNodeTypeWithVirtualProps {
+    readonly derivedProperties: DerivedPropsSchemaCompiled;
+}
+
 /**
- * Augment the base VNodeType definition to add in defaults and helper methods for layer 4 functionality
+ * Augment the base VNodeType definition to add in defaults and helper methods for layer 4 functionality.
+ * 
+ * This class (and the interface with the same name) is the full VNodeType abstract class
  */
-export class ExtendedVNodeType extends VNodeType {
+export abstract class VNodeType extends BaseVNodeType {
 
     static readonly virtualProperties = emptyObj;
-    static derivedProperties: DerivedPropsSchemaCompiled = emptyObj;
+    static readonly derivedProperties = emptyObj;
 
     /**
      * Helper method used to declare derived properties with correct typing. Do not override this.
@@ -41,14 +52,7 @@ export class ExtendedVNodeType extends VNodeType {
     }
 }
 
-
-// In some parts of the "pull" code, it's necessary to refer to a type that has virtual props but not derived props:
-export interface VNodeTypeWithVirtualProps extends VNodeType {
-    readonly virtualProperties: VirtualPropsSchema;
-}
-
-// The following combined value (Class) and type definition is what most Vertex Framework applications use as "VNodeType"
-export const VNodeTypeWithVirtualAndDerivedProps = ExtendedVNodeType;
-export interface VNodeTypeWithVirtualAndDerivedProps extends VNodeTypeWithVirtualProps {
-    readonly derivedProperties: DerivedPropsSchemaCompiled;
+/** Helper function to check if some object is a VNodeType */
+export function isVNodeType(obj: any): obj is VNodeType {
+    return Object.prototype.isPrototypeOf.call(VNodeType, obj);
 }

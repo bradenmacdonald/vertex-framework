@@ -1,5 +1,5 @@
 import { log } from "../lib/log";
-import { VNodeType, } from "../layer2/vnode";
+import { BaseVNodeType, } from "../layer2/vnode-base";
 import {
     VirtualManyRelationshipProperty,
     VirtualOneRelationshipProperty,
@@ -8,16 +8,16 @@ import {
 } from "./virtual-props";
 import type { WrappedTransaction } from "../transaction";
 import { CypherQuery } from "../layer2/cypher-sugar";
-import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import { BaseDataRequest, DataRequestState } from "../layer3/data-request";
 import { ConditionalRawPropsMixin, DerivedPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
 import type { DataResponse } from "./data-response";
 import { conditionalRawPropsMixinImplementation, derivedPropsMixinImplementation, getConditionalRawPropsData, getDerivedPropsData, getProjectedVirtualPropsData, getVirtualPropsData, virtualPropsMixinImplementation } from "./data-request-mixins-impl";
 
-type PullMixins<VNT extends VNodeTypeWithVirtualAndDerivedProps> = ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT>
+type PullMixins<VNT extends VNodeType> = ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT>
 
 /** Create an empty data request to use with pull() or pullOne() */
-export function newDataRequest<VNT extends VNodeTypeWithVirtualAndDerivedProps>(vnodeType: VNT): BaseDataRequest<VNT, never, PullMixins<VNT>> {
+export function newDataRequest<VNT extends VNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, PullMixins<VNT>> {
     return DataRequestState.newRequest<VNT, PullMixins<VNT>>(vnodeType, [
         conditionalRawPropsMixinImplementation,
         virtualPropsMixinImplementation,
@@ -59,7 +59,7 @@ export function buildCypherQuery<Request extends BaseDataRequest<any, any, any>>
     const workingVars = new Set(["_node"]);
 
     /** Generate a new variable name for the given node type or property that we can use in the Cypher query. */
-    const generateNameFor = (nodeTypeOrPropertyName: VNodeType|string): string => {
+    const generateNameFor = (nodeTypeOrPropertyName: BaseVNodeType|string): string => {
         let i = 1;
         let name = "";
         const baseName = typeof nodeTypeOrPropertyName === "string" ? nodeTypeOrPropertyName : nodeTypeOrPropertyName.name.toLowerCase();
@@ -260,7 +260,7 @@ function readOnlyView<T extends Record<string, any>>(x: T): Readonly<T> {
 }
 
 
-export function pull<VNT extends VNodeTypeWithVirtualAndDerivedProps, Request extends BaseDataRequest<VNT, any, any>>(
+export function pull<VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
     tx: WrappedTransaction,
     vnt: VNT,
     request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
@@ -276,7 +276,7 @@ export function pull<Request extends BaseDataRequest<any, any, any>>(
 export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?: any): Promise<any> {
     const request: BaseDataRequest<VNodeTypeWithVirtualProps> = typeof arg2 === "function" ? arg2(newDataRequest(arg1)) : arg1;
     const requestData: DataRequestState = DataRequestState.getInternalState(request);
-    const vnodeType = (requestData.vnodeType as VNodeTypeWithVirtualAndDerivedProps);
+    const vnodeType = (requestData.vnodeType as VNodeType);
     const filter: DataRequestFilter = (typeof arg2 === "function" ? arg3 : arg2) || {};
     const topLevelFields = getAllPropertiesIncludedIn(requestData, filter);
     const derivedProperties = getDerivedPropertiesIncludedIn(requestData, filter);
@@ -302,7 +302,7 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
     });
 }
 
-export function pullOne<VNT extends VNodeTypeWithVirtualAndDerivedProps, Request extends BaseDataRequest<VNT, any, any>>(
+export function pullOne<VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
     tx: WrappedTransaction,
     vnt: VNT,
     request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
@@ -328,7 +328,7 @@ export async function pullOne(tx: WrappedTransaction, arg1: any, arg2?: any, arg
 // These types match the overload signature for pull(), but have no "tx" parameter; used in WrappedTransaction and Vertex for convenience.
 export type PullNoTx = (
     (
-        <VNT extends VNodeTypeWithVirtualAndDerivedProps, Request extends BaseDataRequest<VNT, any, any>>(
+        <VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
             vnt: VNT,
             request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
             filter?: DataRequestFilter,
@@ -343,7 +343,7 @@ export type PullNoTx = (
 
 export type PullOneNoTx = (
     (
-        <VNT extends VNodeTypeWithVirtualAndDerivedProps, Request extends BaseDataRequest<VNT, any, any>>(
+        <VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
             vnt: VNT,
             request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
             filter?: DataRequestFilter,
@@ -415,7 +415,7 @@ function getAllPropertiesIncludedIn(request: DataRequestState, filter: DataReque
 }
 
 function getDerivedPropertiesIncludedIn(request: DataRequestState, filter: DataRequestFilter): string[] {
-    const keys = Object.keys((request.vnodeType as VNodeTypeWithVirtualAndDerivedProps).derivedProperties);
+    const keys = Object.keys((request.vnodeType as VNodeType).derivedProperties);
     const requested = getDerivedPropsData(request);
     return keys.filter(propName =>
         propName in requested && (

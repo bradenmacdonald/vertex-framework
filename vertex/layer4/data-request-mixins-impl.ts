@@ -10,7 +10,7 @@
 import { C } from "../layer2/cypher-sugar";
 import { BaseDataRequest, MixinImplementation, DataRequestState } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualPropType } from "./virtual-props";
-import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
@@ -225,10 +225,10 @@ export function requestWithDerivedPropAdded(dataRequest: DataRequestState, propN
  * user is wanting to add the derived property "age" to the request "dataRequest"
  */
 export const derivedPropsMixinImplementation: MixinImplementation = (dataRequest, propKey) => {
-    if ((dataRequest.vnodeType as VNodeTypeWithVirtualAndDerivedProps).derivedProperties === undefined) {
+    if ((dataRequest.vnodeType as VNodeType).derivedProperties === undefined) {
         return undefined;
     }
-    const vnodeType = dataRequest.vnodeType as VNodeTypeWithVirtualAndDerivedProps;
+    const vnodeType = dataRequest.vnodeType as VNodeType;
     const requestedDerivedProps = getDerivedPropsData(dataRequest);
 
     const derivedProp = vnodeType.derivedProperties[propKey];

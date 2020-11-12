@@ -10,17 +10,17 @@
 
 import Joi from "@hapi/joi";
 import { FieldType } from "../layer2/cypher-return-shape";
-import { VNodeRelationship, VNodeType } from "../layer2/vnode";
+import { VNodeRelationship, BaseVNodeType } from "../layer2/vnode-base";
 import { BaseDataRequest, UpdateMixin } from "../layer3/data-request";
-import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty, VirtualPropType } from "./virtual-props";
-import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
+import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import type { DerivedProperty } from "./derived-props";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
 /** Allow requesting raw properties conditionally, based on whether or not a "flag" is set: */
 export type ConditionalRawPropsMixin<
-    VNT extends VNodeType,
+    VNT extends BaseVNodeType,
     conditionallyRequestedProperties extends keyof VNT["properties"] = never,
 > = ({
     [propName in keyof VNT["properties"] as `${string & propName}IfFlag`]:
@@ -150,7 +150,7 @@ type VirtualCypherExpressionPropertyForRelationshipProp<Prop> = (
 
 /** Allow requesting derived properties, optionally based on whether or not a flag is set */
 export type DerivedPropsMixin<
-    VNT extends VNodeTypeWithVirtualAndDerivedProps,
+    VNT extends VNodeType,
     includedDerivedProps extends DerivedPropRequest<VNT>|unknown = unknown,
 > = ({
     [propName in keyof VNT["derivedProperties"]]:
@@ -168,7 +168,7 @@ export type DerivedPropsMixin<
 });
 
 /** Type data about derived properties that have been requested so far in a VNodeDataRequest */
-type DerivedPropRequest<VNT extends VNodeTypeWithVirtualAndDerivedProps> = {
+type DerivedPropRequest<VNT extends VNodeType> = {
     [K in keyof VNT["derivedProperties"]]?: IncludedDerivedPropRequest<any>;
 }
 
@@ -188,13 +188,13 @@ type GetDerivedPropValueType<DerivedProp extends DerivedProperty<any>> = (
 // virtual properties (e.g. to select which fields to include for the target of one-to-many relationship), it's
 // necessary to incude the same mixins, but with a different VNodeType specified and the data about which fields are
 // included reset.
-type ResetMixins<Request extends BaseDataRequest<any, any, any>, newVNodeType extends VNodeType> = (
+type ResetMixins<Request extends BaseDataRequest<any, any, any>, newVNodeType extends BaseVNodeType> = (
     Request extends BaseDataRequest<any, any, infer Mixins> ? (
         ResetMixins1<Mixins, unknown, newVNodeType>
     ) : never
 );
 
-type ResetMixins1<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
+type ResetMixins1<OldMixins, NewMixins, newVNodeType extends BaseVNodeType> = (
     ResetMixins2<OldMixins, 
         OldMixins extends ConditionalRawPropsMixin<any, any> ?
             NewMixins & ConditionalRawPropsMixin<newVNodeType>
@@ -202,7 +202,7 @@ type ResetMixins1<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
     , newVNodeType>
 );
 
-type ResetMixins2<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
+type ResetMixins2<OldMixins, NewMixins, newVNodeType extends BaseVNodeType> = (
     ResetMixins3<OldMixins,
         OldMixins extends VirtualPropsMixin<any, any> ?
             NewMixins & (
@@ -215,10 +215,10 @@ type ResetMixins2<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
 );
 
 
-type ResetMixins3<OldMixins, NewMixins, newVNodeType extends VNodeType> = (
+type ResetMixins3<OldMixins, NewMixins, newVNodeType extends BaseVNodeType> = (
     OldMixins extends DerivedPropsMixin<any, any> ?
         NewMixins & (
-            newVNodeType extends VNodeTypeWithVirtualAndDerivedProps ?
+            newVNodeType extends VNodeType ?
                 DerivedPropsMixin<newVNodeType>
             : unknown
         )

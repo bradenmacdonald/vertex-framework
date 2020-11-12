@@ -1,15 +1,15 @@
 import { ReturnTypeFor } from "../layer2/cypher-return-shape";
-import { PropertyDataType, VNodeType } from "../layer2/vnode";
+import { PropertyDataType, BaseVNodeType } from "../layer2/vnode-base";
 import { BaseDataRequest } from "../layer3/data-request";
 import {
     ConditionalRawPropsMixin, DerivedPropsMixin, IncludedDerivedPropRequest, IncludedVirtualCypherExpressionProp, IncludedVirtualManyProp, IncludedVirtualOneProp, VirtualPropsMixin
 } from "./data-request-mixins";
-import { VNodeTypeWithVirtualAndDerivedProps, VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 
 /**
  * When a Data Request is executed ("pulled") from the database, this defines the shape/type of the response
  */
-export type DataResponse<Request extends BaseDataRequest<VNodeType, any, any>> = (
+export type DataResponse<Request extends BaseDataRequest<BaseVNodeType, any, any>> = (
     Request extends BaseDataRequest<infer VNT, infer includedProperties, infer Mixins> ? (
         // Raw properties that are definitely included:
         {[rawProp in includedProperties]: PropertyDataType<VNT["properties"], rawProp>} &
@@ -41,7 +41,7 @@ export type DataResponse<Request extends BaseDataRequest<VNodeType, any, any>> =
         ) &
         // Derived properties that are included, possibly conditional on some flag:
         (
-            VNT extends VNodeTypeWithVirtualAndDerivedProps ?
+            VNT extends VNodeType ?
                 Mixins extends DerivedPropsMixin<VNT, infer includedDerivedProps> & infer Other?
                     {[propName in keyof includedDerivedProps]: (
                         includedDerivedProps[propName] extends IncludedDerivedPropRequest<infer ValueType> ?

@@ -3,17 +3,17 @@
  * one will encounter when creating a project using Vertex Framework. See the description of VNodeTypeRef below for
  * details.
  */
-import { getVNodeType, VNodeRelationship, VNodeType } from "./vnode";
+import { getVNodeType, VNodeRelationship, BaseVNodeType } from "./vnode-base";
 
 /** Interface for our "Fake" VNodeType which holds the label used to lazily load the real type. */
 interface FakeVNodeType {
     label: string;  // <-- this label is the same as the "real" VNodeType we want to load
-    loadedVNodeType?: VNodeType;  // <-- This holds a reference to the "real" VNodeType after we load it lazily
+    loadedVNodeType?: BaseVNodeType;  // <-- This holds a reference to the "real" VNodeType after we load it lazily
     relationshipsProxy: any;  // <-- This holds a special proxy used to access the relationships under .rel.REL_NAME before the VNodeType is loaded.
 }
 
 /** Helper method used by vnodeRefProxyHandler to get the real VNodeType from the fake VNodeType */
-function getVNode(refData: FakeVNodeType): VNodeType {
+function getVNode(refData: FakeVNodeType): BaseVNodeType {
     if (refData.loadedVNodeType === undefined) {
         refData.loadedVNodeType = getVNodeType(refData.label);
     }
@@ -59,16 +59,16 @@ const vnodeRefProxyHandler: ProxyHandler<FakeVNodeType> = {
  * any properties of the reference (like "MovieRef.label") or of the relationships (like "MovieRef.rel.SOME_REL.label"),
  * as any property access other than the .rel.REL_NAME properties will attempt loading the VNode.
  */
-export const VNodeTypeRef = <VNT extends VNodeType>(label_: string): VNT => {
+export const VNodeTypeRef = <VNT extends BaseVNodeType>(label_: string): VNT => {
 
     const name = `${label_}Placeholder`;
     // Dynamically construct a VNodeType class to use as the internal data ("target") for the proxy.
     // We need this because the "target" must be somewhat similar in terms of prototype to the real VNode type
     // for the proxy to work.
     const classBuilder = {
-        [name]: class extends VNodeType {
+        [name]: class extends BaseVNodeType {
             static label = label_;
-            static loadedVNodeType?: VNodeType;  // <-- the real VNodeType will be loaded on demand (later) and stored here
+            static loadedVNodeType?: BaseVNodeType;  // <-- the real VNodeType will be loaded on demand (later) and stored here
             static relationshipsProxy: any;
         },
     }
@@ -91,7 +91,7 @@ class RelationshipPlaceholder extends VNodeRelationship {
         this.#refData = refData;
     }
 
-    get realParentVNode(): VNodeType {
+    get realParentVNode(): BaseVNodeType {
         return getVNode(this.#refData);
     }
 

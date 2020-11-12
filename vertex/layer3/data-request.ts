@@ -28,14 +28,14 @@
  * the "dateOfBirth" property is read from the database and included in the response.
  */
 import {
-    VNodeType
-} from "../layer2/vnode";
+    BaseVNodeType
+} from "../layer2/vnode-base";
 
 
 ///////////////// BaseDataRequest //////////////////////////////////////////////////////////////////////////////////////
 
 /** The base data request type. All data requests allow choosing among a VNodeType's raw properties. */
-export type BaseDataRequest<VNT extends VNodeType, requestedProperties extends keyof VNT["properties"] = never, Mixins = unknown> = (
+export type BaseDataRequest<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"] = never, Mixins = unknown> = (
     // For each raw property of the VNode that's not yet included in the request, add a property to add it to the request:
     AddRawProperties<VNT, requestedProperties, Mixins> &
     // Add the "allProps" helper that adds all properties to the request:
@@ -45,17 +45,17 @@ export type BaseDataRequest<VNT extends VNodeType, requestedProperties extends k
 );
 
 // For each raw property of the VNode that's not yet included in the request, add a property to add it to the request:
-type AddRawProperties<VNT extends VNodeType, requestedProperties extends keyof VNT["properties"], Mixins> = {
+type AddRawProperties<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"], Mixins> = {
     [propName in keyof Omit<VNT["properties"], requestedProperties>]: BaseDataRequest<VNT, requestedProperties | propName, Mixins>;
 };
 
-type AddAllProperties<VNT extends VNodeType, requestedProperties extends keyof VNT["properties"], Mixins> = (
+type AddAllProperties<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"], Mixins> = (
     // If all properties are not yet included, create a .allProps property which requests all properties of this VNodeType.
     keyof VNT["properties"] extends requestedProperties ? unknown : { allProps: BaseDataRequest<VNT, keyof VNT["properties"], Mixins>}
 );
 
 /** A helper that mixins can use to update their state in a data request. */
-export type UpdateMixin<VNT extends VNodeType, ThisRequest, CurrentMixin, NewMixin> = (
+export type UpdateMixin<VNT extends BaseVNodeType, ThisRequest, CurrentMixin, NewMixin> = (
     ThisRequest extends BaseDataRequest<VNT, infer requestedProperties, CurrentMixin & infer Other> ?
         BaseDataRequest<VNT, requestedProperties, NewMixin & Other>
     : never
@@ -76,7 +76,7 @@ export type UpdateMixin<VNT extends VNodeType, ThisRequest, CurrentMixin, NewMix
  */
 export class DataRequestState {
     // The VNodeType that this data request is for
-    readonly vnodeType: VNodeType;
+    readonly vnodeType: BaseVNodeType;
     // Raw properties of this VNodeType to pull from the database for this request.
     readonly includedProperties: ReadonlyArray<string>;
     // What mixins are available on this DataRequest object, to provide high-level functionality like virtual fields
@@ -85,7 +85,7 @@ export class DataRequestState {
     readonly mixinData: Readonly<{[mixinName: string]: any}>;
 
     private constructor(
-        vnt: VNodeType,
+        vnt: BaseVNodeType,
         includedProperties: ReadonlyArray<string>,
         activeMixins: ReadonlyArray<MixinImplementation>,
         mixinData: Readonly<{[mixinName: string]: any}>,
@@ -104,12 +104,12 @@ export class DataRequestState {
      * On the returned object, you can call properties like .uuid.name.dateOfBirth to add those properties to the
      * underlying request.
      */
-    static newRequest<VNT extends VNodeType, Mixins>(vnodeType: VNT, mixins: MixinImplementation[]): BaseDataRequest<VNT, never, Mixins> {
+    static newRequest<VNT extends BaseVNodeType, Mixins>(vnodeType: VNT, mixins: MixinImplementation[]): BaseDataRequest<VNT, never, Mixins> {
         const newObj = new DataRequestState(vnodeType, [], mixins.slice(), {});
         return new Proxy(newObj, DataRequestState.proxyHandler) as any as BaseDataRequest<VNT, never, Mixins>;
     }
 
-    newRequestWithSameMixins<VNT extends VNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, any> {
+    newRequestWithSameMixins<VNT extends BaseVNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, any> {
         const newObj = new DataRequestState(vnodeType, [], this.#activeMixins, {});
         return new Proxy(newObj, DataRequestState.proxyHandler) as any as BaseDataRequest<VNT, never, any>;
     }
@@ -154,7 +154,7 @@ export class DataRequestState {
     // A key used to get the internal state (an instance of DataRequestState) from the proxy that wraps it
     private static readonly _internalState = Symbol("internalState");
 
-    static getInternalState<VNT extends VNodeType>(request: BaseDataRequest<VNT, any, any>): DataRequestState {
+    static getInternalState<VNT extends BaseVNodeType>(request: BaseDataRequest<VNT, any, any>): DataRequestState {
         return request[this._internalState];
     }
 
@@ -192,9 +192,9 @@ export type MixinImplementation = (dataRequest: DataRequestState, methodName: st
 
 ///////////////// Request specific raw properties of a VNoteTyp ////////////////////////////////////////////////////////
 
-export type RequestVNodeRawProperties<VNT extends VNodeType, SelectedProps extends keyof VNT["properties"] = any> = (emptyRequest: BaseDataRequest<VNT>) => BaseDataRequest<VNT, SelectedProps>;
+export type RequestVNodeRawProperties<VNT extends BaseVNodeType, SelectedProps extends keyof VNT["properties"] = any> = (emptyRequest: BaseDataRequest<VNT>) => BaseDataRequest<VNT, SelectedProps>;
 
-export function getRequestedRawProperties<VNT extends VNodeType, SelectedProps extends keyof VNT["properties"] = string & keyof VNT["properties"]>(vnodeType: VNT, requestFn: RequestVNodeRawProperties<VNT, SelectedProps>):
+export function getRequestedRawProperties<VNT extends BaseVNodeType, SelectedProps extends keyof VNT["properties"] = string & keyof VNT["properties"]>(vnodeType: VNT, requestFn: RequestVNodeRawProperties<VNT, SelectedProps>):
     Array<SelectedProps>
 {
     // Create an empty data request, with no mixins, so it can only select from the VNodeType's raw properties:

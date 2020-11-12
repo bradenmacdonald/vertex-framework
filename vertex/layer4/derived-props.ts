@@ -1,4 +1,4 @@
-import type { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import type { VNodeTypeWithVirtualProps } from "./vnode";
 import type { BaseDataRequest } from "../layer3/data-request";
 import type { DataResponse } from "./data-response";
 import type { VirtualPropsMixin } from "./data-request-mixins";

@@ -35,13 +35,13 @@ export {
     RawVNode,
     ShortIdProperty,
     UuidProperty,
-    // VNodeType: we use VNodeTypeWithVirtualProps (from layer 4) in its place
+    // BaseVNodeType - internal use only: we use VNodeType (from layer 4) in its place
     VNodeRelationship,
     ValidationError,
     getVNodeType,
-    isVNodeType,
+    //isBaseVNodeType - internal use only
     registerVNodeType,
-} from "./layer2/vnode";
+} from "./layer2/vnode-base";
 
 export {
     VNodeTypeRef,
@@ -96,8 +96,9 @@ export {
 
 
 export {
-    VNodeTypeWithVirtualAndDerivedProps as VNodeType,
-} from "./layer4/vnode-with-virt-props";
+    VNodeType,
+    isVNodeType,
+} from "./layer4/vnode";
 
 export {
     DataRequestFilter,

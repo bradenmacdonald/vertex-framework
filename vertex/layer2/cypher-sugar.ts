@@ -3,7 +3,7 @@
  */
 import { Record as Neo4jRecord, int as neo4jinteger } from "neo4j-driver";
 import { ReturnShape, TypedResult } from "./cypher-return-shape";
-import { isVNodeType, VNodeRelationship } from "./vnode";
+import { isBaseVNodeType, VNodeRelationship } from "./vnode-base";
 
 /**
  * Wrapper around a cypher statement/query string, with optional parameters.
@@ -75,7 +75,7 @@ export class CypherQuery {
             // Add the parameter that comes after this chunk of the string:
             const paramValue = this.#paramsArray[i];
             // What each parameter means depends on its type
-            if (isVNodeType(paramValue)) {
+            if (isBaseVNodeType(paramValue)) {
                 // Using a VNodeType in a string means you want the label, e.g. "MATCH (u:${User})"
                 // It gets evaluated lazily in case the VNodeType is undefined at first due to circular references
                 if (compiledString[compiledString.length - 1] !== ":") {

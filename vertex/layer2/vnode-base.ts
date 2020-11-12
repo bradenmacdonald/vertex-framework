@@ -27,8 +27,11 @@ export const emptyObj = Object.freeze({});
  *   - VNodes can only be modified (mutated) via "Actions", which are recorded via an Action VNode in the graph.
  *   - Each VNode is an instance of one or more VNode types ("labels" in Neo4j), which enforce a strict schema of
  *     properties and relationships
+ *
+ * This class is not exposed directly in the public API for Vertex Framework. Instead, use the VNodeType class declared
+ * in layer 4.
  */
-abstract class _VNodeType {
+abstract class _BaseVNodeType {
     public constructor() { throw new Error("VNodeType should never be instantiated. Use it statically only."); }
     // static label: string;
     static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
@@ -63,17 +66,17 @@ abstract class _VNodeType {
     }
 
     // This method is not used for anything, but without at least one non-static method, TypeScript allows this:
-    //     const test: _VNodeType = "some string which is not a VNodeType!";
+    //     const test: _BaseVNodeType = "some string which is not a VNodeType!";
     protected __vnode(): void {/* */}
     protected static __vnode(): void {/* */}
 }
 
 // This little trick (and the VNodeType interface below) are required so that this class is only used statically,
 // never instantiated.
-export const VNodeType = _VNodeType;
+export const BaseVNodeType = _BaseVNodeType;
 
-export interface VNodeType {
-    new(): _VNodeType;
+export interface BaseVNodeType {
+    new(): _BaseVNodeType;
     readonly label: string;
     readonly properties: PropSchemaWithUuid;
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
@@ -85,8 +88,8 @@ export interface VNodeType {
 }
 
 /** Helper function to check if some object is a VNodeType */
-export function isVNodeType(obj: any): obj is VNodeType {
-    return Object.prototype.isPrototypeOf.call(_VNodeType, obj);
+export function isBaseVNodeType(obj: any): obj is BaseVNodeType {
+    return Object.prototype.isPrototypeOf.call(_BaseVNodeType, obj);
 }
 
 /**
@@ -119,7 +122,7 @@ export type PropertyDataType<Props extends PropSchema, propName extends keyof Pr
  * If a single VNode is loaded from the database (without relationships or virtual properties), this is the shape
  * of the resulting data.
  */
-export type RawVNode<T extends VNodeType> = {
+export type RawVNode<T extends BaseVNodeType> = {
     [K in keyof T["properties"]]: PropertyDataType<T["properties"], K>;
 } & { _identity: number; _labels: string[]; };
 
@@ -133,7 +136,7 @@ interface VNodeRelationshipData {
      * This relationship is allowed to point _to_ VNodes of these types.
      * Omit if it can point to any VNode.
      */
-    to?: ReadonlyArray<_VNodeType>;  // For some reason ReadonlyArray<VNodeType> doesn't work
+    to?: ReadonlyArray<_BaseVNodeType>;  // For some reason ReadonlyArray<VNodeType> doesn't work
     /** The properties that are expected/allowed on this relationship */
     properties?: Readonly<PropSchema>;
 }
@@ -149,7 +152,7 @@ export class VNodeRelationship<PS extends PropSchema = PropSchema> {
         this.label = label;
         this.#data = initData;
     }
-    get to(): ReadonlyArray<VNodeType>|undefined { return this.#data.to as ReadonlyArray<VNodeType>|undefined; }
+    get to(): ReadonlyArray<BaseVNodeType>|undefined { return this.#data.to as ReadonlyArray<BaseVNodeType>|undefined; }
     get properties(): Readonly<PS> { return this.#data.properties || emptyObj as any; }
 }
 
@@ -158,9 +161,9 @@ type VNodeRelationshipsFor<Rels extends VNodeRelationshipsData> = {
     [K in keyof Rels]: VNodeRelationship<Rels[K]["properties"] extends PropSchema ? Rels[K]["properties"] : PropSchema>
 };
 
-const registeredNodeTypes: {[label: string]: VNodeType} = {};
+const registeredNodeTypes: {[label: string]: BaseVNodeType} = {};
 
-export function registerVNodeType(tnt: VNodeType): void {
+export function registerVNodeType(tnt: BaseVNodeType): void {
     if (registeredNodeTypes[tnt.label] !== undefined) {
         throw new Error(`Duplicate VNodeType label: ${tnt.label}`);
     }
@@ -177,7 +180,7 @@ export function registerVNodeType(tnt: VNodeType): void {
 export class InvalidNodeLabel extends Error {}
 
 /** Given a label used in the Neo4j graph (e.g. "User"), get its VNodeType definition */
-export function getVNodeType(label: string): VNodeType {
+export function getVNodeType(label: string): BaseVNodeType {
     const def = registeredNodeTypes[label];
     if (def === undefined) {
         throw new InvalidNodeLabel(`VNode definition with label ${label} has not been loaded.`);
