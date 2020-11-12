@@ -34,7 +34,7 @@ type UpdateImplementationDetails<VNT extends BaseVNodeType, MutableProps extends
 };
 
 /** Detailed type specification for an Update action created by the defaultUpdateActionFor() template */
-interface UpdateActionImplementation<
+export interface UpdateActionImplementation<
     // The VNode type that is being updated
     VNT extends BaseVNodeType,
     // Which of the VNode's raw properties can be updated
