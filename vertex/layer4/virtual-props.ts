@@ -1,7 +1,7 @@
 import type { CypherQuery } from "../layer2/cypher-sugar";
 import type { FieldType } from "../layer2/cypher-return-shape";
-import { VNodeRelationship } from "../layer2/vnode";
-import { VNodeTypeWithVirtualProps } from "./vnode-with-virt-props";
+import { VNodeRelationship } from "../layer2/vnode-base";
+import { VNodeTypeWithVirtualProps } from "./vnode";
 /**
  * Every VNode can declare "virtual properties" which are computed properties
  * (such as related VNodes) that can be loaded from the graph or other sources.

@@ -1,6 +1,6 @@
 import { Node, Record as Neo4jRecord } from "neo4j-driver";
 import { UUID } from "../lib/uuid";
-import { VNodeType, isVNodeType, RawVNode } from "./vnode";
+import { BaseVNodeType, isBaseVNodeType, RawVNode } from "./vnode-base";
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //// Specifying the return shape that is expected from a cypher query:
@@ -12,7 +12,7 @@ export type ReturnShape = {
 // This helper function is used to declare variables with appropriate typing as "RS extends ReturnShape" and not just "ReturnShape"
 export function ReturnShape<RS extends ReturnShape>(rs: RS): RS { return rs; }
 export type FieldType = (
-    | VNodeType
+    | BaseVNodeType
     | MapReturnShape
     | ListReturnShape
     | NullableField
@@ -49,7 +49,7 @@ export type TypedResult<RS extends ReturnShape> = {
     [key in keyof RS]: ReturnTypeFor<RS[key]>;
 };
 export type ReturnTypeFor<DT extends FieldType> = (
-    DT extends VNodeType ? RawVNode<DT> :
+    DT extends BaseVNodeType ? RawVNode<DT> :
     DT extends MapReturnShapeFull<infer MapShape> ? TypedResult<MapShape> :
     DT extends ListReturnShapeFull<infer ListValueType> ? ReturnTypeFor<ListValueType>[] :
     // A nullable field is a little complex because we need to avoid an infinite type lookup in the case of {nullOr: {nullOr: ...}}
@@ -68,7 +68,7 @@ export type ReturnTypeFor<DT extends FieldType> = (
 
 // Convert a single field in a transaction response (from the native Neo4j driver) to a typed variable
 export function convertNeo4jFieldValue<FT extends FieldType>(fieldName: string, fieldValue: any, fieldType: FT): ReturnTypeFor<FT> {
-    if (isVNodeType(fieldType)) { // This is a node (VNode)
+    if (isBaseVNodeType(fieldType)) { // This is a node (VNode)
         return neoNodeToRawVNode(fieldValue, fieldName) as any;
     } else if (isMapType(fieldType)) {
         const map: any = {}
@@ -98,7 +98,7 @@ export function convertNeo4jRecord<RS extends ReturnShape>(record: Neo4jRecord, 
     return newRecord;
 }
 
-export function neoNodeToRawVNode<VNT extends VNodeType = any>(fieldValue: Node<any>, fieldName: string): RawVNode<VNT> {
+export function neoNodeToRawVNode<VNT extends BaseVNodeType = any>(fieldValue: Node<any>, fieldName: string): RawVNode<VNT> {
     if (!(fieldValue as any).__isNode__) { // would be nice if isNode() were exported from neo4j-driver
         throw new Error(`Field ${fieldName} is of type ${typeof fieldValue}, not a VNode.`);
     }

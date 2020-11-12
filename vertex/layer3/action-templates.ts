@@ -2,60 +2,56 @@ import { ActionImplementation, defineAction, ActionData, Action } from "./action
 import { C } from "../layer2/cypher-sugar";
 import { UUID } from "../lib/uuid";
 import { WrappedTransaction } from "../transaction";
-import { PropertyDataType, RawVNode, VNodeRelationship, VNodeType } from "../layer2/vnode";
+import { PropertyDataType, RawVNode, VNodeRelationship, BaseVNodeType } from "../layer2/vnode-base";
+import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "./data-request";
 
 
 // Useful action generators to reduce boilerplate
 
 /** Helper to type the parameters in an auto-generated Update action */
-type PropertyValuesForUpdate<VNT extends VNodeType, keys extends keyof VNT["properties"]> = {
+type PropertyValuesForUpdate<VNT extends BaseVNodeType, keys extends keyof VNT["properties"]> = {
     [K in keys]?: PropertyDataType<VNT["properties"], K>
 }
-/** Helper to get a union of the value types of an array, if known at compile time */
-type ElementType < T extends ReadonlyArray < unknown > > = (
-    T extends ReadonlyArray<infer ElementType> ? ElementType
-    : never
-);
 
-type UpdateImplementationDetails<VNT extends VNodeType, MutPropsArrayType extends ReadonlyArray<keyof VNT["properties"]>, OtherArgs extends Record<string, any> = {}> = {  // eslint-disable-line @typescript-eslint/ban-types
+type UpdateImplementationDetails<VNT extends BaseVNodeType, MutableProps extends keyof VNT["properties"], OtherArgs extends Record<string, any> = {}> = {  // eslint-disable-line @typescript-eslint/ban-types
     // The data argument passed into this action contains:
     //   key: the UUID or shortId of this node
     //   zero or more of the raw property values for the properties specified in "mutableProperties" (MutPropsArrayType)
     //   zero or more of the OtherArgs used by otherUpdates
     clean?: (args: {
-        data: {key: string} & PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>> & OtherArgs,
+        data: {key: string} & PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs,
         nodeSnapshot: RawVNode<VNT>,
-        changes: PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>>,
-        previousValues: PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>>,
+        changes: PropertyValuesForUpdate<VNT, MutableProps>,
+        previousValues: PropertyValuesForUpdate<VNT, MutableProps>,
     }) => void,
     /** If there is a need to update relationships or complex properties, this method can do so */
     otherUpdates?: (
         args: OtherArgs,
         tx: WrappedTransaction,
         nodeSnapshot: RawVNode<VNT>,
-        changes: Readonly<PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>>>,
-    ) => Promise<{previousValues: Partial<PropertyValuesForUpdate<VNT, ElementType<MutPropsArrayType>> & OtherArgs>, additionalModifiedNodes?: UUID[]}>,
+        changes: Readonly<PropertyValuesForUpdate<VNT, MutableProps>>,
+    ) => Promise<{previousValues: Partial<PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs>, additionalModifiedNodes?: UUID[]}>,
 };
 
 /** Detailed type specification for an Update action created by the defaultUpdateActionFor() template */
 interface UpdateActionImplementation<
     // The VNode type that is being updated
-    VNT extends VNodeType,
+    VNT extends BaseVNodeType,
     // Which of the VNode's raw properties can be updated
-    SelectedProps extends keyof VNT["properties"],
+    MutableProps extends keyof VNT["properties"],
     // Optional custom parameters that can (or must) be specified, which get used by the custom otherUpdates() method
     // (if any), to do things like update this VNode's relationships.
     OtherArgs extends Record<string, any>,
 > extends ActionImplementation<
     // The parameters that can/must be passed to this action to run it:
-    {key: string} & PropertyValuesForUpdate<VNT, SelectedProps> & OtherArgs,
+    {key: string} & PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs,
     // The result of running this action will be "prevValues" which stores the previous values so the action can be
     // undone.
-    {prevValues: PropertyValuesForUpdate<VNT, SelectedProps> & OtherArgs}
+    {prevValues: PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs}
 > {
     // Because Update actions are designed to work together with the Create action template, we need to store the list
     // of what properties the Update action can mutate:
-    mutableProperties: ReadonlyArray<SelectedProps>;
+    mutableProperties: ReadonlyArray<MutableProps>;
 }
 
 /**
@@ -68,13 +64,14 @@ interface UpdateActionImplementation<
  * @param otherUpdates Optionally provide a function to do additional changes on update, such as updating relationships
  *                     to other nodes.
  */
-export function defaultUpdateActionFor<VNT extends VNodeType, SelectedProps extends keyof VNT["properties"], OtherArgs extends Record<string, any> = {}>(  // eslint-disable-line @typescript-eslint/ban-types
+export function defaultUpdateActionFor<VNT extends BaseVNodeType, MutableProps extends RequestVNodeRawProperties<VNT>, OtherArgs extends Record<string, any> = {}>(  // eslint-disable-line @typescript-eslint/ban-types
     type: VNT,
-    mutableProperties: ReadonlyArray<SelectedProps>,
-    {clean, otherUpdates}: UpdateImplementationDetails<VNT, typeof mutableProperties, OtherArgs> = {},
-): UpdateActionImplementation<VNT, ElementType<typeof mutableProperties>, OtherArgs>
+    mutableProperties: MutableProps,
+    {clean, otherUpdates}: UpdateImplementationDetails<VNT, GetRequestedRawProperties<MutableProps>, OtherArgs> = {},
+): UpdateActionImplementation<VNT, GetRequestedRawProperties<MutableProps>, OtherArgs>
 {
-    type PropertyArgs = PropertyValuesForUpdate<VNT, ElementType<typeof mutableProperties>>;
+    const mutablePropertyKeys = getRequestedRawProperties(type, mutableProperties);
+    type PropertyArgs = PropertyValuesForUpdate<VNT, GetRequestedRawProperties<MutableProps>>;
     type Args = PropertyArgs & OtherArgs;
 
     const UpdateAction = defineAction<{key: string} & Args, {prevValues: Args}>({
@@ -89,7 +86,7 @@ export function defaultUpdateActionFor<VNT extends VNodeType, SelectedProps exte
             const changes: any = {};
     
             // Simple Property Updates
-            for (const propertyName of mutableProperties) {
+            for (const propertyName of mutablePropertyKeys) {
                 if (propertyName in data) {
                     // Do a poor man's deep comparison to see if this value is different, in case it's an array value or similar:
                     const isChanged = JSON.stringify(data[propertyName]) !== JSON.stringify(nodeSnapshot[propertyName]);
@@ -129,18 +126,19 @@ export function defaultUpdateActionFor<VNT extends VNodeType, SelectedProps exte
         },
     });
 
-    (UpdateAction as any).mutableProperties = mutableProperties;
+    // Store the set of mutable properties on the update action, because the Create action needs to know what properties Update can mutate.
+    (UpdateAction as any).mutableProperties = mutablePropertyKeys;
 
     return UpdateAction as any;
 }
 
 /** Helper to type the parameters in an auto-generated Create action */
-type RequiredArgsForCreate<VNT extends VNodeType, keys extends keyof VNT["properties"]> = {
+type RequiredArgsForCreate<VNT extends BaseVNodeType, keys extends keyof VNT["properties"]> = {
     [K in keys]: PropertyDataType<VNT["properties"], K>
 }
 
 /** Helper to get the (optional) arguments that can be used for an Update action */
-type ArgsForUpdateAction<UAI extends UpdateActionImplementation<VNodeType, any, any>|undefined> = (
+type ArgsForUpdateAction<UAI extends UpdateActionImplementation<BaseVNodeType, any, any>|undefined> = (
     UAI extends UpdateActionImplementation<infer VNT, infer SelectedProps, infer OtherArgs> ?
         PropertyValuesForUpdate<VNT, SelectedProps> & OtherArgs
     : {/* If there's no update action, we don't accept any additional arguments */}
@@ -153,19 +151,21 @@ type ArgsForUpdateAction<UAI extends UpdateActionImplementation<VNodeType, any, 
  * @param type The VNode Type to create
  * @param updateAction The Update Action, created by defaultUpdateActionFor() (optional)
  */
-export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends keyof VNT["properties"], UAI extends UpdateActionImplementation<VNT, any, any>|undefined = undefined>(  // eslint-disable-line @typescript-eslint/ban-types
+export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extends RequestVNodeRawProperties<VNT>, UAI extends UpdateActionImplementation<VNT, any, any>|undefined = undefined>(  // eslint-disable-line @typescript-eslint/ban-types
     type: VNT,
-    requiredProperties: ReadonlyArray<RequiredProps>,
+    requiredProperties: RequiredProps,
     updateAction?: UAI
 ): ActionImplementation<
     // This Create action _requires_ the following properties:
-    RequiredArgsForCreate<VNT, RequiredProps>
+    RequiredArgsForCreate<VNT, GetRequestedRawProperties<RequiredProps>>
     // And accepts any _optional_ properties that the Update action understands:
     & ArgsForUpdateAction<UAI>
     // And it returns the UUID of the newly created node, and whatever the Update action returned, if any
 , {uuid: string, updateResult: null|{prevValues: any}}> {
 
-    type Args = RequiredArgsForCreate<VNT, RequiredProps> & ArgsForUpdateAction<UAI>;
+    const requiredPropertyKeys = getRequestedRawProperties(type, requiredProperties);
+
+    type Args = RequiredArgsForCreate<VNT, GetRequestedRawProperties<RequiredProps>> & ArgsForUpdateAction<UAI>;
 
     const CreateAction = defineAction<Args, {uuid: UUID, updateResult: null|{prevValues: any}}>({
         type: `Create${type.label}`,
@@ -182,7 +182,7 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
                     continue;
                 }
                 if (updateAction) {
-                    if (requiredProperties.includes(propName as any) && !updateAction.mutableProperties.includes(propName)) {
+                    if (requiredPropertyKeys.includes(propName as any) && !updateAction.mutableProperties.includes(propName)) {
                         // This is a raw property but updateAction doesn't accept it as a parameter; we'll have to set it now.
                         propsToSetOnCreate[propName] = value;
                     } else {
@@ -252,7 +252,7 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends ke
 }
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-export function defaultDeleteAndUnDeleteFor(type: VNodeType): [ActionImplementation<{key: string}, {}>, ActionImplementation<{uuid: UUID}, {}>] {
+export function defaultDeleteAndUnDeleteFor(type: BaseVNodeType): [ActionImplementation<{key: string}, {}>, ActionImplementation<{uuid: UUID}, {}>] {
 
     const DeleteAction = defineAction<{key: string}, any>({
         type: `Delete${type.label}`,
@@ -310,7 +310,7 @@ function forceIntegers(propertiesMap: Record<string, any>): void {
  * Designed for use in an "Update"-type Action, this helper method will update a relationship from the current VNode,
  * pointing to either another VNode or null. (an "x:1" relationship, e.g. "1:1" or "many:1")
  */
-export async function updateToOneRelationship<VNT extends VNodeType>({fromType, uuid, rel, tx, newId, allowNull}: {
+export async function updateToOneRelationship<VNT extends BaseVNodeType>({fromType, uuid, rel, tx, newId, allowNull}: {
     fromType: VNT,
     uuid: UUID,
     rel: VNodeRelationship,

@@ -1,11 +1,10 @@
 import { suite, test, assert, dedent, configureTestData } from "../lib/intern-tests";
 
-import { buildCypherQuery, DataRequestFilter, VNodeDataRequest } from "./pull";
+import { buildCypherQuery, DataRequestFilter, newDataRequest } from "./pull";
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils";
-import { testGraph, Person, Movie, createTestData } from "../test-project";
+import { testGraph, Person, Movie } from "../test-project";
 import { C, UUID } from "..";
 
-// Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
 
 suite("pull", () => {
 
@@ -14,7 +13,7 @@ suite("pull", () => {
     suite("simple queries", () => {
 
         suite("Person allProps request (no filter - get all people)", () => {
-            const request = VNodeDataRequest(Person).allProps;
+            const request = newDataRequest(Person).allProps;
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request);
 
@@ -42,7 +41,7 @@ suite("pull", () => {
 
         suite("Partial Person request", () => {
             // This data request tests conditional fields and excluded fields
-            const partialPersonRequest = (VNodeDataRequest(Person)
+            const partialPersonRequest = (newDataRequest(Person)
                 .name
                 .dateOfBirthIfFlag("includeDOB")
             );
@@ -71,6 +70,7 @@ suite("pull", () => {
                 checkType<AssertPropertyPresent<typeof firstPerson, "name", string>>();
                 // dateOfBirth was not requested due to the missing flag (only known at runtime, not compile time)
                 assert.equal(firstPerson.dateOfBirth, undefined);
+
                 checkType<AssertPropertyOptional<typeof firstPerson, "dateOfBirth", string>>();
                 // UUID was explicitly not requested, so should be undefined:
                 assert.equal((firstPerson as any).uuid, undefined);
@@ -119,7 +119,7 @@ suite("pull", () => {
 
         suite("Basic Person request", () => {
             // This DataRequest gets some raw properties of Person, with no virtual properties
-            const basicPersonRequest = (VNodeDataRequest(Person)
+            const basicPersonRequest = (newDataRequest(Person)
                 .uuid
                 .name
                 .dateOfBirth
@@ -148,7 +148,7 @@ suite("pull", () => {
         });
 
         suite("Movie request, keyed by shortId", () => {
-            const request = VNodeDataRequest(Movie).shortId.title.year;
+            const request = newDataRequest(Movie).shortId.title.year;
             const filter: DataRequestFilter = {key: "jumanji-2"};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
@@ -173,7 +173,7 @@ suite("pull", () => {
 
         // Test a to-many virtual property/relationship:
         suite("Get all Chris Pratt Movies", () => {
-            const request = VNodeDataRequest(Person).movies(m => m.title.year);
+            const request = newDataRequest(Person).movies(m => m.title.year);
             const filter: DataRequestFilter = {key: "chris-pratt", };
             test("buildCypherQuery", () => {
                 // This test covers the situation where we're not including any raw (non-virtual) properties from the main node (_node)
@@ -213,6 +213,31 @@ suite("pull", () => {
             });
         });
 
+        test("can merge separate requests for the same virtual property", async () => {
+            // Merging data requests is an important part of how "derived property" dependencies are handled.
+            // Here's a request with overlapping field specification:
+            const request = newDataRequest(Person)
+                .name
+                .movies(m => m.title.franchise(mf => mf.name))
+                .movies(m => m.year.franchise(mf => mf.name.uuid))
+            ;
+            // The above request should be equivalent to:
+            const mergedRequest = newDataRequest(Person)
+                .name
+                .movies(m => m.title.year.franchise(mf => mf.uuid.name))
+            ;
+            const filter: DataRequestFilter = {key: "rdj", };
+
+            assert.deepStrictEqual(
+                buildCypherQuery(request, filter),
+                buildCypherQuery(mergedRequest, filter),
+            );
+            assert.deepStrictEqual(
+                await testGraph.pullOne(request, filter),
+                await testGraph.pullOne(mergedRequest, filter),
+            );
+        });
+
         // Test a to-many virtual property/relationship with a property on the relationship:
         test("Get all Robert Downey Jr. Movies, annotated with role", async () => {
             const rdj = await testGraph.pullOne(Person, p => p
@@ -231,7 +256,7 @@ suite("pull", () => {
         });
 
         suite("Test ordering a to-many virtual property by a relationship property", async () => {
-            const request = VNodeDataRequest(Person).name.moviesOrderedByRole(m => m.title.year.role())
+            const request = newDataRequest(Person).name.moviesOrderedByRole(m => m.title.year.role())
             const filter: DataRequestFilter = {key: "rdj", };
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
@@ -260,7 +285,7 @@ suite("pull", () => {
 
         // Test a to-one virtual property/relationship:
         suite("Get a movie's franchise", () => {
-            const request = VNodeDataRequest(Movie).title.franchise(f => f.name);
+            const request = newDataRequest(Movie).title.franchise(f => f.name);
             // This filter will match two movies: "Avengers: Infinity War" (MCU franchise) and "The Spy Who Dumped Me" (no franchise)
             const filter: DataRequestFilter = {where: C`@this.year = 2018`};
             test("buildCypherQuery", () => {
@@ -293,7 +318,7 @@ suite("pull", () => {
         });
 
         suite("Test a to-one virtual property/relationship with a circular reference:", () => {
-            const request = VNodeDataRequest(Movie).title.franchise(f => f.name.movies(m => m.title));
+            const request = newDataRequest(Movie).title.franchise(f => f.name.movies(m => m.title));
             const filter: DataRequestFilter = {key: "infinity-war"};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
@@ -323,7 +348,7 @@ suite("pull", () => {
 
         suite("Cypher expression: get a person's age", () => {
             // This tests the "age" virtual property, which computes the Person's age within Neo4j and returns it
-            const request = VNodeDataRequest(Person).name.dateOfBirth.age();
+            const request = newDataRequest(Person).name.dateOfBirth.age();
             const filter: DataRequestFilter = {key: "chris-pratt"};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
@@ -352,7 +377,7 @@ suite("pull", () => {
         suite("deep pull", () => {
             // Build a horribly deep query:
             // For every person, find their friends, then find their friend's costars, then their costar's movies and friends' movies
-            const request = (VNodeDataRequest(Person)
+            const request = (newDataRequest(Person)
                 .friends(f => f
                     .name
                     .costars(cs => cs
@@ -421,6 +446,27 @@ suite("pull", () => {
                 checkType<AssertPropertyPresent<typeof sj_friends_rdj_costars_kg_movies[0], "year", number>>();
                 checkType<AssertPropertyAbsent<typeof sj_friends_rdj_costars_kg_movies[0], "foobar">>();
             });
+        });
+    });
+
+    suite("Queries including derived properties", () => {
+        test("Compute a property in JavaScript, using data from a raw property and virtual property that are explicitly fetched.", async () => {
+            const chrisPratt = await testGraph.pullOne(Person, p => p.dateOfBirth.age().ageJS(), {key: "chris-pratt"});
+            assert.strictEqual(chrisPratt.age, chrisPratt.ageJS.ageJS);
+            assert.strictEqual(chrisPratt.age, chrisPratt.ageJS.ageNeo);
+            assert.isAtLeast(chrisPratt.ageJS.ageJS, 40);
+            assert.isAtMost(chrisPratt.ageJS.ageJS, 70);
+            // Check typing:
+            checkType<AssertPropertyPresent<typeof chrisPratt.ageJS, "ageJS", number>>();
+            checkType<AssertPropertyPresent<typeof chrisPratt.ageJS, "ageNeo", number>>();
+            checkType<AssertPropertyAbsent<typeof chrisPratt.ageJS, "other">>();
+        });
+        test("Compute a property in JavaScript, using data from a raw property and virtual property that are NOT explicitly fetched.", async () => {
+            const age = (await testGraph.pullOne(Person, p => p.age(), {key: "chris-pratt"})).age;
+            const chrisPratt = await testGraph.pullOne(Person, p => p.ageJS(), {key: "chris-pratt"});
+            assert.strictEqual(age, chrisPratt.ageJS.ageJS);
+            assert.isAtLeast(chrisPratt.ageJS.ageJS, 40);
+            assert.isAtMost(chrisPratt.ageJS.ageJS, 70);
         });
     });
 });

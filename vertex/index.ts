@@ -35,19 +35,25 @@ export {
     RawVNode,
     ShortIdProperty,
     UuidProperty,
-    // VNodeType: we use VNodeTypeWithVirtualProps (from layer 4) in its place
+    // BaseVNodeType - internal use only: we use VNodeType (from layer 4) in its place
     VNodeRelationship,
     ValidationError,
     getVNodeType,
-    isVNodeType,
+    //isBaseVNodeType - internal use only
     registerVNodeType,
-} from "./layer2/vnode";
+} from "./layer2/vnode-base";
 
 export {
     VNodeTypeRef,
 } from "./layer2/vnode-ref";
 
 //// Layer 3 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export {
+    BaseDataRequest,
+    RequestVNodeRawProperties,
+    getRequestedRawProperties,
+} from "./layer3/data-request";
 
 export {
     // Action: we use ActionWithVirtualProperties (from layer 4) in its place
@@ -84,15 +90,18 @@ export {
     VirtualPropsSchema,
 } from "./layer4/virtual-props";
 
+export {
+    DerivedPropertyFactory,
+} from "./layer4/derived-props";
+
 
 export {
-    VNodeTypeWithVirtualProps as VNodeType,
-} from "./layer4/vnode-with-virt-props";
+    VNodeType,
+    isVNodeType,
+} from "./layer4/vnode";
 
 export {
     DataRequestFilter,
-    VNodeDataRequest,
-    VNodeDataRequestBuilder,
     buildCypherQuery,
 } from "./layer4/pull";
 

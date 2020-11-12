@@ -7,7 +7,7 @@ import Joi from "@hapi/joi";
 
 import { NominalType } from "../lib/ts-utils";
 import { UUID } from "../lib/uuid";
-import { VNodeType, RawVNode, ValidationError } from "../layer2/vnode";
+import { BaseVNodeType, RawVNode, ValidationError } from "../layer2/vnode-base";
 import { WrappedTransaction } from "../transaction";
 
 
@@ -108,10 +108,10 @@ export function getActionImplementation(type: ActionType): ActionImplementation|
 }
 
 
-export class Action extends VNodeType {
+export class Action extends BaseVNodeType {
     static label = "Action";
     static readonly properties = {
-        ...VNodeType.properties,
+        ...BaseVNodeType.properties,
         // The action type, e.g. "Create Article", "Delete User", etc.
         type: Joi.string().required(),
         // The JSON data that defines the action, and contains enough data to undo it.

@@ -1,5 +1,6 @@
 import neo4j, { Driver, Transaction } from "neo4j-driver";
-import { Action, ActionData, ActionResult, ActionType, getActionImplementation } from "./layer3/action";
+import { ActionData, ActionResult, ActionType, getActionImplementation } from "./layer3/action";
+import { ActionWithVirtualProperties as Action } from "./layer4/action";
 import { runAction } from "./layer3/action-runner";
 import { log } from "./lib/log";
 import { UUID } from "./lib/uuid";

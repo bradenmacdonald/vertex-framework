@@ -4,6 +4,7 @@ import {
     defaultCreateFor,
     defaultUpdateActionFor,
     defineAction,
+    DerivedPropertyFactory,
     registerVNodeType,
     ShortIdProperty,
     VirtualPropType,
@@ -68,13 +69,32 @@ export class Person extends VNodeType {
         }
     };
     static readonly defaultOrderBy = "@this.name";
+
+    static readonly derivedProperties = Person.hasDerivedProperties({
+        ageJS,
+    });
 }
 registerVNodeType(Person);
 
+/**
+ * Compute the person's age in JavaScript (as opposed to in Cypher, like the .age virtual property does.)
+ * This serves as an example of a derived property, which relies on a raw property and a virtual property
+ */
+function ageJS(spec: DerivedPropertyFactory<{ageJS: number, ageNeo: number}>): void { spec(
+    Person,
+    p => p.dateOfBirth.age(),
+    data => {
+        const today = new Date(), dob = new Date(data.dateOfBirth);
+        const m = today.getMonth() - dob.getMonth();
+        const age = (today.getFullYear() - dob.getFullYear()) - (m < 0 || (m === 0 && today.getDate() < dob.getDate()) ? 1 : 0);
+        // Return a complex object and test that we can return/access data from virtual props too:
+        return {ageJS: age, ageNeo: data.age};
+    }
+)}
 
-export const UpdatePerson = defaultUpdateActionFor(Person, ["name", "dateOfBirth"]);
+export const UpdatePerson = defaultUpdateActionFor(Person, p => p.name.dateOfBirth);
 
-export const CreatePerson = defaultCreateFor(Person, ["shortId", "name"], UpdatePerson);
+export const CreatePerson = defaultCreateFor(Person, p => p.shortId.name, UpdatePerson);
 
 export const ActedIn = defineAction<{personId: string, movieId: string, role: string}, {/* */}>({
     type: "ActedIn",
@@ -82,7 +102,7 @@ export const ActedIn = defineAction<{personId: string, movieId: string, role: st
         const result = await tx.queryOne(C`
             MATCH (p:${Person}), p HAS KEY ${data.personId}
             MATCH (m:${Movie}), m HAS KEY ${data.movieId}
-            MERGE (p)-[rel:ACTED_IN]->(m)
+            MERGE (p)-[rel:${Person.rel.ACTED_IN}]->(m)
             SET rel.role = ${data.role}
             `.RETURN({"p.uuid": "uuid"}));
         return {
@@ -99,7 +119,7 @@ export const RecordFriends = defineAction<{personId: string, otherPersonId: stri
         const result = await tx.queryOne(C`
             MATCH (p1:${Person}), p1 HAS KEY ${data.personId}
             MATCH (p2:${Person}), p2 HAS KEY ${data.otherPersonId}
-            MERGE (p1)-[:FRIEND_OF]->(p2)
+            MERGE (p1)-[:${Person.rel.FRIEND_OF}]->(p2)
         `.RETURN({"p1.uuid": "uuid", "p2.uuid": "uuid"}));
         return {
             modifiedNodes: [result["p1.uuid"], result["p2.uuid"]],
