@@ -5,6 +5,7 @@ import {
     VirtualOneRelationshipProperty,
     VirtualCypherExpressionProperty,
     VirtualPropType,
+    VirtualPropertyDefinition,
 } from "./virtual-props";
 import type { WrappedTransaction } from "../transaction";
 import { CypherQuery } from "../layer2/cypher-sugar";
@@ -205,13 +206,10 @@ export function buildCypherQuery<Request extends BaseDataRequest<any, any, any>>
     // in the query (e.g. "friends_1")
     const addVirtualPropsForNode = (parentNodeVariable: string, request: DataRequestState, relationshipVariable?: string): VirtualPropertiesMap => {
         const virtPropsMap: VirtualPropertiesMap = {};
-        const vnodeType = request.vnodeType as VNodeTypeWithVirtualProps;
-        const projectedVirtualProperties = getProjectedVirtualPropsData(request);
-        const requestedVirtualPropsData = getVirtualPropsData(request);
         // For each virtual prop:
-        getVirtualPropertiesIncludedIn(request, rootFilter).forEach(propName => {
-            const virtProp = vnodeType.virtualProperties[propName] || projectedVirtualProperties[propName];
-            const virtPropRequest = requestedVirtualPropsData[propName].shapeData;
+        getVirtualPropertiesIncludedIn(request, rootFilter).forEach(({propName, propDefn, shapeData}) => {
+            const virtProp = propDefn;
+            const virtPropRequest = shapeData;
             const variableName = generateNameFor(propName);
             virtPropsMap[propName] = variableName;
             if (virtProp.type === VirtualPropType.ManyRelationship) {
@@ -259,6 +257,36 @@ function readOnlyView<T extends Record<string, any>>(x: T): Readonly<T> {
     return new Proxy(x, { set: () => false, defineProperty: () => false, deleteProperty: () => false }) as Readonly<T>;
 }
 
+/**
+ * Recursively add "derived properties" to the interim result from a call to pull() data from the database.
+ * Derived properties have access to the raw+virtual properties that have been pulled so far.
+ * 
+ * This function adds fields to the "resultData" argument.
+ */
+function addDerivedPropertiesToResult(resultData: any, requestData: DataRequestState, filter: DataRequestFilter): void {
+    const derivedProperties = getDerivedPropertiesIncludedIn(requestData, filter);
+    const vnodeType = (requestData.vnodeType as VNodeType);
+
+    if (derivedProperties.length > 0) {
+        const dataSoFar = readOnlyView(resultData);  // Don't allow the derived property implementation to mutate this directly
+        for (const propName of derivedProperties) {
+            resultData[propName] = vnodeType.derivedProperties[propName].computeValue(dataSoFar);
+        }
+    }
+    // Now recursively handle derived properties for any virtual -to-many or -to-one relationships included in the result:
+    getVirtualPropertiesIncludedIn(requestData, filter).forEach(({propName, propDefn, shapeData}) => {
+        if (!shapeData) {
+            return;
+        }
+        if (propDefn.type === VirtualPropType.ManyRelationship) {
+            resultData[propName].forEach((subResultData: any) => {
+                addDerivedPropertiesToResult(subResultData, shapeData, filter);
+            });
+        } else if (propDefn.type === VirtualPropType.OneRelationship) {
+            addDerivedPropertiesToResult(resultData[propName], shapeData, filter);
+        }
+    });
+}
 
 export function pull<VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
     tx: WrappedTransaction,
@@ -279,7 +307,6 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
     const vnodeType = (requestData.vnodeType as VNodeType);
     const filter: DataRequestFilter = (typeof arg2 === "function" ? arg3 : arg2) || {};
     const topLevelFields = getAllPropertiesIncludedIn(requestData, filter);
-    const derivedProperties = getDerivedPropertiesIncludedIn(requestData, filter);
 
     const query = buildCypherQuery(request, filter);
     log.debug(query.query);
@@ -292,12 +319,7 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
             newRecord[field] = record.get(field);
         }
         // Add derived properties, which may use the raw+virtual properties in their computation:
-        if (derivedProperties.length > 0) {
-            const dataSoFar = readOnlyView(newRecord);  // Don't allow the derived property implementation to mutate this directly
-            for (const derivedProp of derivedProperties) {
-                newRecord[derivedProp] = vnodeType.derivedProperties[derivedProp].computeValue(dataSoFar);
-            }
-        }
+        addDerivedPropertiesToResult(newRecord, requestData, filter);
         return newRecord;
     });
 }
@@ -379,14 +401,15 @@ function getRawPropertiesIncludedIn(request: DataRequestState, filter: DataReque
 /**
  * Helper function: given a VNodeDataRequest and filter options, lists all the virtual properties of the VNode
  * that should be included in the data request. The properties will be returned in an ordered array, in the order that
- * the virtual properties were declared on the VNode type definition.
- * @param request 
- * @param filter 
+ * the virtual properties were declared on the VNode type definition. They are returned as tuples of
+ * [propKey, propDefinition]
  */
-function getVirtualPropertiesIncludedIn(request: DataRequestState, filter: DataRequestFilter): string[] {
+function getVirtualPropertiesIncludedIn(request: DataRequestState, filter: DataRequestFilter): Array<{propName: string, propDefn: VirtualPropertyDefinition, shapeData: DataRequestState|undefined}> {
     // Determine what virtual properties are available, in the order declared:
-    const keys = Object.keys((request.vnodeType as VNodeTypeWithVirtualProps).virtualProperties);
-    keys.push(...Object.keys(getProjectedVirtualPropsData(request)));
+    const virtPropsAvailable = (request.vnodeType as VNodeTypeWithVirtualProps).virtualProperties
+    const projectedVirtualPropertiesAvailable = getProjectedVirtualPropsData(request);
+    const keys = Object.keys(virtPropsAvailable);
+    keys.push(...Object.keys(projectedVirtualPropertiesAvailable));
     // Determine what virtual properties were now requested in this data request:
     const requested = getVirtualPropsData(request);
     return keys.filter(propName =>
@@ -397,20 +420,24 @@ function getVirtualPropertiesIncludedIn(request: DataRequestState, filter: DataR
             :
                 true
         )
-    );
+    ).map(propName => ({
+        propName,
+        propDefn: virtPropsAvailable[propName] || projectedVirtualPropertiesAvailable[propName],
+        shapeData: requested[propName].shapeData,
+    }));
 }
 
 /**
  * Helper function: given a VNodeDataRequest and filter options, lists all the raw and virtual properties of the VNode
  * that should be included in the data request. The properties will be returned in an ordered array, in the order that
  * the properties were declared on the VNode type definition (first raw properties, then virtual properties).
- * @param request 
- * @param filter 
+ *
+ * This method does not return derived fields; only raw and virtual.
  */
 function getAllPropertiesIncludedIn(request: DataRequestState, filter: DataRequestFilter): string[] {
     return [
         ...getRawPropertiesIncludedIn(request, filter),
-        ...getVirtualPropertiesIncludedIn(request, filter),
+        ...getVirtualPropertiesIncludedIn(request, filter).map(v => v.propName),
     ];
 }
 
