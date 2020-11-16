@@ -1,4 +1,4 @@
-import { BaseVNodeType, emptyObj } from "../layer2/vnode-base";
+import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType } from "../layer2/vnode-base";
 import { CompileDerivedPropSchema, DerivedPropertyFactory, DerivedPropsSchema, DerivedPropsSchemaCompiled } from "./derived-props";
 import { VirtualPropsSchema } from "./virtual-props";
 
@@ -55,4 +55,9 @@ export abstract class VNodeType extends BaseVNodeType {
 /** Helper function to check if some object is a VNodeType */
 export function isVNodeType(obj: any): obj is VNodeType {
     return Object.prototype.isPrototypeOf.call(VNodeType, obj);
+}
+
+/** Extend "getVNodeType" to include layer 4 type definition */
+export function getVNodeType(label: string): VNodeType {
+    return baseGetVNodeType(label) as VNodeType;
 }

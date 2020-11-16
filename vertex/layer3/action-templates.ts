@@ -161,7 +161,7 @@ export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extend
     // And accepts any _optional_ properties that the Update action understands:
     & ArgsForUpdateAction<UAI>
     // And it returns the UUID of the newly created node, and whatever the Update action returned, if any
-, {uuid: string, updateResult: null|{prevValues: any}}> {
+, {uuid: UUID, updateResult: null|{prevValues: any}}> {
 
     const requiredPropertyKeys = getRequestedRawProperties(type, requiredProperties);
 

@@ -38,7 +38,7 @@ export {
     // BaseVNodeType - internal use only: we use VNodeType (from layer 4) in its place
     VNodeRelationship,
     ValidationError,
-    getVNodeType,
+    //getVNodeType - redefined in layer 4
     //isBaseVNodeType - internal use only
     registerVNodeType,
 } from "./layer2/vnode-base";
@@ -98,6 +98,7 @@ export {
 export {
     VNodeType,
     isVNodeType,
+    getVNodeType,
 } from "./layer4/vnode";
 
 export {

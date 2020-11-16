@@ -1,4 +1,4 @@
-import type { VNodeTypeWithVirtualProps } from "./vnode";
+import type { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import type { BaseDataRequest } from "../layer3/data-request";
 import type { DataResponse } from "./data-response";
 import type { VirtualPropsMixin } from "./data-request-mixins";
@@ -29,7 +29,7 @@ export interface DerivedPropertyFactory<ValueType> {
 }
 
 export interface DerivedPropertyDeclaration<ValueType> {
-    (defineProperty: DerivedPropertyFactory<ValueType>, vnt: VNodeTypeWithVirtualProps): void;
+    (defineProperty: DerivedPropertyFactory<ValueType>, vnt: VNodeType): void;
 }
 
 // Above this line are the arguments as declared in application code source files and passed to
