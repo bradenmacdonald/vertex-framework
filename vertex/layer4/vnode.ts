@@ -1,5 +1,5 @@
 import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType } from "../layer2/vnode-base";
-import { CompileDerivedPropSchema, DerivedPropertyFactory, DerivedPropsSchema, DerivedPropsSchemaCompiled } from "./derived-props";
+import { ConvertDerivedPropsDeclarationToSchema, DerivedProperty, DerivedPropertyFactory, DerivedPropsDeclaration, DerivedPropsSchema } from "./derived-props";
 import { VirtualPropsSchema } from "./virtual-props";
 
 
@@ -9,7 +9,7 @@ export interface VNodeTypeWithVirtualProps extends BaseVNodeType {
 }
 
 export interface VNodeType extends VNodeTypeWithVirtualProps {
-    readonly derivedProperties: DerivedPropsSchemaCompiled;
+    readonly derivedProperties: DerivedPropsSchema;
 }
 
 /**
@@ -34,19 +34,10 @@ export abstract class VNodeType extends BaseVNodeType {
      * second parameter, if your derived property implementation is shared among multiple VNodeTypes). Call that method once
      * to configure the property.
      */
-    static hasDerivedProperties<DPS extends DerivedPropsSchema>(this: any, propSchema: DPS): CompileDerivedPropSchema<DPS> {
+    static hasDerivedProperties<DPS extends DerivedPropsDeclaration>(this: any, propSchema: DPS): ConvertDerivedPropsDeclarationToSchema<DPS> {
         const newSchema: any = {};     
         for (const propName in propSchema) {
-            const compileDerivedProp: DerivedPropertyFactory<any> = (appliesTo, dataSpec, computeValue) => {
-                if (appliesTo !== this) {
-                    throw new Error(`Cannot add derived property "${propName}" to ${this.name} because it passed the wrong VNode type to the factory function.`);
-                }
-                if (propName in newSchema) {
-                    throw new Error(`Duplicate definition of derived property "${propName}".`);
-                }
-                newSchema[propName] = { dataSpec, computeValue };
-            };
-            propSchema[propName](compileDerivedProp, this);
+            newSchema[propName] = new DerivedProperty<any>(propSchema[propName], this);
         }
         return Object.freeze(newSchema);
     }
