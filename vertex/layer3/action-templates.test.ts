@@ -1,110 +1,187 @@
-import { suite, test, assertRejects, configureTestData, assert, log } from "../lib/intern-tests";
+import Joi from "@hapi/joi";
+import { suite, test, assertRejects, configureTestData, assert, log, before, after } from "../lib/intern-tests";
 import {
     C,
     UUID,
+    VNodeType,
+    registerVNodeType,
+    unregisterVNodeType,
+    ShortIdProperty,
 } from "..";
-import { testGraph,  CreatePerson, Person, CreateMovieFranchise, CreateMovie, Movie } from "../test-project";
+import { defaultCreateFor, defaultUpdateActionFor } from "./action-templates";
+import { testGraph } from "../test-project";
 
-// Data for use in tests ///////////////////////////////////////////////////////////////////////////////////////////////
+/** A VNodeType for use in this test suite. */
+class AstronomicalBody extends VNodeType {
+    static label = "AstroBody";
+    static readonly properties = {
+        ...VNodeType.properties,
+        shortId: ShortIdProperty,
+        mass: Joi.number().required(),
+    };
+}
+
+class Planet extends AstronomicalBody {
+    static label = "Planet";
+    static readonly properties = {
+        ...AstronomicalBody.properties,
+        numberOfMoons: Joi.number(),
+    };
+    static readonly rel = Planet.hasRelationshipsFromThisTo({
+        /** This Person acted in a given movie */
+        HAS_MOON: { to: [AstronomicalBody] },
+    });
+}
+
+const CreateAstroBody = defaultCreateFor(AstronomicalBody, ab => ab.shortId.mass);
+const UpdatePlanet = defaultUpdateActionFor(Planet, p => p.shortId.mass.numberOfMoons, {
+    otherUpdates: async (args: {addMoon?: string, deleteMoon?: string}, tx, nodeSnapshot, changes) => {
+        const previousValues: Partial<typeof args> = {};
+        if (args.deleteMoon !== undefined) {
+            await tx.queryOne(C`
+                MATCH (p:${Planet} {uuid: ${nodeSnapshot.uuid}})
+                MATCH (p)-[rel:${Planet.rel.HAS_MOON}]->(moon:${AstronomicalBody}), moon HAS KEY ${args.deleteMoon}
+                DELETE rel
+            `.RETURN({}));
+            previousValues.addMoon = args.deleteMoon;
+        }
+        if (args.addMoon !== undefined) {
+            await tx.queryOne(C`
+                MATCH (p:${Planet} {uuid: ${nodeSnapshot.uuid}})
+                MATCH (moon:${AstronomicalBody}), moon HAS KEY ${args.addMoon}
+                MERGE (p)-[:${Planet.rel.HAS_MOON}]->(moon)
+            `.RETURN({}));
+            previousValues.deleteMoon = args.addMoon;
+        }
+        return { additionalModifiedNodes: [], previousValues };
+    },
+});
+const CreatePlanet = defaultCreateFor(Planet, p => p.shortId.mass, UpdatePlanet);
+
 
 suite("action templates", () => {
-    configureTestData({loadTestProjectData: false, isolateTestWrites: true});
+
+    configureTestData({isolateTestWrites: true, loadTestProjectData: false});
+
+    before(() => {
+        registerVNodeType(AstronomicalBody);
+        registerVNodeType(Planet);
+    });
+
+    after(() => {
+        unregisterVNodeType(AstronomicalBody);
+        unregisterVNodeType(Planet);
+    });
+
 
     suite("defaultCreateFor", () => {
 
         test("can create a VNode", async () => {
             const result = await testGraph.runAsSystem(
-                CreatePerson({shortId: "ash", name: "Ash"}),
+                CreateAstroBody({shortId: "Ceres", mass: 15}),
             );
             assert.isString(result.uuid);
             // Get and check the new node in various ways:
-            const checkPerson = (p: {uuid: UUID, shortId: string, name: string, dateOfBirth: string|undefined, }): void => {
+            const checkCeres = (p: {uuid: UUID, shortId: string, mass: number, }): void => {
                 assert.equal(p.uuid, result.uuid);
-                assert.equal(p.shortId, "ash");
-                assert.equal(p.name, "Ash");
-                assert.equal(p.dateOfBirth, undefined);
+                assert.equal(p.shortId, "Ceres");
+                assert.equal(p.mass, 15);
             };
             // By its shortId:
-            const r1 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${Person}), p HAS KEY ${"ash"}`.RETURN({p: Person})));
-            checkPerson(r1.p);
+            const r1 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody}), p HAS KEY ${"Ceres"}`.RETURN({p: AstronomicalBody})));
+            checkCeres(r1.p);
             // By its UUID:
-            const r2 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${Person}), p HAS KEY ${result.uuid}`.RETURN({p: Person})));
-            checkPerson(r2.p);
+            const r2 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody}), p HAS KEY ${result.uuid}`.RETURN({p: AstronomicalBody})));
+            checkCeres(r2.p);
             // Using pull()
-            const p3 = await testGraph.pullOne(Person, p => p.allProps, {key: result.uuid});
-            checkPerson(p3);
+            const p3 = await testGraph.pullOne(AstronomicalBody, p => p.allProps, {key: result.uuid});
+            checkCeres(p3);
         });
 
         test("gives VNodes unique, valid UUIDs", async () => {
-            const createAsh = await testGraph.runAsSystem(
-                CreatePerson({shortId: "ash", name: "Ash"}),
+            const createCeres = await testGraph.runAsSystem(
+                CreateAstroBody({shortId: "Ceres", mass: 1801}),
             );
-            const uuidAsh = createAsh.uuid;
-            assert.isString(uuidAsh);
-            assert.equal(uuidAsh, UUID(uuidAsh));  // UUID must be in standard form
-            const p = await testGraph.pullOne(Person, p => p.uuid, {key: "ash"});
-            assert.equal(p.uuid, uuidAsh);
+            const uuidCeres = createCeres.uuid;
+            assert.isString(uuidCeres);
+            assert.equal(uuidCeres, UUID(uuidCeres));  // UUID must be in standard form
 
-            const createBailey = await testGraph.runAsSystem(
-                CreatePerson({shortId: "bailey", name: "Bailey"}),
+            const createPluto = await testGraph.runAsSystem(
+                CreateAstroBody({shortId: "pluto", mass: 1930}),
             );
-            const uuidBailey = createBailey.uuid;
-            assert.isString(uuidBailey);
-            assert.equal(uuidBailey, UUID(uuidBailey));
-            const p2 = await testGraph.pullOne(Person, p => p.uuid, {key: "bailey"});
-            assert.equal(p2.uuid, uuidBailey);
+            const uuidPluto = createPluto.uuid;
+            assert.isString(uuidPluto);
+            assert.equal(uuidPluto, UUID(uuidPluto));
 
-            assert.notEqual(uuidAsh, uuidBailey);
+            assert.notEqual(uuidCeres, uuidPluto);
         });
 
         test("doesn't allow creating invalid VNodes", async () => {
+            // There are overlapping tests in action-runner.test.ts, but that's OK.
             await assertRejects(testGraph.runAsSystem(
-                CreatePerson({shortId: "ash", name: 17 as any}),
-            ), `"name" must be a string`);
+                CreateAstroBody({shortId: 17 as any, mass: 15}),
+            ), `"shortId" must be a string`);
             // shortId must be short:
             await assertRejects(testGraph.runAsSystem(
-                CreatePerson({shortId: "this-is-a-very-long-short-ID-and-will-not-be-allowed", name: "Ash"}),
+                CreateAstroBody({shortId: "this-is-a-very-long-short-ID-and-will-not-be-allowed", mass: 123}),
             ), `"shortId"`);
             // required props missing:
             await assertRejects(testGraph.runAsSystem(
-                CreatePerson({props: {}} as any),
+                CreateAstroBody({} as any),
             ), `"shortId" is required`);
         });
 
-        test("it can set properties and relationships via the Update action", async () => {
-            await testGraph.runAsSystem(
-                CreateMovieFranchise({shortId: "star-wars", name: "Star Wars"}),
-                CreateMovie({shortId: "star-wars-4", title: "Star Wars: Episode IV – A New Hope", year: 1977, franchiseId: "star-wars"}),
+        test("sets all required labels for VNodeTypes with inherited labels", async () => {
+            const {uuid} = await testGraph.runAsSystem(
+                CreatePlanet({shortId: "Earth", mass: 9000})
             );
-            // Note that we only call the CreateMovie action (not UpdateMovie), and the logic for how to set the
-            // franchise from the "franchiseId" argument is only defined in UpdateMovie, but this still works,
-            // because the CreateMovie action uses UpdateMovie internally:
-            const starWars = await testGraph.pullOne(Movie, m => m.franchise(f => f.name), {key: "star-wars-4"});
-            assert.equal(starWars.franchise?.name, "Star Wars");
+            const result = await testGraph.read(tx => tx.query(C`MATCH (p:${Planet} {uuid: ${uuid}})`.RETURN({"labels(p)": {list: "string"} })));
+            assert.sameMembers(result[0]["labels(p)"], ["Planet", "AstroBody", "VNode"]);
+        })
+
+        test("it can set properties via the Update action", async () => {
+            await testGraph.runAsSystem(
+                CreateAstroBody({shortId: "Io", mass: 1}),
+                CreatePlanet({shortId: "Jupiter", mass: 99999, numberOfMoons: 79, addMoon: "Io"}),
+            );
+            // Note that we only call the CreatePlanet action (not UpdatePlanet), and the logic for how to set the
+            // moon relationship from the "addMoon" argument is only defined in UpdatePlanet, but this still works,
+            // because the CreatePlanet action uses UpdatePlanet internally:
+            const result = await testGraph.read(tx => tx.queryOne(C`
+                MATCH (j:${Planet}), j HAS KEY ${"Jupiter"}
+                MATCH (j)-[:${Planet.rel.HAS_MOON}]->(moon:${AstronomicalBody})
+            `.RETURN({moon: AstronomicalBody, j: Planet})));
+            assert.equal(result.j.shortId, "Jupiter");
+            assert.equal(result.j.numberOfMoons, 79);
+            assert.equal(result.moon.shortId, "Io");
         });
 
         test("it can be undone", async () => {
             await testGraph.runAsSystem(
-                CreateMovieFranchise({shortId: "star-wars", name: "Star Wars"}),
+                CreateAstroBody({shortId: "Io", mass: 1})
             );
-            // Create a movie - this is the action that we will soon undo:
+            // Create a planet - this is the action that we will soon undo:
             const createResult = await testGraph.runAsSystem(
-                CreateMovie({shortId: "star-wars-4", title: "Star Wars: Episode IV – A New Hope", year: 1977, franchiseId: "star-wars"}),
+                CreatePlanet({shortId: "Jupiter", mass: 99999, numberOfMoons: 79, addMoon: "Io"}),
             );
             // Check that it was created:
-            const orig = await testGraph.pullOne(Movie, m => m.title.franchise(f => f.name), {key: "star-wars-4"});
-            assert.equal(orig.title, "Star Wars: Episode IV – A New Hope")
-            assert.equal(orig.franchise?.name, "Star Wars");
-            // Now undo it
-            const undoResult = await testGraph.undoAction({actionUuid: createResult.actionUuid, asUserId: undefined});
-            const newResult = await testGraph.pull(Movie, m => m.title.franchise(f => f.name), {key: "star-wars-4"});
-            assert.equal(newResult.length, 0);
+            const findJupiter = C`MATCH (j:${Planet}), j HAS KEY ${"Jupiter"}`.RETURN({j: Planet});
+            const orig = await testGraph.read(tx => tx.query(findJupiter));
+            assert.equal(orig.length, 1);
+            assert.equal(orig[0].j.shortId, "Jupiter");
+            // Now undo it:
+            await testGraph.undoAction({actionUuid: createResult.actionUuid, asUserId: undefined});
+            // Now make sure it's gone:
+            const postDelete = await testGraph.read(tx => tx.query(findJupiter));
+            assert.equal(postDelete.length, 0);
         });
     });
 
     suite("defaultUpdateActionFor", () => {
 
         // TODO - test changing data
+
+        // TODO - test that UUID cannot be changed
 
         // TODO - test retrieving by old and new shortId
 

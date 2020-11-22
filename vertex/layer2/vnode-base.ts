@@ -193,6 +193,18 @@ export function getVNodeType(label: string): BaseVNodeType {
     return def;
 }
 
+export function getAllLabels(vnt: BaseVNodeType): string[] {
+    if (!vnt.label || vnt.label === "VNode") {
+        throw new Error(`VNodeType ${vnt} has no valid label.`);
+    }
+    const labels = [];
+    for (let t = vnt; t.label; t = Object.getPrototypeOf(t)) {
+        labels.push(t.label);
+    }
+    labels.push("VNode");
+    return labels;
+}
+
 /**
  * A consistency check failure when validating our graph's data.
  * 

@@ -2,7 +2,7 @@ import { ActionImplementation, defineAction, ActionData, Action } from "./action
 import { C } from "../layer2/cypher-sugar";
 import { UUID } from "../lib/uuid";
 import { WrappedTransaction } from "../transaction";
-import { PropertyDataType, RawVNode, VNodeRelationship, BaseVNodeType } from "../layer2/vnode-base";
+import { PropertyDataType, RawVNode, VNodeRelationship, BaseVNodeType, getAllLabels } from "../layer2/vnode-base";
 import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "./data-request";
 
 
@@ -195,8 +195,9 @@ export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extend
             }
             // Create the new node, assigning its UUID, as well as setting any props that the upcoming Update can't handle
             forceIntegers(propsToSetOnCreate);
+            const labels = getAllLabels(type);
             await tx.query(C`
-                CREATE (node:${type} {uuid: ${uuid}})
+                CREATE (node:${C(labels.join(":"))} {uuid: ${uuid}})
                 SET node += ${propsToSetOnCreate}
             `);
             if (updateAction && Object.keys(propsToSetViaUpdate).length > 0) {
