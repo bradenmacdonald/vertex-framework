@@ -8,7 +8,9 @@ import {
     registerVNodeType,
     unregisterVNodeType,
     defineAction,
+    SYSTEM_UUID,
 } from "..";
+import { CypherQuery } from "../layer2/cypher-sugar";
 
 class AstronomicalBody extends VNodeType {
     static label = "AstroBody";
@@ -38,6 +40,16 @@ const GenericCreateAction = defineAction<{labels: string[], data: any}, {uuid: U
     invert: (data, resultData) => null,
 });
 
+/** A generic create action that can run arbitrary cypher */
+const GenericCypherAction = defineAction<{cypher: CypherQuery, modifiedNodes: UUID[]}, {/* no result */}>({
+    type: `GenericCypherActionForART`,  // for Action Runner Tests
+    apply: async (tx, data) => {
+        await tx.query(data.cypher);
+        return { resultData: {}, modifiedNodes: data.modifiedNodes, };
+    },
+    invert: (data, resultData) => null,
+});
+
 
 suite("action runner", () => {
 
@@ -51,6 +63,80 @@ suite("action runner", () => {
     after(() => {
         unregisterVNodeType(AstronomicalBody);
         unregisterVNodeType(Planet);
+    });
+
+    suite("test isolation", () => {
+        // Test that our test cases have sufficient test isolation, via isolateTestWrites()
+        const uuid = UUID("425e3b87-2704-4988-9ab4-50e5ad3cbf3a");
+        const createAsteroid = GenericCypherAction({
+            cypher: C`CREATE (b:${AstronomicalBody} {uuid: ${uuid}, name: "253 Mathilde", mass: 0})`,
+            modifiedNodes: [uuid],
+        });
+        test("create a node", async () => {
+            await testGraph.runAsSystem(createAsteroid);
+        });
+
+        test("create a node (2)", async () => {
+            // Should succeed, even though there is a unique constraint on uuid.
+            // This will only fail if the previous test case wasn't rolled back correctly.
+            await testGraph.runAsSystem(createAsteroid);
+        });
+
+        test("create a node (check constraint)", async () => {
+            // Check our assumptions: make sure there actually is a unique constraint on uuid
+            await testGraph.runAsSystem(createAsteroid);
+            await assertRejects(
+                testGraph.runAsSystem(createAsteroid)
+            );
+        });
+    });
+
+    test("Actions are performed by the system user by default", async () => {
+        const result = await testGraph.runAsSystem(
+            GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: "Moon", mass: 15}}),
+        );
+        const readResult = await testGraph.read(tx => tx.queryOne(C`
+            MATCH (u:User:VNode)-[:PERFORMED]->(a:Action:VNode {type: ${GenericCreateAction.type}})-[:MODIFIED]->(p:${AstronomicalBody} {uuid: ${result.uuid}})
+        `.RETURN({"u.shortId": "string", "u.uuid": "uuid"})));
+        assert.equal(readResult["u.shortId"], "system");
+        assert.equal(readResult["u.uuid"], SYSTEM_UUID);
+    });
+
+    test("Running an action with a non-existent user ID will raise an error", async () => {
+        const name = "Moon17";
+        await assertRejects(testGraph.runAs(
+            UUID("6996ddbf-6cd0-4541-9ee9-3c37f8028941"),
+            GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name, mass: 15}}),
+        ), `Invalid user ID - unable to apply action.`);
+        assert.equal(
+            (await testGraph.read(tx => tx.query(C`MATCH (m:${AstronomicalBody} {name: ${name}}) RETURN m`))).length,
+            0
+        )
+    });
+
+    suite("Graph data cannot be modified outside of an action", () => {
+
+        test("from a read transaction", async () => {
+            await assertRejects(
+                testGraph.read(tx =>
+                    tx.run("CREATE (x:SomeNode) RETURN x", {})
+                ),
+                "Writing in read access mode not allowed."
+            );
+        });
+
+        test("from a write transaction", async () => {
+            // Application code should not ever use _restrictedWrite, but even when it is used,
+            // a trigger should enfore that no changes to the database are made outside of an
+            // action. Doing so requires using both _restrictedWrite() and 
+            // _restrictedAllowWritesWithoutAction() together.
+            await assertRejects(
+                testGraph._restrictedWrite(tx =>
+                    tx.run("CREATE (x:SomeNode) RETURN x", {})
+                ),
+                "every data write transaction should be associated with one Action"
+            );
+        });
     });
 
     test("An action cannot create a node without including it in modifiedNodes", async () => {
@@ -75,7 +161,7 @@ suite("action runner", () => {
         // The action will fail if the action implementation creates a node but doesn't include its UUID in "modifiedNodes":
         await assertRejects(
             testGraph.runAsSystem( CreateCeresAction({markAsModified: false}) ),
-            "node was modified by this CreateCeres1 action (created node) but not explicitly marked as modified by the Action.",
+            "A :AstroBody node was modified by this CreateCeres1 action (created node) but not explicitly marked as modified by the Action.",
         );
 
         // Then it should work if it does mark the node as modified:
@@ -89,24 +175,14 @@ suite("action runner", () => {
         const {uuid} = await testGraph.runAsSystem(
             GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: "Test Dwarf 2", mass: 100}})
         );
-
-        // Here is an action that modifies the node, but may or may not report that it modified the node
-        const ModifyAction = defineAction<{uuid: UUID, markAsModified: boolean}, {/* no return data */}>({
-            type: `ModifyAction2`,
-            apply: async (tx, data) => {
-                await tx.query(C`MATCH (p:${AstronomicalBody} {uuid: ${data.uuid}}) SET p.mass = 5`);
-                return { resultData: {}, modifiedNodes: data.markAsModified ? [data.uuid] : [] };
-            },
-            invert: (data, resultData) => null,
-        });
-
+        // Try modifying the node without returning any "modifiedNodes" - this should be denied:
+        const cypher = C`MATCH (ab:${AstronomicalBody} {uuid: ${uuid}}) SET ab.mass = 5`;
         await assertRejects(
-            testGraph.runAsSystem( ModifyAction({uuid, markAsModified: false}) ),
-            "node was modified by this ModifyAction2 action (modified property mass) but not explicitly marked as modified by the Action.",
+            testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: []})),
+            "A :AstroBody node was modified by this GenericCypherActionForART action (modified property mass) but not explicitly marked as modified by the Action.",
         );
-
         // Then it should work if it does mark the node as modified:
-        await testGraph.runAsSystem( ModifyAction({uuid, markAsModified: true}) );
+        await testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: [uuid]}));
     });
 
     test("An action cannot create a node that doesn't match its properties schema", async () => {
@@ -135,16 +211,7 @@ suite("action runner", () => {
     });
 
     test("An action can delete a node by re-labelling it", async () => {
-        // Here is an action that deletes a node:
-        const DeletePlanetAction = defineAction<{uuid: UUID}, {/* no result */}>({
-            type: `DeletePlanet5`,
-            apply: async (tx, data) => {
-                await tx.query(C`MATCH (p:${Planet} {uuid: ${data.uuid}}) REMOVE p:VNode SET p:DeletedVNode`);
-                return { resultData: {}, modifiedNodes: [data.uuid], };
-            },
-            invert: (data, resultData) => null,
-        });
-        // Now create the planet and test that we can retrieve it:
+        // Create the planet and test that we can retrieve it:
         const {uuid} = await testGraph.runAsSystem(
             GenericCreateAction({labels: ["Planet", "AstroBody", "VNode"], data: {name: "Test Planet 5", mass: 100, numberOfMoons: 0}})
         );
@@ -154,7 +221,10 @@ suite("action runner", () => {
         };
         assert.equal(await getPlanetName(), "Test Planet 5");
         // Now delete the planet:
-        await testGraph.runAsSystem(DeletePlanetAction({uuid}));
+        await testGraph.runAsSystem(GenericCypherAction({
+            cypher: C`MATCH (p:${Planet} {uuid: ${uuid}}) REMOVE p:VNode SET p:DeletedVNode`,
+            modifiedNodes: [uuid],
+        }));
         await assertRejects(getPlanetName(), "Expected a single result, got 0");
     });
 
@@ -175,5 +245,4 @@ suite("action runner", () => {
             "VNode with label :Planet is missing required inherited label :AstroBody"
         );
     });
-
 });
