@@ -41,6 +41,7 @@ export {
     //getVNodeType - redefined in layer 4
     //isBaseVNodeType - internal use only
     registerVNodeType,
+    unregisterVNodeType,  // for tests only
 } from "./layer2/vnode-base";
 
 export {

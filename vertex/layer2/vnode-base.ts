@@ -163,17 +163,22 @@ type VNodeRelationshipsFor<Rels extends VNodeRelationshipsData> = {
 
 const registeredNodeTypes: {[label: string]: BaseVNodeType} = {};
 
-export function registerVNodeType(tnt: BaseVNodeType): void {
-    if (registeredNodeTypes[tnt.label] !== undefined) {
-        throw new Error(`Duplicate VNodeType label: ${tnt.label}`);
+export function registerVNodeType(vnt: BaseVNodeType): void {
+    if (registeredNodeTypes[vnt.label] !== undefined) {
+        throw new Error(`Duplicate VNodeType label: ${vnt.label}`);
     }
-    if (tnt.properties.uuid !== UuidProperty) {
-        throw new Error(`${tnt.name} VNodeType does not inherit the required uuid property from the base class.`);
+    if (vnt.properties.uuid !== UuidProperty) {
+        throw new Error(`${vnt.name} VNodeType does not inherit the required uuid property from the base class.`);
     }
-    if ("shortId" in tnt.properties && tnt.properties.shortId !== ShortIdProperty) {
+    if ("shortId" in vnt.properties && vnt.properties.shortId !== ShortIdProperty) {
         throw new Error(`If a VNode declares a shortId property, it must use the global ShortIdProperty definition.`);
     }
-    registeredNodeTypes[tnt.label] = tnt;
+    registeredNodeTypes[vnt.label] = vnt;
+}
+
+/** Only to be used for tests. Undoes a call to registerVNodeType() */
+export function unregisterVNodeType(vnt: BaseVNodeType): void {
+    delete registeredNodeTypes[vnt.label];
 }
 
 /** Exception: A VNode with the specified label has not been registered [via registerVNodeType()]  */

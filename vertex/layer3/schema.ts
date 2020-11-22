@@ -93,7 +93,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                                 CALL apoc.util.validate(
                                     rel IS NULL,
                                     'A :%s node was modified by this %s action (%s) but not explicitly marked as modified by the Action.',
-                                    [head(labels(node)), action.type, reason]
+                                    [last(labels(node)), action.type, reason]
                                 )
 
                         RETURN null

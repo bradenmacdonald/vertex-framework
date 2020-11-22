@@ -62,6 +62,10 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
             // Then, validate all nodes that had changes:
             for (const resultRow of result) {
                 const node: Node<number> = resultRow.n;
+                if (node.labels.length < 2) {
+                    // This is not a problem of bad data, it's a problem with the Action implementation
+                    throw new Error(`Tried saving a VNode without additional labels. Every VNode must have the :VNode label and at least one other label.`);
+                }
                 for (const label of node.labels) {
                     if (label === "VNode") {
                         continue;
