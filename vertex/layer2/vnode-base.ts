@@ -44,7 +44,7 @@ abstract class _BaseVNodeType {
         const validation = await Joi.object(this.properties).keys({
             _identity: Joi.number(),
             _labels: Joi.any(),
-        }).validateAsync(dbObject, {allowUnknown: false});
+        }).validateAsync(dbObject, {allowUnknown: true});  // We must allow unknown so that parent classes can validate, without knowledge of their child class schemas
         if (validation.error) {
             throw validation.error;
         }

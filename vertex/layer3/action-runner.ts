@@ -71,6 +71,13 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
                         continue;
                     }
                     const nodeType = getVNodeType(label);
+                    // Make sure all required labels are applied:
+                    for (let parentType = Object.getPrototypeOf(nodeType); parentType.label; parentType = Object.getPrototypeOf(parentType)) {
+                        if (!node.labels.includes(parentType.label)) {
+                            throw new Error(`VNode with label :${label} is missing required inherited label :${parentType.label}`);
+                        }
+                    }
+                    // Validate this VNodeType:
                     try {
                         await nodeType.validate(neoNodeToRawVNode(node, "n"), tx);
                     } catch (err) {

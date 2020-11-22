@@ -55,13 +55,13 @@ suite("action runner", () => {
 
     test("An action cannot create a node without including it in modifiedNodes", async () => {
         // Here is an action that creates a new node, and may or may not report that new node as "modified"
-        const CreatePlanetAction = defineAction<{markAsModified: boolean}, {uuid: string}>({
-            type: `CreatePlanet1`,
+        const CreateCeresAction = defineAction<{markAsModified: boolean}, {uuid: string}>({
+            type: `CreateCeres1`,
             apply: async (tx, data) => {
                 const uuid = UUID();
                 await tx.query(C`
-                    CREATE (p:${Planet} {uuid: ${uuid}})
-                    SET p.name = "New Planet", p.mass = 100, p.numberOfMoons = 0
+                    CREATE (p:${AstronomicalBody} {uuid: ${uuid}})
+                    SET p.name = "Ceres", p.mass = 0.00016
                 `);
                 return {
                     resultData: {uuid},
@@ -74,52 +74,52 @@ suite("action runner", () => {
 
         // The action will fail if the action implementation creates a node but doesn't include its UUID in "modifiedNodes":
         await assertRejects(
-            testGraph.runAsSystem( CreatePlanetAction({markAsModified: false}) ),
-            "A :Planet node was modified by this CreatePlanet1 action (created node) but not explicitly marked as modified by the Action.",
+            testGraph.runAsSystem( CreateCeresAction({markAsModified: false}) ),
+            "node was modified by this CreateCeres1 action (created node) but not explicitly marked as modified by the Action.",
         );
 
         // Then it should work if it does mark the node as modified:
-        const result = await testGraph.runAsSystem( CreatePlanetAction({markAsModified: true}) );
+        const result = await testGraph.runAsSystem( CreateCeresAction({markAsModified: true}) );
         assert.isString(result.uuid);
         assert.isString(result.actionUuid);
     });
 
     test("An action cannot mutate a node without including it in modifiedNodes", async () => {
-        // Create a new Planet node:
+        // Create a new AstronomicalBody node:
         const {uuid} = await testGraph.runAsSystem(
-            GenericCreateAction({labels: ["Planet", "VNode"], data: {name: "Test Planet 2", mass: 100, numberOfMoons: 0}})
+            GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: "Test Dwarf 2", mass: 100}})
         );
 
         // Here is an action that modifies the node, but may or may not report that it modified the node
-        const ModifyPlanetAction = defineAction<{uuid: UUID, markAsModified: boolean}, {/* no return data */}>({
-            type: `ModifyPlanetAction2`,
+        const ModifyAction = defineAction<{uuid: UUID, markAsModified: boolean}, {/* no return data */}>({
+            type: `ModifyAction2`,
             apply: async (tx, data) => {
-                await tx.query(C`MATCH (p:${Planet} {uuid: ${data.uuid}}) SET p.numberOfMoons = 5`);
+                await tx.query(C`MATCH (p:${AstronomicalBody} {uuid: ${data.uuid}}) SET p.mass = 5`);
                 return { resultData: {}, modifiedNodes: data.markAsModified ? [data.uuid] : [] };
             },
             invert: (data, resultData) => null,
         });
 
         await assertRejects(
-            testGraph.runAsSystem( ModifyPlanetAction({uuid, markAsModified: false}) ),
-            "A :Planet node was modified by this ModifyPlanetAction2 action (modified property numberOfMoons) but not explicitly marked as modified by the Action.",
+            testGraph.runAsSystem( ModifyAction({uuid, markAsModified: false}) ),
+            "node was modified by this ModifyAction2 action (modified property mass) but not explicitly marked as modified by the Action.",
         );
 
         // Then it should work if it does mark the node as modified:
-        await testGraph.runAsSystem( ModifyPlanetAction({uuid, markAsModified: true}) );
+        await testGraph.runAsSystem( ModifyAction({uuid, markAsModified: true}) );
     });
 
     test("An action cannot create a node that doesn't match its properties schema", async () => {
         // Create a new node but with invalid properties:
         await assertRejects(
             testGraph.runAsSystem(
-                GenericCreateAction({labels: ["Planet", "VNode"], data: {name: 123456}})
+                GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: 123456}})
             ),
             `"name" must be a string`,
         );
         await assertRejects(
             testGraph.runAsSystem(
-                GenericCreateAction({labels: ["Planet", "VNode"], data: {name: "foo"}})
+                GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: "foo"}})
             ),
             `"mass" is required`,
         );
@@ -146,7 +146,7 @@ suite("action runner", () => {
         });
         // Now create the planet and test that we can retrieve it:
         const {uuid} = await testGraph.runAsSystem(
-            GenericCreateAction({labels: ["Planet", "VNode"], data: {name: "Test Planet 5", mass: 100, numberOfMoons: 0}})
+            GenericCreateAction({labels: ["Planet", "AstroBody", "VNode"], data: {name: "Test Planet 5", mass: 100, numberOfMoons: 0}})
         );
         const getPlanetName = async (): Promise<string> =>{
             const p = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${Planet})`.RETURN({"p.name": "string"})));
@@ -166,4 +166,14 @@ suite("action runner", () => {
             "VNode definition with label DeletedVNode has not been loaded."
         );
     });
+
+    test("An action must apply all labels from a VNode's inheritance chain", async () => {
+        await assertRejects(
+            testGraph.runAsSystem(
+                GenericCreateAction({labels: ["Planet", "VNode"], data: {name: "Test Planet 7", mass: 100, numberOfMoons: 0}})
+            ),
+            "VNode with label :Planet is missing required inherited label :AstroBody"
+        );
+    });
+
 });
