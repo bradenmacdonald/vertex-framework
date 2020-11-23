@@ -173,6 +173,16 @@ export function registerVNodeType(vnt: BaseVNodeType): void {
     if ("shortId" in vnt.properties && vnt.properties.shortId !== ShortIdProperty) {
         throw new Error(`If a VNode declares a shortId property, it must use the global ShortIdProperty definition.`);
     }
+    // Check for annoying circular references that TypeScript can't catch:
+    Object.values(vnt.rel).forEach(rel => {
+        if (rel.to) {
+            rel.to.forEach((targetVNT, idx) => {
+                if (targetVNT === undefined) {
+                    throw new Error(`Circular reference in ${vnt.name} definition: relationship ${rel.label}.to[${idx}] is undefined.`);
+                }
+            });
+        }
+    });
     registeredNodeTypes[vnt.label] = vnt;
 }
 
