@@ -136,7 +136,7 @@ suite("Cypher syntactic sugar", () => {
                 sumDbHits(hasKeyResult.summary.profile),
                 sumDbHits(simpleResult.summary.profile),
             );
-            assert.equal(sumDbHits(hasKeyResult.summary.profile), 3);
+            assert.equal(sumDbHits(hasKeyResult.summary.profile), 8);
         });
     
         test("HAS KEY lookups by shortId are efficient", async () => {
@@ -156,7 +156,7 @@ suite("Cypher syntactic sugar", () => {
                 sumDbHits(hasKeyResult.summary.profile),
                 sumDbHits(simpleResult.summary.profile),
             );
-            assert.equal(sumDbHits(hasKeyResult.summary.profile), 6);  // 6 is the best we can do while supporting lookups on previous shortId values. Lower would be better.
+            assert.equal(sumDbHits(hasKeyResult.summary.profile), 11);  // 11 is the best we can do while supporting lookups on previous shortId values. Lower would be better.
         });
     });
 
