@@ -69,8 +69,11 @@ export {
     defaultCreateFor,
     defaultDeleteAndUnDeleteFor,
     defaultUpdateActionFor,
-    updateToOneRelationship,
 } from "./layer3/action-templates";
+
+export {
+    updateToOneRelationship,
+} from "./layer3/action-helpers";
 
 export {
     SYSTEM_UUID
