@@ -55,10 +55,10 @@ abstract class _BaseVNodeType {
      * Usage:
      *     static readonly rel = MyVNodeType.hasRelationshipsFromThisTo({
      *         ...
-     *     });
+     *     }, ParentClassIfAny);
      */
-    static hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsData>(relationshipDetails: Rels): VNodeRelationshipsFor<Rels> {
-        const result: {[K in keyof Rels]: VNodeRelationship} = {} as any;
+    static hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsData, ParentType extends BaseVNodeType|undefined>(relationshipDetails: Rels, parentType?: ParentType): VNodeRelationshipsFor<Rels>&(ParentType extends _BaseVNodeType ? ParentType["rel"] : unknown) {
+        const result: {[K in keyof Rels]: VNodeRelationship} = {...parentType?.rel} as any;
         for (const relName in relationshipDetails) {
             result[relName] = new VNodeRelationship(relName, relationshipDetails[relName]);
         }
