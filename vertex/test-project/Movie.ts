@@ -57,7 +57,7 @@ export const UpdateMovie = defaultUpdateActionFor(Movie, m => m.shortId.title.ye
                 from: [Movie, nodeSnapshot.uuid],
                 tx,
                 rel: Movie.rel.FRANCHISE_IS,
-                newId: args.franchiseId,
+                toKey: args.franchiseId,
                 allowNull: true,
             });
             previousValues.franchiseId = previousUuid;
