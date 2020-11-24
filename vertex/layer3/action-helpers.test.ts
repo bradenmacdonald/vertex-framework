@@ -11,6 +11,7 @@ import {
     updateToManyRelationship,
     registerVNodeType,
     unregisterVNodeType,
+    VNodeRelationship,
 } from "..";
 import { testGraph } from "../test-project";
 
@@ -32,7 +33,7 @@ class AstronomicalBody extends VNodeType {
     };
     static readonly rel = AstronomicalBody.hasRelationshipsFromThisTo({
         // A -to-one relationship:
-        ORBITS: { to: [AstronomicalBody], properties: { periodInSeconds: Joi.number().required() } },
+        ORBITS: { to: [AstronomicalBody], cardinality: VNodeRelationship.Cardinality.ToOneOrNone },
         // A -to-many relationship:
         VISITED_BY: { to: [Person], properties: { when: Joi.date() } }
     });

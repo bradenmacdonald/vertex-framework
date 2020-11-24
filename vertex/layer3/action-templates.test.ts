@@ -28,7 +28,7 @@ class Planet extends AstronomicalBody {
         numberOfMoons: Joi.number(),
     };
     static readonly rel = Planet.hasRelationshipsFromThisTo({
-        /** This Person acted in a given movie */
+        /** This planet has moon(s) */
         HAS_MOON: { to: [AstronomicalBody] },
     });
 }

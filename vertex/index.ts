@@ -77,6 +77,10 @@ export {
 } from "./layer3/action-helpers";
 
 export {
+    GenericCypherAction,
+} from "./layer3/action-generic";
+
+export {
     SYSTEM_UUID
 } from "./layer3/schema";
 

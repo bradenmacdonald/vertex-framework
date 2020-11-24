@@ -9,6 +9,7 @@ import {
     VNodeTypeRef,
     ShortIdProperty,
     VirtualPropType,
+    VNodeRelationship,
 } from "../";
 
 // When necessary to avoid circular references, this pattern can be used to create a "Forward Reference" to a VNodeType:
@@ -33,6 +34,7 @@ export class Movie extends VNodeType {
         FRANCHISE_IS: {
             to: [MovieFranchise],
             properties: {},
+            cardinality: VNodeRelationship.Cardinality.ToOneOrNone,
         },
     });
     static readonly virtualProperties = {

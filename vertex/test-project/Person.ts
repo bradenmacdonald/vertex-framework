@@ -9,6 +9,7 @@ import {
     ShortIdProperty,
     VirtualPropType,
     VNodeType,
+    VNodeRelationship,
 } from "../";
 import { Movie } from "./Movie";
 
@@ -35,6 +36,7 @@ export class Person extends VNodeType {
         FRIEND_OF: {
             to: [Person],
             properties: {},
+            cardinality: VNodeRelationship.Cardinality.ToManyUnique,
         },
     });
     static readonly virtualProperties = {

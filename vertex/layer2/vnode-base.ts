@@ -1,6 +1,7 @@
 import * as Joi from "@hapi/joi";
 import { UUID } from "../lib/uuid";
 import { WrappedTransaction } from "../transaction";
+import { C } from "./cypher-sugar";
 
 /** Strict UUID Validator for Joi */
 export const uuidValidator: Joi.CustomValidator = (stringValue, helpers) => {
@@ -41,12 +42,72 @@ abstract class _BaseVNodeType {
     static readonly defaultOrderBy: string|undefined = undefined;
 
     static async validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void> {
+        // Note: tests for this function are in layer3/relationship-validation.test.ts since they depend on actions
+
+        // Validate properties:
         const validation = await Joi.object(this.properties).keys({
             _identity: Joi.number(),
             _labels: Joi.any(),
         }).validateAsync(dbObject, {allowUnknown: true});  // We must allow unknown so that parent classes can validate, without knowledge of their child class schemas
         if (validation.error) {
             throw validation.error;
+        }
+
+        // Validate relationships:
+        const relTypes = Object.keys(this.rel);
+        if (relTypes.length > 0) {
+            // Storing large amounts of data on relationship properties is not recommended so it should be safe to pull
+            // down all the relationships and their properties.
+            const relData = await tx.query(C`
+                MATCH (node:VNode) WHERE id(node) = ${dbObject._identity}
+                MATCH (node)-[rel]->(target:VNode)
+                RETURN type(rel) as relType, properties(rel) as relProps, labels(target) as targetLabels, id(target) as targetId
+            `.givesShape({relType: "string", relProps: "any", targetLabels: {list: "string"}, targetId: "number"}));
+            // Check each relationship type, one type at a time:
+            for (const relType of relTypes) {
+                const spec = this.rel[relType];
+                const rels = relData.filter(r => r.relType === relType);
+                // Check the target labels, if they are restricted:
+                if (spec.to !== undefined) {
+                    const labelsPresent = new Set<string>();
+                    rels.forEach(r => r.targetLabels.forEach(label => labelsPresent.add(label)));
+                    spec.to.forEach(allowedNodeType => {
+                        getAllLabels(allowedNodeType).forEach(label => labelsPresent.delete(label))
+                    });
+                    // Any remaining labels in labelsPresent are not allowed:
+                    labelsPresent.forEach(badLabel => { throw new ValidationError(`Relationship ${relType} is not allowed to point to node with label ${badLabel}`); });
+                }
+                // Check the cardinality of this relationship type, if restricted:
+                if (spec.cardinality !== Cardinality.ToMany) {
+                    // How many nodes does this relationship type point to:
+                    const targetCount = rels.length;
+                    if (spec.cardinality === Cardinality.ToOneRequired) {
+                        if (targetCount < 1) {
+                            throw new ValidationError(`Required relationship type ${relType} must point to one node, but does not exist.`);
+                        } else if (targetCount > 1) {
+                            throw new ValidationError(`Required to-one relationship type ${relType} is pointing to more than one node.`);
+                        }
+                    } else if (spec.cardinality === Cardinality.ToOneOrNone) {
+                        if (targetCount > 1) {
+                            throw new ValidationError(`To-one relationship type ${relType} is pointing to more than one node.`);
+                        }
+                    } else if (spec.cardinality === Cardinality.ToManyUnique) {
+                        const uniqueTargets = new Set(rels.map(r => r.targetId));
+                        if (uniqueTargets.size !== targetCount) {
+                            throw new ValidationError(`Creating multiple ${relType} relationships between the same pair of nodes is not allowed.`);
+                        }
+                    }
+                }
+                // Check the properties, if their schema is specified:
+                if (Object.keys(spec.properties).length) {
+                    rels.forEach(r => {
+                        const valResult = Joi.object(spec.properties).validate(r.relProps);
+                        if (valResult.error) {
+                            throw valResult.error;
+                        }
+                    });
+                }
+            }
         }
     }
 
@@ -130,6 +191,19 @@ export type RawVNode<T extends BaseVNodeType> = {
 interface VNodeRelationshipsData {
     [RelName: string]: VNodeRelationshipData;
 }
+enum Cardinality {
+    /** This relationship points to a single target node and it must be present. */
+    ToOneRequired = ":1",
+    /** This relationship points to a single target node if it exists, but the relationship may not exist. */
+    ToOneOrNone = ":0-1",
+    /**
+     * ToMany: This relationshipship can point to any number of nodes, including to the same node multiple times.
+     * This is the default, which is the same as having no restrictions on cardinality.
+     */
+    ToMany = ":*",
+    /** This relationship can point to many nodes, but cannot point to the same node multiple times */
+    ToManyUnique = ":*u",
+}
 /** Parameters used when defining a VNode; this simpler data is used to construct more complete VNodeRelationship objects */
 interface VNodeRelationshipData {
     /**
@@ -139,6 +213,8 @@ interface VNodeRelationshipData {
     to?: ReadonlyArray<_BaseVNodeType>;  // For some reason ReadonlyArray<VNodeType> doesn't work
     /** The properties that are expected/allowed on this relationship */
     properties?: Readonly<PropSchema>;
+    /** Cardinality: set restrictions on how many nodes this relationship can point to. */
+    cardinality?: Cardinality,
 }
 
 /**
@@ -147,6 +223,7 @@ interface VNodeRelationshipData {
 export class VNodeRelationship<PS extends PropSchema = PropSchema> {
     readonly label: string;  // e.g. IS_FRIEND_OF
     readonly #data: Readonly<VNodeRelationshipData>;
+    static readonly Cardinality = Cardinality;
 
     constructor(label: string, initData: VNodeRelationshipData) {
         this.label = label;
@@ -154,6 +231,7 @@ export class VNodeRelationship<PS extends PropSchema = PropSchema> {
     }
     get to(): ReadonlyArray<BaseVNodeType>|undefined { return this.#data.to as ReadonlyArray<BaseVNodeType>|undefined; }
     get properties(): Readonly<PS> { return this.#data.properties || emptyObj as any; }
+    get cardinality(): Cardinality { return this.#data.cardinality || Cardinality.ToMany; }
 }
 
 // Internal helper to get a typed result when converting from a map of VNodeRelationshipData entries to VNodeRelationship entries
