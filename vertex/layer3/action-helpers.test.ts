@@ -77,6 +77,14 @@ const getOrbit = async (key: UUID|string): Promise<string|null> => {
     `.RETURN({"x": AstronomicalBody})));
     return dbResult.length === 1 ? dbResult[0].x.shortId : null;
 };
+/** For test assertions, get the people that have visited the astronomical body */
+const getVisitors = async (key: UUID|string): Promise<{key: string, when: string}[]> => {
+    return await testGraph.read(tx => tx.query(C`
+        MATCH (ab:${AstronomicalBody}), ab HAS KEY ${key}
+        MATCH (ab)-[rel:${AstronomicalBody.rel.VISITED_BY}]->(p:${Person})
+        RETURN p.shortId as key, rel.when as when ORDER BY rel.when ASC, p.shortId ASC
+    `.givesShape({"key": "string", "when": "string"})));
+};
 
 
 suite("action-helpers", () => {
@@ -150,6 +158,144 @@ suite("action-helpers", () => {
             await assertRejects(
                 testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: "Jamie"})),
                 `Cannot change AstronomicalBody relationship ORBITS to "Jamie" - target not found.`,
+            );
+        });
+    });
+
+    suite("updateToManyRelationship", () => {
+
+        const neilArmstrongApollo11 = Object.freeze({key: "neil-armstrong", when: "1969-07-20"});
+        const buzzAldrinApollo11 = Object.freeze({key: "buzz-aldrin", when: "1969-07-20"});
+        const jimLovellApollo8 = Object.freeze({key: "jim-lovell", when: "1968-12-24"});
+        const jimLovellApollo13 = Object.freeze({key: "jim-lovell", when: "1970-04-15"});
+
+        test("can set a -to-many relationship", async () => {
+            await testGraph.runAsSystem(CreatePerson({shortId: "neil-armstrong"}), CreatePerson({shortId: "buzz-aldrin"}));
+            await testGraph.runAsSystem(CreateAstronomicalBody({
+                shortId: "moon",
+                visitedBy: [neilArmstrongApollo11, buzzAldrinApollo11],
+            }));
+            
+            assert.deepStrictEqual(
+                await getVisitors("moon"),
+                // They visited on the same date so get sorted into alphabetical order:
+                [buzzAldrinApollo11, neilArmstrongApollo11],
+            );
+        });
+
+        test("can change a -to-many relationship", async () => {
+            await testGraph.runAsSystem(CreatePerson({shortId: "neil-armstrong"}), CreatePerson({shortId: "buzz-aldrin"}));
+            await testGraph.runAsSystem(CreateAstronomicalBody({
+                shortId: "moon",
+                visitedBy: [],
+            }));
+            assert.deepStrictEqual(await getVisitors("moon"), []);
+
+            // Change visited by:
+            await testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon",
+                visitedBy: [neilArmstrongApollo11, buzzAldrinApollo11]
+            }));
+            assert.deepStrictEqual(
+                await getVisitors("moon"),
+                // They visited on the same date so get sorted into alphabetical order:
+                [buzzAldrinApollo11, neilArmstrongApollo11],
+            );
+
+            // Change again, removing an entry:
+            await testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon",
+                visitedBy: [neilArmstrongApollo11]
+            }));
+            assert.deepStrictEqual(
+                await getVisitors("moon"),
+                [neilArmstrongApollo11],
+            );
+        });
+
+        test("can create multiple relationships to the same node, with different properties", async () => {
+            await testGraph.runAsSystem(
+                CreatePerson({shortId: "jim-lovell"}),
+                CreatePerson({shortId: "neil-armstrong"}),
+                CreatePerson({shortId: "buzz-aldrin"}),
+            );
+            await testGraph.runAsSystem(CreateAstronomicalBody({
+                shortId: "moon",
+                visitedBy: [
+                    jimLovellApollo8,
+                    neilArmstrongApollo11,
+                    jimLovellApollo13,  // Jim Lovell is the same node as above in Apollo8, but with a different property on the relationship
+                ],
+            }));
+            assert.deepStrictEqual(await getVisitors("moon"), [
+                jimLovellApollo8,
+                neilArmstrongApollo11,
+                jimLovellApollo13,
+            ]);
+
+            // Minor change - add Buzz Aldrin:
+            await testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon",
+                visitedBy: [
+                    jimLovellApollo8,
+                    buzzAldrinApollo11,
+                    neilArmstrongApollo11,
+                    jimLovellApollo13,
+                ],
+            }));
+            assert.deepStrictEqual(await getVisitors("moon"), [
+                jimLovellApollo8,
+                buzzAldrinApollo11,
+                neilArmstrongApollo11,
+                jimLovellApollo13,
+            ]);
+        });
+
+        test("can be undone", async () => {
+            await testGraph.runAsSystem(
+                CreatePerson({shortId: "jim-lovell"}),
+                CreatePerson({shortId: "neil-armstrong"}),
+                CreateAstronomicalBody({shortId: "moon"}),
+            );
+            const action1 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon",
+            visitedBy: [
+                    jimLovellApollo8,
+                    neilArmstrongApollo11,
+                    jimLovellApollo13,
+                ],
+            }));
+            // Now remove Neil Armstrong:
+            const action2 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon",
+                visitedBy: [
+                    jimLovellApollo8,
+                    jimLovellApollo13,
+                ],
+            }));
+            // Now undo each action in turn:
+            await testGraph.undoAction({actionUuid: action2.actionUuid, asUserId: undefined});
+            assert.deepStrictEqual(await getVisitors("moon"), [
+                jimLovellApollo8,
+                neilArmstrongApollo11,
+                jimLovellApollo13,
+            ]);
+            await testGraph.undoAction({actionUuid: action1.actionUuid, asUserId: undefined});
+            assert.deepStrictEqual(await getVisitors("moon"), []);
+        });
+
+        test("gives an error with an invalid ID", async () => {
+            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "moon"}));
+            await assertRejects(
+                testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon", visitedBy: [{key: "nobody", when: "1970-01-01"}]})),
+                `Cannot set VISITED_BY relationship to VNode with key "nobody" which doesn't exist or is the wrong type.`,
+            );
+        });
+
+        test("gives an error with a node of a different type", async () => {
+            const notAPersonKey = "alz-budrin";
+            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: notAPersonKey}));
+            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "moon"}));
+            await assertRejects(
+                testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon", visitedBy: [
+                    {key: notAPersonKey, when: "1970-01-01"}
+                ]})),
+                `Cannot set VISITED_BY relationship to VNode with key "${notAPersonKey}" which doesn't exist or is the wrong type.`,
             );
         });
     });

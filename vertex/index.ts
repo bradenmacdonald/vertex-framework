@@ -73,6 +73,7 @@ export {
 
 export {
     updateToOneRelationship,
+    updateToManyRelationship,
 } from "./layer3/action-helpers";
 
 export {
