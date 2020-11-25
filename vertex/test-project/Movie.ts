@@ -3,7 +3,6 @@ import {
     C,
     defaultUpdateActionFor,
     defaultCreateFor,
-    updateToOneRelationship,
     registerVNodeType,
     VNodeType,
     VNodeTypeRef,
