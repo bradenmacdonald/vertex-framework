@@ -7,8 +7,6 @@ import {
     defaultCreateFor,
     defaultUpdateActionFor,
     UUID,
-    updateToOneRelationship,
-    updateToManyRelationship,
     registerVNodeType,
     unregisterVNodeType,
     VNodeRelationship,
@@ -33,7 +31,12 @@ class AstronomicalBody extends VNodeType {
     };
     static readonly rel = AstronomicalBody.hasRelationshipsFromThisTo({
         // A -to-one relationship:
-        ORBITS: { to: [AstronomicalBody], cardinality: VNodeRelationship.Cardinality.ToOneOrNone },
+        ORBITS: {
+            to: [AstronomicalBody],
+            cardinality: VNodeRelationship.Cardinality.ToOneOrNone,
+            // An optional "periodInSeconds" property:
+            properties: { periodInSeconds: Joi.number(), },
+        },
         // A -to-many relationship:
         VISITED_BY: { to: [Person], properties: { when: Joi.date() } }
     });
@@ -41,28 +44,24 @@ class AstronomicalBody extends VNodeType {
 
 const CreatePerson = defaultCreateFor(Person, p => p.shortId);
 const UpdateAstronomicalBody = defaultUpdateActionFor(AstronomicalBody, ab => ab.shortId, {
-    otherUpdates: async (args: {orbits?: UUID|string|null, visitedBy?: {key: string, when: string}[]}, tx, nodeSnapshot) => {
+    otherUpdates: async (args: {orbits?: {key: string|null, periodInSeconds?: number}, visitedBy?: {key: string, when: string}[]}, tx, nodeSnapshot) => {
         const previousValues: Partial<typeof args> = {};
         if (args.orbits !== undefined) {
-            const {previousUuid} = await updateToOneRelationship({
+            const {prevTo} = await tx.updateToOneRelationship({
                 from: [AstronomicalBody, nodeSnapshot.uuid],
                 rel: AstronomicalBody.rel.ORBITS,
-                tx,
-                toKey: args.orbits,
-                allowNull: true,
-                // TODO: periodInSeconds
+                to: args.orbits,
             });
-            previousValues.orbits = previousUuid;
+            previousValues.orbits = prevTo;
         }
 
         if (args.visitedBy !== undefined) {
-            const {previousRelationshipsList} = await updateToManyRelationship({
+            const {prevTo} = await tx.updateToManyRelationship({
                 from: [AstronomicalBody, nodeSnapshot.uuid],
                 rel: AstronomicalBody.rel.VISITED_BY,
-                tx,
-                newTargets: args.visitedBy,
+                to: args.visitedBy,
             });
-            previousValues.visitedBy = previousRelationshipsList as any;
+            previousValues.visitedBy = prevTo as any;
         }
 
         return { previousValues, additionalModifiedNodes: []};
@@ -78,6 +77,17 @@ const getOrbit = async (key: UUID|string): Promise<string|null> => {
     `.RETURN({"x": AstronomicalBody})));
     return dbResult.length === 1 ? dbResult[0].x.shortId : null;
 };
+const getOrbitAndPeriod = async (key: UUID|string): Promise<{key: string, periodInSeconds: number|null}|null> => {
+    const dbResult = await testGraph.read(tx => tx.query(C`
+        MATCH (ab:${AstronomicalBody}), ab HAS KEY ${key}
+        MATCH (ab)-[rel:${AstronomicalBody.rel.ORBITS}]->(x:${AstronomicalBody})
+    `.RETURN({x: AstronomicalBody, rel: "any"})));
+    if (dbResult.length === 1) {
+        return {key: dbResult[0].x.shortId, periodInSeconds: dbResult[0].rel.properties.periodInSeconds}
+    } else {
+        return null;
+    }
+};
 /** For test assertions, get the people that have visited the astronomical body */
 const getVisitors = async (key: UUID|string): Promise<{key: string, when: string}[]> => {
     return await testGraph.read(tx => tx.query(C`
@@ -87,6 +97,7 @@ const getVisitors = async (key: UUID|string): Promise<{key: string, when: string
     `.givesShape({"key": "string", "when": "string"})));
 };
 
+const earthOrbitsTheSun = {key: "sun", periodInSeconds: 3.1558149e7};
 
 suite("action-helpers", () => {
 
@@ -106,40 +117,46 @@ suite("action-helpers", () => {
 
         test("can set a -to-one relationship", async () => {
             await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "sun"}));
-            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "earth", orbits: "sun"}));
+            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "earth", orbits: {key: "sun"}}));
 
             assert.equal(await getOrbit("earth"), "sun");
+        });
+        test("can set a -to-one relationship with properties", async () => {
+            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "sun"}));
+            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "earth", orbits: earthOrbitsTheSun}));
+
+            assert.deepStrictEqual(await getOrbitAndPeriod("earth"), earthOrbitsTheSun);
         });
 
         test("can change a -to-one relationship", async () => {
             await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "sun"}), CreateAstronomicalBody({shortId: "proxima-centauri"}));
 
             // Wrongly set the earth as orbiting Proxima Centauri
-            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "earth", orbits: "proxima-centauri"}));
+            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "earth", orbits: {key: "proxima-centauri"}}));
             assert.equal(await getOrbit("earth"), "proxima-centauri");
             // Now change it:
-            await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: "sun"}));
+            await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: {key: "sun"}}));
             assert.equal(await getOrbit("earth"), "sun");
         });
 
         test("can clear a -to-one relationship", async () => {
             await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "sun"}));
-            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "earth", orbits: "sun"}));
+            await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "earth", orbits: {key: "sun"}}));
             assert.equal(await getOrbit("earth"), "sun");
             // Now change it:
-            await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: null}));
+            await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: {key: null}}));
             assert.equal(await getOrbit("earth"), null);
         });
 
         test("can be undone", async () => {
             await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "sun"}));
             await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "earth"}));
-            const action1 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: "sun"}));
-            const action2 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: null}));
+            const action1 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: earthOrbitsTheSun}));
+            const action2 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: {key: null}}));
             assert.equal(await getOrbit("earth"), null);
             // Undo action 2:
             await testGraph.undoAction({actionUuid: action2.actionUuid, asUserId: undefined});
-            assert.equal(await getOrbit("earth"), "sun");
+            assert.deepStrictEqual(await getOrbitAndPeriod("earth"), earthOrbitsTheSun);
             // Undo action 1:
             await testGraph.undoAction({actionUuid: action1.actionUuid, asUserId: undefined});
             assert.equal(await getOrbit("earth"), null);
@@ -148,7 +165,7 @@ suite("action-helpers", () => {
         test("gives an error with an invalid ID", async () => {
             await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "earth"}));
             await assertRejects(
-                testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: "foobar"})),
+                testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: {key: "foobar"}})),
                 `Cannot change AstronomicalBody relationship ORBITS to "foobar" - target not found.`,
             );
         });
@@ -157,7 +174,7 @@ suite("action-helpers", () => {
             await testGraph.runAsSystem(CreatePerson({shortId: "Jamie"}));
             await testGraph.runAsSystem(CreateAstronomicalBody({shortId: "earth"}));
             await assertRejects(
-                testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: "Jamie"})),
+                testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: {key: "Jamie"}})),
                 `Cannot change AstronomicalBody relationship ORBITS to "Jamie" - target not found.`,
             );
         });

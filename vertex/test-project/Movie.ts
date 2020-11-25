@@ -55,14 +55,11 @@ export const UpdateMovie = defaultUpdateActionFor(Movie, m => m.shortId.title.ye
     otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot, changes) => {
         const previousValues: Partial<UpdateMovieExtraArgs> = {};
         if (args.franchiseId !== undefined) {
-            const {previousUuid} = await updateToOneRelationship({
+            await tx.updateToOneRelationship({
                 from: [Movie, nodeSnapshot.uuid],
-                tx,
                 rel: Movie.rel.FRANCHISE_IS,
-                toKey: args.franchiseId,
-                allowNull: true,
-            });
-            previousValues.franchiseId = previousUuid;
+                to: args.franchiseId,
+            }).then(({prevTo}) => previousValues.franchiseId = prevTo.key);
         }
         return {
             additionalModifiedNodes: [],

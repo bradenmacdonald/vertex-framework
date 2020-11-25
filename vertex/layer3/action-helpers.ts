@@ -1,20 +1,31 @@
 import { C } from "../layer2/cypher-sugar";
 import { UUID } from "../lib/uuid";
 import { WrappedTransaction } from "../transaction";
-import { VNodeRelationship, BaseVNodeType } from "../layer2/vnode-base";
+import type { VNodeRelationship, BaseVNodeType, PropertyDataType } from "../layer2/vnode-base";
+import { log } from "../lib/log";
+
+export type OneRelationshipSpec<VNR extends VNodeRelationship> = {
+    key: string|UUID|null;
+} & {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
 
 /**
  * Designed for use in an "Update"-type Action, this helper method will update a relationship from the current VNode,
  * pointing to either another VNode or null. (an "x:1" relationship, e.g. "1:1" or "many:1")
  */
-export async function updateToOneRelationship<VNT extends BaseVNodeType>({from, rel, tx, toKey, allowNull}: {
-    from: [vnt: VNT, uuid: UUID],
-    rel: VNodeRelationship,
-    tx: WrappedTransaction,
-    toKey: string|null,
-    allowNull: boolean,
-}): Promise<{previousUuid: UUID|null}> {
+export async function updateToOneRelationship<VNR extends VNodeRelationship>(tx: WrappedTransaction, {from, rel, to}: {
+    from: [vnt: BaseVNodeType, uuid: UUID],
+    rel: VNR,
+    to: string|null|OneRelationshipSpec<VNR>,
+}): Promise<{prevTo: OneRelationshipSpec<VNR>}> {
     const [fromType, fromUuid] = from;
+    const {toKey, relationshipProps} = (() => {
+        if (typeof to === "string" || to === null) {
+            return {toKey: to, relationshipProps: {}};
+        }
+        const {key, ...relationshipProps} = to;
+        return {toKey: key, relationshipProps};
+    })();
+
     if (fromType.rel[rel.label] !== rel) {
         throw new Error(`Mismatch between relationship ${rel.label} and VNodeType ${fromType.label} which doesn't declare that exact relationship.`);
     }
@@ -22,47 +33,55 @@ export async function updateToOneRelationship<VNT extends BaseVNodeType>({from, 
 
     if (toKey === null) {
         // We want to clear this x:1 relationship (set it to null)
-        if (!allowNull) {
-            throw new Error(`The x:1 relationship ${fromType.name}.${rel.label} is not allowed to be null.`);
-        }
-        // Simply delete any existing relationship, returning the ID of the target.
+        // Delete any existing relationship, returning the ID of the target it used to point to, as well as any
+        // properties that were set on the relationship (so we can undo this action if needed)
         const delResult = await tx.query(C`
             MATCH (:${fromType} {uuid: ${fromUuid}})-[rel:${rel}]->(target:VNode)
+            WITH rel, target, properties(rel) as relProps
             DELETE rel
-        `.RETURN({"target.uuid": "uuid"}));
-        return {previousUuid: delResult.length ? delResult[0]["target.uuid"] : null};
+        `.RETURN({"target.uuid": "uuid", relProps: "any"}));
+        return {prevTo: delResult.length ? {key: delResult[0]["target.uuid"], ...delResult[0].relProps} : {key: null}};
     } else {
         // We want this x:1 relationship pointing to a specific node, identified by "toKey"
+
+        // This query works in three parts:
+        // 1) An OPTIONAL MATCH to get the old relationship(s) and any properties set on it
+        // 2) A MERGE and SET to create the new relationship and set its properties
+        // 3) An OPTIONAL MATCH to DELETE the old relationship(s)
         const mergeResult = await tx.query(C`
             MATCH (self:${fromType} {uuid: ${fromUuid}})
             MATCH (target:VNode), target HAS KEY ${toKey}
             WHERE ${C(targetLabels.map(targetLabel => `target:${targetLabel}`).join(" OR "))}
-            MERGE (self)-[rel:${rel}]->(target)
 
             WITH self, target
-            OPTIONAL MATCH (self)-[oldRel:${rel}]->(oldTarget) WHERE oldTarget <> target
+            OPTIONAL MATCH (self)-[oldRel:${rel}]->(oldTarget:VNode)
+            WITH self, target, collect(oldTarget {.uuid, properties: properties(oldRel)}) as oldTargets
+
+            MERGE (self)-[rel:${rel}]->(target)
+            SET rel = ${relationshipProps}
+
+            WITH self, target, oldTargets, rel
+            OPTIONAL MATCH (self)-[oldRel:${rel}]->(oldTarget:VNode) WHERE oldRel <> rel
             DELETE oldRel
 
-            WITH collect(oldTarget {.uuid}) AS oldTargets, target
-        `.RETURN({"oldTargets": {list: {map: {uuid: "uuid"}}}}));
+            WITH oldTargets, target
+        `.RETURN({"oldTargets": {list: {map: {uuid: "uuid", properties: "any"}}}}));
         if (mergeResult.length === 0) {
+            // The above query should only fail if the MATCH clauses don't match anything.
             throw new Error(`Cannot change ${fromType.name} relationship ${rel.label} to "${toKey}" - target not found.`);
         }
-        // The preceding query will have updated the x:1 relationship; if any previous node was the target of this
-        // relationship, that relationship(s) has been delete and its ID returned (for undo purposes).
-        // If the MERGE succeeded, there will be one row in the result; otherwise zero (regardless of whether or not
-        // an oldTarget(s) was found), so an error will be raised by queryOne() if this failed (e.g. toKey was invalid)
-        return {
-            previousUuid: mergeResult[0].oldTargets.length ? mergeResult[0].oldTargets[0]["uuid"] : null
-        };
+        
+        if (mergeResult[0].oldTargets.length) {
+            return {prevTo: {key: mergeResult[0].oldTargets[0].uuid, ...mergeResult[0].oldTargets[0].properties}};
+        }
+        return {prevTo: {key: null} as any};
     }
 }
 
 
-interface RelationshipSpec {
+export type RelationshipSpec<VNR extends VNodeRelationship> = {
     key: string|UUID;
-    [relPropName: string]: any;
-}
+} & {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
 
 /**
  * Designed for use in an "Update"-type Action, this helper method will update a relationship from the current VNode,
@@ -72,18 +91,16 @@ interface RelationshipSpec {
  * the "from" node, and resetting their properties to the newly specified ones.
  * 
  * This method does allow multiple relationships of the same type between the same from/to nodes, so for example you
- * cannot use this method to say both
+ * could use this method to say both
  *     (Bob)-[:ATE {on: tuesday}]->(Hamburger) and
  *     (Bob)-[:ATE {on: wednesday}]->(Hamburger)
- * 
- * TODO: optionally allow enforcing uniqueness of targets
+ * If you don't want to allow that, set {cardinality: VNodeRelationship.Cardinality.ToManyUnique} on the relationship.
  */
-export async function updateToManyRelationship<VNT extends BaseVNodeType>({from, rel, tx, newTargets}: {
-    from: [vnt: VNT, uuid: UUID],
-    rel: VNodeRelationship,
-    tx: WrappedTransaction,
-    newTargets: RelationshipSpec[],
-}): Promise<{previousRelationshipsList: RelationshipSpec[]}> {
+export async function updateToManyRelationship<VNR extends VNodeRelationship>(tx: WrappedTransaction, {from, rel, to}: {
+    from: [vnt: BaseVNodeType, uuid: UUID],
+    rel: VNR,
+    to: RelationshipSpec<VNR>[],
+}): Promise<{prevTo: RelationshipSpec<VNR>[]}> {
     const [fromType, fromUuid] = from;
     if (fromType.rel[rel.label] !== rel) {
         throw new Error(`Mismatch between relationship ${rel.label} and VNodeType ${fromType.label} which doesn't declare that exact relationship.`);
@@ -96,13 +113,13 @@ export async function updateToManyRelationship<VNT extends BaseVNodeType>({from,
         MATCH (:${fromType} {uuid: ${fromUuid}})-[rel:${rel}]->(target:VNode)
         RETURN properties(rel) as oldProps, id(rel) as oldRelId, target.uuid, target.shortId
     `.givesShape({"oldProps": "any", "oldRelId": "number", "target.uuid": "string", "target.shortId": "string"}));
-    const previousRelationshipsList: RelationshipSpec[] = relResult.map(r => ({key: r["target.uuid"], ...r["oldProps"]}));
+    const prevTo: RelationshipSpec<VNR>[] = relResult.map(r => ({key: r["target.uuid"], ...r["oldProps"]}));
 
     // We'll build a list of all existing relationships, and remove entries from it as we find that they're supposed to be kept
     const existingRelationshipIdsToDelete = new Set<number>(relResult.map(e => e.oldRelId));
 
     // Create relationships to new target nodes(s):
-    for (const {key, ...newProps} of newTargets) {
+    for (const {key, ...newProps} of to) {
         // TODO: proper deep comparison instead of JSON.stringify() here.
         const identicallExistingRelationship = relResult.find(el => (
             (el["target.uuid"] === key || el["target.shortId"] === key)
@@ -140,5 +157,5 @@ export async function updateToManyRelationship<VNT extends BaseVNodeType>({from,
             DELETE rel
         `);
     }
-    return {previousRelationshipsList};
+    return {prevTo};
 }
