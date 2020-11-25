@@ -69,13 +69,14 @@ abstract class _BaseVNodeType {
                 const rels = relData.filter(r => r.relType === relType);
                 // Check the target labels, if they are restricted:
                 if (spec.to !== undefined) {
-                    const labelsPresent = new Set<string>();
-                    rels.forEach(r => r.targetLabels.forEach(label => labelsPresent.add(label)));
-                    spec.to.forEach(allowedNodeType => {
-                        getAllLabels(allowedNodeType).forEach(label => labelsPresent.delete(label))
+                    // Every node that this relationship points to must have at least one of the allowed labels
+                    // This should work correctly with inheritance
+                    const allowedLabels = spec.to.map(vnt => vnt.label);
+                    rels.forEach(r => {
+                        if (!allowedLabels.find(allowedLabel => r.targetLabels.includes(allowedLabel))) {
+                            throw new ValidationError(`Relationship ${relType} is not allowed to point to node with labels :${r.targetLabels.join(":")}`);
+                        }
                     });
-                    // Any remaining labels in labelsPresent are not allowed:
-                    labelsPresent.forEach(badLabel => { throw new ValidationError(`Relationship ${relType} is not allowed to point to node with label ${badLabel}`); });
                 }
                 // Check the cardinality of this relationship type, if restricted:
                 if (spec.cardinality !== Cardinality.ToMany) {
