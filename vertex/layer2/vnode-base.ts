@@ -147,7 +147,7 @@ class _BaseVNodeType {
     }
 
     /** Validate a VNodeType's declaration and register it, so it can be loaded at runtime using only its label. */
-    static declare<T extends BaseVNodeType>(vnt: T): T {
+    static declare<T extends BaseVNodeType>(vnt: T): void {
 
         if (vnt.properties.uuid !== UuidProperty) {
             throw new Error(`${vnt.name} VNodeType does not inherit the required uuid property from the base class.`);
@@ -183,7 +183,6 @@ class _BaseVNodeType {
         // Freeze, register, and return the VNodeType:
         //vnt = Object.freeze(vnt);
         registerVNodeType(vnt);
-        return vnt;
     }
 
     // This method is not used for anything, but without at least one non-static method, TypeScript allows this:
@@ -208,7 +207,7 @@ export interface BaseVNodeType {
     readonly defaultOrderBy: string|undefined;
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 
-    declare<T extends BaseVNodeType>(vnt: T): T;
+    declare<T extends BaseVNodeType>(vnt: T): void;
 }
 
 /** Helper function to check if some object is a VNodeType */
