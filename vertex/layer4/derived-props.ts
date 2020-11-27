@@ -17,7 +17,7 @@ import type { VirtualPropsMixin } from "./data-request-mixins";
  * to configure the property.
  */
 export interface DerivedPropsDeclaration {
-    [K: string]: DerivedPropertyDeclaration<any>,
+    [K: string]: DerivedPropertyDeclaration<any>|DerivedProperty<any>,
 }
 
 export interface DerivedPropertyFactory<ValueType> {
@@ -42,7 +42,9 @@ export interface DerivedPropsSchema {
 
 export type ConvertDerivedPropsDeclarationToSchema<Schema extends DerivedPropsDeclaration> = {
     [K in keyof Schema]: (
-        Schema[K] extends DerivedPropertyDeclaration<infer ValueType> ? DerivedProperty<ValueType> : any
+        Schema[K] extends DerivedPropertyDeclaration<infer ValueType> ? DerivedProperty<ValueType> :
+        Schema[K] extends DerivedProperty<infer ValueType> ? DerivedProperty<ValueType> :
+        any
     )
 }
 

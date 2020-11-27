@@ -54,9 +54,10 @@ class Executive extends Manager {
         ...Manager.properties,
     };
     static readonly rel = Executive.hasRelationshipsFromThisTo({
+        ...Manager.rel,
         // A -to-one relationship:
         HAS_ASSISTANT: { to: [Employee], properties: { since: Joi.date() } }
-    }, Manager);
+    });
 }
 
 suite("vnode-base", () => {

@@ -1,5 +1,5 @@
 import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType } from "../layer2/vnode-base";
-import { ConvertDerivedPropsDeclarationToSchema, DerivedProperty, DerivedPropertyFactory, DerivedPropsDeclaration, DerivedPropsSchema } from "./derived-props";
+import { ConvertDerivedPropsDeclarationToSchema, DerivedProperty, DerivedPropertyDeclaration, DerivedPropertyFactory, DerivedPropsDeclaration, DerivedPropsSchema } from "./derived-props";
 import { VirtualPropsSchema } from "./virtual-props";
 
 
@@ -37,7 +37,12 @@ export abstract class VNodeType extends BaseVNodeType {
     static hasDerivedProperties<DPS extends DerivedPropsDeclaration>(this: any, propSchema: DPS): ConvertDerivedPropsDeclarationToSchema<DPS> {
         const newSchema: any = {};     
         for (const propName in propSchema) {
-            newSchema[propName] = new DerivedProperty<any>(propSchema[propName], this);
+            const propDeclaration = propSchema[propName];
+            if (propDeclaration instanceof DerivedProperty) {
+                newSchema[propName] = propDeclaration;
+            } else {
+                newSchema[propName] = new DerivedProperty<any>(propDeclaration as DerivedPropertyDeclaration<any>, this);
+            }
         }
         return Object.freeze(newSchema);
     }

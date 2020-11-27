@@ -1,0 +1,121 @@
+/**
+ * Tests for derived property declarations.
+ * 
+ * The implementation of actually using them is tested in pull.test.ts
+ */
+import Joi from "@hapi/joi";
+import {
+    Action,
+    C,
+    DerivedPropertyFactory,
+    isVNodeType,
+    registerVNodeType,
+    ShortIdProperty,
+    unregisterVNodeType,
+    VirtualPropType,
+    VNodeType,
+} from "..";
+import { suite, test, assert, before, after } from "../lib/intern-tests";
+
+/** A VNodeType for use in this test suite. */
+class Employee extends VNodeType {
+    static label = "Employee";
+    static readonly properties = {
+        ...VNodeType.properties,
+        shortId: ShortIdProperty,
+    };
+
+    static readonly virtualProperties = {
+        createAction: {
+            // Get the Action that originally created this employee
+            type: VirtualPropType.OneRelationship,
+            query: C`(@target:${Action} {type: "CreateEmployee"})-[:${Action.rel.MODIFIED}]->(@this)`,
+            target: Action,
+        },
+    };
+
+    static readonly derivedProperties = Employee.hasDerivedProperties({
+        yearsWithCompany,
+    });
+}
+
+/** A VNodeType for use in this test suite. */
+class Manager extends Employee {
+    static label = "Manager";
+    static readonly properties = {
+        ...Employee.properties,
+    };
+}
+
+/** A VNodeType for use in this test suite. */
+class Executive extends Manager {
+    static label = "Executive";
+    static readonly properties = {
+        ...Manager.properties,
+    };
+
+    static readonly derivedProperties = Executive.hasDerivedProperties({
+        ...Manager.derivedProperties,
+        annualBonus,
+    });
+}
+
+/**
+ * A sample "Derived property" that computes # of years an employee has been with the company
+ * @param spec 
+ */
+function yearsWithCompany(spec: DerivedPropertyFactory<number|null>): void { spec(
+    Employee,
+    e => e.createAction(a=>a.timestamp),
+    data => {
+        if (!data.createAction) { return null; }
+        const today = new Date(), startDate = new Date(data.createAction.timestamp);
+        const m = today.getMonth() - startDate.getMonth();
+        const years = (today.getFullYear() - startDate.getFullYear()) - (m < 0 || (m === 0 && today.getDate() < startDate.getDate()) ? 1 : 0);
+        // Return a complex object and test that we can return/access data from virtual props too:
+        return years;
+    }
+)}
+
+
+/**
+ * A sample "Derived property" that "computes" an annual bonus for each executive
+ * @param spec 
+ */
+function annualBonus(spec: DerivedPropertyFactory<number>): void { spec(
+    Executive,
+    e => e,
+    data => { return 100_000; }
+)}
+
+suite(__filename, () => {
+
+
+    before(() => {
+        registerVNodeType(Employee);
+        registerVNodeType(Manager);
+        registerVNodeType(Executive);
+    });
+
+    after(() => {
+        unregisterVNodeType(Employee);
+        unregisterVNodeType(Manager);
+        unregisterVNodeType(Executive);
+    });
+
+
+    suite("VNodeType.hasDerivedProperties", () => {
+
+        test("basic sanity check", () => {
+            assert.isFunction(Employee.derivedProperties.yearsWithCompany.dataSpec);
+            assert.isFunction(Employee.derivedProperties.yearsWithCompany.computeValue);
+        });
+
+        test("can inherit derived properties", () => {
+            assert.strictEqual(
+                Employee.derivedProperties.yearsWithCompany,
+                Executive.derivedProperties.yearsWithCompany,
+            );
+        });
+    });
+});

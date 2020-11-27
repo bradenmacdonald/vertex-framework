@@ -119,10 +119,15 @@ abstract class _BaseVNodeType {
      *         ...
      *     }, ParentClassIfAny);
      */
-    static hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsData, ParentType extends BaseVNodeType|undefined>(relationshipDetails: Rels, parentType?: ParentType): VNodeRelationshipsFor<Rels>&(ParentType extends _BaseVNodeType ? ParentType["rel"] : unknown) {
-        const result: {[K in keyof Rels]: VNodeRelationship} = {...parentType?.rel} as any;
+    static hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsDeclaration>(relationshipDetails: Rels): VNodeRelationshipsFor<Rels> {
+        const result: {[K in keyof Rels]: VNodeRelationship} = {} as any;
         for (const relName in relationshipDetails) {
-            result[relName] = new VNodeRelationship(relName, relationshipDetails[relName]);
+            const rel = relationshipDetails[relName]
+            if (rel instanceof VNodeRelationship) {
+                result[relName] = rel;
+            } else {
+                result[relName] = new VNodeRelationship(relName, rel as any);
+            }
         }
         return Object.freeze(result) as any;
     }
@@ -146,7 +151,7 @@ export interface BaseVNodeType {
     readonly defaultOrderBy: string|undefined;
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 
-    hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsData>(relationshipDetails: Rels): VNodeRelationshipsFor<Rels>;
+    hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsDeclaration>(relationshipDetails: Rels): VNodeRelationshipsFor<Rels>;
 }
 
 /** Helper function to check if some object is a VNodeType */
@@ -189,8 +194,8 @@ export type RawVNode<T extends BaseVNodeType> = {
 } & { _identity: number; _labels: string[]; };
 
 
-interface VNodeRelationshipsData {
-    [RelName: string]: VNodeRelationshipData;
+interface VNodeRelationshipsDeclaration {
+    [RelName: string]: VNodeRelationshipData|VNodeRelationship;
 }
 enum Cardinality {
     /** This relationship points to a single target node and it must be present. */
@@ -236,8 +241,13 @@ export class VNodeRelationship<PS extends PropSchema = PropSchema> {
 }
 
 // Internal helper to get a typed result when converting from a map of VNodeRelationshipData entries to VNodeRelationship entries
-type VNodeRelationshipsFor<Rels extends VNodeRelationshipsData> = {
-    [K in keyof Rels]: VNodeRelationship<Rels[K]["properties"] extends PropSchema ? Rels[K]["properties"] : PropSchema>
+type VNodeRelationshipsFor<Rels extends VNodeRelationshipsDeclaration> = {
+    [K in keyof Rels]: (
+        Rels[K] extends VNodeRelationship ?
+            Rels[K]  // This is already a VNodeRelationship, inherited from the parent class.
+        :
+            VNodeRelationship<Rels[K]["properties"] extends PropSchema ? Rels[K]["properties"] : PropSchema>
+    )
 };
 
 const registeredNodeTypes: {[label: string]: BaseVNodeType} = {};
