@@ -16,31 +16,35 @@ import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
 const condRawPropsMixinDataKey = "condRawPropsMixinDataKey";
+
+interface ConditionalRequest {
+    /** If a flag with this name is set in the filter when pull()ing data from the graph... */
+    flagName: string;
+    /** Then include these additional requested raw properties / virtual properties / derived properties: */
+    conditionalData: DataRequestState
+}
+
 /**
  * For a given data request, get the raw properties that are included conditionally (included only if a flag is set).
  * Returns an object where the keys are the properties' names and the values are the flag values (string).
  */
-export function getConditionalRawPropsData(dataRequest: DataRequestState): { [propName: string]: string; } {
-    return dataRequest.mixinData[condRawPropsMixinDataKey] ?? {};
+export function getConditionalRawPropsData(dataRequest: DataRequestState): ConditionalRequest[] {
+    return dataRequest.mixinData[condRawPropsMixinDataKey] ?? [];
 }
 
 export const conditionalRawPropsMixinImplementation: MixinImplementation = (dataRequest, methodName) => {
-    if (methodName.endsWith("IfFlag")) {
-        const propName = methodName.substr(0, methodName.length - 6);
-        const propDefn = dataRequest.vnodeType.properties[propName];
-        if (propDefn === undefined) {
-            return undefined;
-        }
-        // The user wants to conditionally include the property propName/propDefn, based on a flag. Return a function to do that:
-        return (flagName: string) => {
+    if (methodName === "if") {
+        // The user wants to conditionally include some properties:
+        return (flagName: string, requestBuilder: (emptyRequest: BaseDataRequest<any, any, any>) => BaseDataRequest<any, any, any>) => {
             const currentData = getConditionalRawPropsData(dataRequest);
-            if (propName in currentData && currentData[propName] !== flagName) {
-                throw new Error(`Cannot conditionally request the property ${propName} based on two different flags (${currentData[propName]}, ${flagName})`);
-            }
-            // Return the data request, but now with the property "propName" conditionally requested (so it will only
-            // be retrieved if the flag "flagName" is specified when pulling the data from the graph database.)
+            // Build a blank data request of the same type:
+            const emptyRequest: BaseDataRequest<any, any, any> = dataRequest.newRequestWithSameMixins(dataRequest.vnodeType);
+            // Now find out exactly which properties the user wants to conditionally include in the request:
+            const conditionalDataRequest: BaseDataRequest<any, any, any> = requestBuilder(emptyRequest);
+            const conditionalData = DataRequestState.getInternalState(conditionalDataRequest);
+            // Store the new state into the parent data request:
             return dataRequest.cloneWithChanges({newMixinData: {
-                [condRawPropsMixinDataKey]: {...currentData, [propName]: flagName},
+                [condRawPropsMixinDataKey]: [...currentData, {flagName, conditionalData}],
             }})
         };
     }
@@ -53,7 +57,6 @@ const virtPropsMixinDataKey = "virtPropsMixinDataKey";
 const projectedVirtualPropsKey = "projectedVirtualProps";
 
 interface VirtualPropRequest {
-    ifFlag: string|undefined,  // <-- If set to a string, this virtual property is only to be included when a flag with that name is set (conditional inclusion)
     shapeData?: DataRequestState,
 }
 
@@ -70,8 +73,7 @@ interface ProjectedVirtualPropsData {
     [propName: string]: VirtualCypherExpressionProperty
 }
 /**
- * For a given data request, get the raw properties that are included conditionally (included only if a flag is set).
- * Returns an object where the keys are the properties' names and the values are the flag values (string).
+ * For a given data request, get the virtual properties that are included
  */
 export function getVirtualPropsData(dataRequest: DataRequestState): VirtualPropsMixinData {
     return dataRequest.mixinData[virtPropsMixinDataKey] ?? {};
@@ -111,7 +113,7 @@ export const virtualPropsMixinImplementation: MixinImplementation = (dataRequest
             if (virtualProp.type === VirtualPropType.ManyRelationship || virtualProp.type === VirtualPropType.OneRelationship) {
                 // Return a method that can be used to build the request for this virtual property type
                 const targetVNodeType = virtualProp.target as any as VNodeType;  // Typing of this is a bit weird, to allow the optional VNodeType.hasVirtualProperties() method to work without circular type issues.
-                return (buildSubRequest: (subRequest: BaseDataRequest<typeof targetVNodeType, never, any>) => BaseDataRequest<typeof targetVNodeType, any, any>, options?: {ifFlag: string|undefined}) => {
+                return (buildSubRequest: (subRequest: BaseDataRequest<typeof targetVNodeType, never, any>) => BaseDataRequest<typeof targetVNodeType, any, any>) => {
                     // Build the subrequest:
 
                     // Start with an empty request - the buildSubRequest() will use it to pick which properties of the target type should be included.
@@ -136,21 +138,12 @@ export const virtualPropsMixinImplementation: MixinImplementation = (dataRequest
                     const subRequest = buildSubRequest(subRequestData);
                     // Return the new request, with this virtual property now included:
                     return requestWithVirtualPropAdded(dataRequest, propKey, {
-                        ifFlag: options?.ifFlag,
                         shapeData: DataRequestState.getInternalState(subRequest),
                     });
                 };
             } else if (virtualProp.type === VirtualPropType.CypherExpression) {
-                return (options?: {ifFlag: string|undefined}) => {
-                    let ifFlag = options?.ifFlag;  // undefined: always include this virtual prop; string: include only when that flag is set.
-                    // Return the new request, with this virtual property now included:
-                    if (requestedVirtualProps[propKey] !== undefined) {
-                        // This property was already in the request. If it was conditional and now is not, or vice versa, handle that case:
-                        if (requestedVirtualProps[propKey].ifFlag === undefined) {
-                            ifFlag = undefined;  // This property was already unconditionally included, so ignore any request to conditionally include it based on a flag
-                        }
-                    }
-                    return requestWithVirtualPropAdded(dataRequest, propKey, {ifFlag, });
+                return () => {
+                    return requestWithVirtualPropAdded(dataRequest, propKey, {});
                 };
             } else {
                 throw new Error(`That virtual property type (${(virtualProp as any).type}) is not supported yet.`);
@@ -195,13 +188,9 @@ function virtualPropsForRelationship(virtualProp: VirtualManyRelationshipPropert
 
 const derivedPropsMixinDataKey = "derivedPropsMixinDataKey";
 
-interface DerivedPropRequest {
-    ifFlag: string|undefined,  // <-- If set to a string, this derived property is only to be included when a flag with that name is set (conditional inclusion)
-}
-
-// Derived properties (like related objects) to pull from the database, optionally only when a flag is specified
+// Derived properties (like related objects) to pull from the database
 interface DerivedPropsMixinData {
-    [propName: string]: DerivedPropRequest;
+    [propName: string]: true;
 }
 
 /**
@@ -211,11 +200,11 @@ interface DerivedPropsMixinData {
 export function getDerivedPropsData(dataRequest: DataRequestState): DerivedPropsMixinData {
     return dataRequest.mixinData[derivedPropsMixinDataKey] ?? {};
 }
-export function requestWithDerivedPropAdded(dataRequest: DataRequestState, propName: string, propRequest: DerivedPropRequest): any {
+export function requestWithDerivedPropAdded(dataRequest: DataRequestState, propName: string): any {
     const currentData = getDerivedPropsData(dataRequest);
     const newData: DerivedPropsMixinData = {
         ...currentData,
-        [propName]: propRequest,
+        [propName]: true,
     };
     return dataRequest.cloneWithChanges({newMixinData: { [derivedPropsMixinDataKey]: newData }});
 }
@@ -238,9 +227,9 @@ export const derivedPropsMixinImplementation: MixinImplementation = (dataRequest
             if (requestedDerivedProps[propKey] !== undefined) {
                 throw new Error(`Derived property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
             }
-            return (options?: {ifFlag: string|undefined}) => {
+            return () => {
                 // Construct the new request, with this derived property now included:
-                const request = requestWithDerivedPropAdded(dataRequest, propKey, {ifFlag: options?.ifFlag});
+                const request = requestWithDerivedPropAdded(dataRequest, propKey);
                 // And add in any dependencies required:
                 if (!(derivedProp instanceof DerivedProperty)) { throw new Error(`Derived property ${vnodeType}.${propKey} is invalid - missing @VNodeType.declare ?`); }
                 return derivedProp.dataSpec(request);

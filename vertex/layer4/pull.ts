@@ -13,7 +13,15 @@ import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import { BaseDataRequest, DataRequestState } from "../layer3/data-request";
 import { ConditionalRawPropsMixin, DerivedPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
 import type { DataResponse } from "./data-response";
-import { conditionalRawPropsMixinImplementation, derivedPropsMixinImplementation, getConditionalRawPropsData, getDerivedPropsData, getProjectedVirtualPropsData, getVirtualPropsData, virtualPropsMixinImplementation } from "./data-request-mixins-impl";
+import {
+    conditionalRawPropsMixinImplementation,
+    derivedPropsMixinImplementation,
+    getConditionalRawPropsData,
+    getDerivedPropsData,
+    getProjectedVirtualPropsData,
+    getVirtualPropsData,
+    virtualPropsMixinImplementation,
+} from "./data-request-mixins-impl";
 import { DerivedProperty } from "./derived-props";
 
 type PullMixins<VNT extends VNodeType> = ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT>
@@ -401,9 +409,7 @@ function getRawPropertiesIncludedIn(request: DataRequestState, filter: DataReque
 
     return Object.keys(request.vnodeType.properties).filter(propName =>
         // Include this raw property if it was requested:
-        request.includedProperties.includes(propName) ||
-        // Or if it was requested conditionally, include it if the relevant flag is set in the filter:
-        (conditionalProperties[propName] !== undefined && filter.flags?.includes(conditionalProperties[propName]))
+        request.includedProperties.includes(propName)
     );
 }
 
@@ -421,15 +427,7 @@ function getVirtualPropertiesIncludedIn(request: DataRequestState, filter: DataR
     keys.push(...Object.keys(projectedVirtualPropertiesAvailable));
     // Determine what virtual properties were now requested in this data request:
     const requested = getVirtualPropsData(request);
-    return keys.filter(propName =>
-        propName in requested && (
-            requested[propName].ifFlag ?
-                // Conditionally include this virtual prop, if a flag is set in the filter:
-                filter.flags?.includes(requested[propName].ifFlag as string)
-            :
-                true
-        )
-    ).map(propName => ({
+    return keys.filter(propName => propName in requested).map(propName => ({
         propName,
         propDefn: virtPropsAvailable[propName] || projectedVirtualPropertiesAvailable[propName],
         shapeData: requested[propName].shapeData,
@@ -453,13 +451,5 @@ function getAllPropertiesIncludedIn(request: DataRequestState, filter: DataReque
 function getDerivedPropertiesIncludedIn(request: DataRequestState, filter: DataRequestFilter): string[] {
     const keys = Object.keys((request.vnodeType as VNodeType).derivedProperties);
     const requested = getDerivedPropsData(request);
-    return keys.filter(propName =>
-        propName in requested && (
-            requested[propName].ifFlag ?
-                // Conditionally include this derived prop, if a flag is set in the filter:
-                filter.flags?.includes(requested[propName].ifFlag as string)
-            :
-                true
-        )
-    );
+    return keys.filter(propName => propName in requested);
 }

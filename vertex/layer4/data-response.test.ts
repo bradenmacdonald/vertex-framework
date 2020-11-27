@@ -47,7 +47,7 @@ suite("DataResponse", () => {
 
         test("Conditionally Request a single raw property", () => {
 
-            const request = newDataRequest(Person).nameIfFlag("someFlag");
+            const request = newDataRequest(Person).if("someFlag", p => p.name);
             const response: DataResponse<typeof request> = undefined as any;
 
             checkType<AssertPropertyOptional<typeof response, "name", string>>();
@@ -90,7 +90,7 @@ suite("DataResponse", () => {
 
         test("Conditionally Request a single raw property", () => {
 
-            const request = newDataRequest(Person).nameIfFlag("someFlag");
+            const request = newDataRequest(Person).if("someFlag", p => p.name);
             const response: DataResponse<typeof request> = undefined as any;
 
             checkType<AssertPropertyOptional<typeof response, "name", string>>();
@@ -99,7 +99,7 @@ suite("DataResponse", () => {
 
         test("Request a raw property and conditionally Request another raw property", () => {
 
-            const request = newDataRequest(Person).shortId.nameIfFlag("someFlag");
+            const request = newDataRequest(Person).shortId.if("someFlag", p => p.name);
             const response: DataResponse<typeof request> = undefined as any;
 
             checkType<AssertPropertyPresent<typeof response, "shortId", string>>();
@@ -109,7 +109,7 @@ suite("DataResponse", () => {
 
         test("Request a virtual property", () => {
 
-            const request = newDataRequest(Person).age().uuid.shortIdIfFlag("d").dateOfBirthIfFlag("test");
+            const request = newDataRequest(Person).age().uuid.if("d", p => p.shortId).if("test", p => p.dateOfBirth);
             const response: DataResponse<typeof request> = undefined as any;
 
             checkType<AssertPropertyPresent<typeof response, "age", number>>();
@@ -124,7 +124,7 @@ suite("DataResponse", () => {
                 .uuid
                 .friends(f => f
                     .name
-                    .dateOfBirthIfFlag("flag")
+                    .if("flag", f => f.dateOfBirth.age())
                     .costars(cs => cs
                         .name
                         .movies(m => m.title.year.role())  // <-- note "role" is a projected property, which comes from the relationship and is not normally part of "Movie"
@@ -135,6 +135,7 @@ suite("DataResponse", () => {
             checkType<AssertPropertyPresent<typeof response, "uuid", UUID>>();
             checkType<AssertPropertyPresent<typeof response.friends[0], "name", string>>();
             checkType<AssertPropertyOptional<typeof response.friends[0], "dateOfBirth", string>>();
+            checkType<AssertPropertyOptional<typeof response.friends[0], "age", number>>();
             const costar = response?.friends[0].costars[0];  // The ? is just to make this work at runtime since we're using a mock.
             checkType<AssertPropertyPresent<typeof costar, "name", string>>();
             checkType<AssertPropertyAbsent<typeof costar, "uuid">>();

@@ -43,7 +43,7 @@ suite("pull", () => {
             // This data request tests conditional fields and excluded fields
             const partialPersonRequest = (newDataRequest(Person)
                 .name
-                .dateOfBirthIfFlag("includeDOB")
+                .if("includeDOB", p => p.dateOfBirth)
             );
             test("buildCypherQuery - get all, DOB flag off", () => {
                 const query = buildCypherQuery(partialPersonRequest);
