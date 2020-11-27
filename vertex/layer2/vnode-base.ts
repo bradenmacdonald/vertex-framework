@@ -22,7 +22,7 @@ export const emptyObj = Object.freeze({});
 const relTypeKey = Symbol("relTypeKey");
 
 
-export interface RelationshipsDeclaration {
+export interface RelationshipsSchema {
     [RelName: string]: RelationshipDeclaration;
 }
 /** Interface used to declare each relationship that can come *from* this VNodeType to other VNodes */
@@ -71,7 +71,7 @@ class _BaseVNodeType {
     static label = "VNode";
     static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
-    static readonly rel: RelationshipsDeclaration = emptyObj;
+    static readonly rel: RelationshipsSchema = emptyObj;
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
     static readonly defaultOrderBy: string|undefined = undefined;
 
@@ -210,7 +210,7 @@ export interface BaseVNodeType {
     readonly label: string;
     readonly properties: PropSchemaWithUuid;
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
-    readonly rel: RelationshipsDeclaration;
+    readonly rel: RelationshipsSchema;
     readonly defaultOrderBy: string|undefined;
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 

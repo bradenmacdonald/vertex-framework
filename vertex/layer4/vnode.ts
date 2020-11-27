@@ -1,4 +1,4 @@
-import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType, RelationshipsDeclaration } from "../layer2/vnode-base";
+import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType, RelationshipsSchema } from "../layer2/vnode-base";
 import { CleanDerivedProps, DerivedProperty, DerivedPropsSchema, DerivedPropsSchemaCleaned } from "./derived-props";
 import type { VirtualPropsSchema } from "./virtual-props";
 
@@ -23,7 +23,7 @@ export abstract class VNodeType extends BaseVNodeType {
     static readonly derivedProperties: DerivedPropsSchema = emptyObj;
 
     /** Completely optional helper method to declare a VNodeType's "rel" (relationships) property with correct typing. */
-    static hasRelationshipsFromThisTo<Rels extends RelationshipsDeclaration>(relationships: Rels): Rels {
+    static hasRelationshipsFromThisTo<Rels extends RelationshipsSchema>(relationships: Rels): Rels {
         return relationships;
     }
 
