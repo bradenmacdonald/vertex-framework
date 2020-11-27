@@ -3,11 +3,10 @@
  * 
  * The implementation of actually using them is tested in pull.test.ts
  */
-import Joi from "@hapi/joi";
 import {
     Action,
     C,
-    DerivedPropertyFactory,
+    DerivedProperty,
     ShortIdProperty,
     VirtualPropType,
     VNodeType,
@@ -22,7 +21,7 @@ class Employee extends VNodeType {
         shortId: ShortIdProperty,
     };
 
-    static virtualProperties = Employee.hasVirtualProperties({
+    static virtualProperties = VNodeType.hasVirtualProperties({
         createAction: {
             // Get the Action that originally created this employee
             type: VirtualPropType.OneRelationship,
@@ -31,7 +30,7 @@ class Employee extends VNodeType {
         },
     });
 
-    static derivedProperties = Employee.hasDerivedProperties({
+    static derivedProperties = VNodeType.hasDerivedProperties({
         yearsWithCompany,
     });
 }
@@ -53,7 +52,7 @@ class Executive extends Manager {
         ...Manager.properties,
     };
 
-    static readonly derivedProperties = Executive.hasDerivedProperties({
+    static readonly derivedProperties = VNodeType.hasDerivedProperties({
         ...Manager.derivedProperties,
         annualBonus,
     });
@@ -63,7 +62,7 @@ class Executive extends Manager {
  * A sample "Derived property" that computes # of years an employee has been with the company
  * @param spec 
  */
-function yearsWithCompany(spec: DerivedPropertyFactory<number|null>): void { spec(
+function yearsWithCompany(): DerivedProperty<number|null> { return DerivedProperty.make(
     Employee,
     e => e.createAction(a=>a.timestamp),
     data => {
@@ -74,18 +73,18 @@ function yearsWithCompany(spec: DerivedPropertyFactory<number|null>): void { spe
         // Return a complex object and test that we can return/access data from virtual props too:
         return years;
     }
-)}
+);}
 
 
 /**
  * A sample "Derived property" that "computes" an annual bonus for each executive
  * @param spec 
  */
-function annualBonus(spec: DerivedPropertyFactory<number>): void { spec(
+function annualBonus(): DerivedProperty<number> { return DerivedProperty.make(
     Executive,
     e => e,
     data => { return 100_000; }
-)}
+);}
 
 suite(__filename, () => {
 

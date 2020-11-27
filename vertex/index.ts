@@ -89,6 +89,7 @@ export {
 } from "./layer4/virtual-props";
 
 export {
+    DerivedProperty,
     DerivedPropertyFactory,
 } from "./layer4/derived-props";
 

@@ -165,7 +165,10 @@ export type DerivedPropsMixin<
                 DerivedPropsMixin<VNT, includedDerivedProps>,
                 DerivedPropsMixin<VNT, includedDerivedProps & { [PN in propName]: {
                     ifFlag: FlagType,
-                    valueType: GetDerivedPropValueType<VNT["derivedProperties"][propName]>,
+                    valueType: GetDerivedPropValueType<
+                        // VNT["derivedProperties"][propName] should be a DerivedProperty instance (due to VNodeType.declare()) but TypeScript doesn't know that.
+                        VNT["derivedProperties"][propName] extends DerivedProperty<any> ? VNT["derivedProperties"][propName] : never
+                    >,
                 } }>
             >
         )

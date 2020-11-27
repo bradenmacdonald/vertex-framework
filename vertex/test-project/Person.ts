@@ -9,6 +9,7 @@ import {
     VirtualPropType,
     VNodeType,
 } from "../";
+import { DerivedProperty } from "../layer4/derived-props";
 import { Movie } from "./Movie";
 
 /**
@@ -80,7 +81,7 @@ export class Person extends VNodeType {
  * Compute the person's age in JavaScript (as opposed to in Cypher, like the .age virtual property does.)
  * This serves as an example of a derived property, which relies on a raw property and a virtual property
  */
-function ageJS(spec: DerivedPropertyFactory<{ageJS: number, ageNeo: number}>): void { spec(
+function ageJS(): DerivedProperty<{ageJS: number, ageNeo: number}> { return DerivedProperty.make(
     Person,
     p => p.dateOfBirth.age(),
     data => {

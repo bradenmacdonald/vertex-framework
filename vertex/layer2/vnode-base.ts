@@ -146,8 +146,15 @@ class _BaseVNodeType {
         }
     }
 
-    /** Validate a VNodeType's declaration and register it, so it can be loaded at runtime using only its label. */
-    static declare<T extends BaseVNodeType>(vnt: T): void {
+    /**
+     * Validate and register a VNodeType.
+     *
+     * Every VNodeType must be decorated with this function (or call this function with the VNodeType subclass, if not
+     * using decorators)
+     * 
+     * This is protected because a public version is declared in the VNodeType class that subclasses this one.
+     */
+    protected static declare(vnt: BaseVNodeType): void {
 
         if (vnt.properties.uuid !== UuidProperty) {
             throw new Error(`${vnt.name} VNodeType does not inherit the required uuid property from the base class.`);
@@ -207,7 +214,7 @@ export interface BaseVNodeType {
     readonly defaultOrderBy: string|undefined;
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 
-    declare<T extends BaseVNodeType>(vnt: T): void;
+    declare(vnt: BaseVNodeType): void;
 }
 
 /** Helper function to check if some object is a VNodeType */

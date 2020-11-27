@@ -14,6 +14,7 @@ import { BaseDataRequest, DataRequestState } from "../layer3/data-request";
 import { ConditionalRawPropsMixin, DerivedPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
 import type { DataResponse } from "./data-response";
 import { conditionalRawPropsMixinImplementation, derivedPropsMixinImplementation, getConditionalRawPropsData, getDerivedPropsData, getProjectedVirtualPropsData, getVirtualPropsData, virtualPropsMixinImplementation } from "./data-request-mixins-impl";
+import { DerivedProperty } from "./derived-props";
 
 type PullMixins<VNT extends VNodeType> = ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT>
 
@@ -271,7 +272,11 @@ function addDerivedPropertiesToResult(resultData: any, requestData: DataRequestS
     if (derivedProperties.length > 0) {
         const dataSoFar = readOnlyView(resultData);  // Don't allow the derived property implementation to mutate this directly
         for (const propName of derivedProperties) {
-            resultData[propName] = vnodeType.derivedProperties[propName].computeValue(dataSoFar);
+            const derivedProp = vnodeType.derivedProperties[propName];
+            if (!(derivedProp instanceof DerivedProperty)) {
+                throw new Error(`Derived property ${vnodeType.name}.${propName} is invalid. Is the class not decorated with @VNodeType.declare ?`);
+            }
+            resultData[propName] = derivedProp.computeValue(dataSoFar);
         }
     }
     // Now recursively handle derived properties for any virtual -to-many or -to-one relationships included in the result:

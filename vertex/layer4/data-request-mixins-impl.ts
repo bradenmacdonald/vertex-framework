@@ -9,6 +9,7 @@
 
 import { C } from "../layer2/cypher-sugar";
 import { BaseDataRequest, MixinImplementation, DataRequestState } from "../layer3/data-request";
+import { DerivedProperty } from "./derived-props";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualPropType } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 
@@ -241,6 +242,7 @@ export const derivedPropsMixinImplementation: MixinImplementation = (dataRequest
                 // Construct the new request, with this derived property now included:
                 const request = requestWithDerivedPropAdded(dataRequest, propKey, {ifFlag: options?.ifFlag});
                 // And add in any dependencies required:
+                if (!(derivedProp instanceof DerivedProperty)) { throw new Error(`Derived property ${vnodeType}.${propKey} is invalid - missing @VNodeType.declare ?`); }
                 return derivedProp.dataSpec(request);
             };
         }
