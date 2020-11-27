@@ -10,7 +10,7 @@
 
 import Joi from "@hapi/joi";
 import { FieldType } from "../layer2/cypher-return-shape";
-import { VNodeRelationship, BaseVNodeType } from "../layer2/vnode-base";
+import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
 import { BaseDataRequest, UpdateMixin } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
@@ -36,6 +36,10 @@ export type ConditionalRawPropsMixin<
 
 ///////////////// VirtualPropsMixin ////////////////////////////////////////////////////////////////////////////////////
 
+type VPTarget<VirtProp extends VirtualManyRelationshipProperty|VirtualOneRelationshipProperty> = (
+    VirtProp["target"] extends BaseVNodeType ? VirtProp["target"] : never
+);
+
 /** Allow requesting virtual properties, optionally based on whether or not a flag is set */
 export type VirtualPropsMixin<
     VNT extends VNodeTypeWithVirtualProps,
@@ -44,10 +48,10 @@ export type VirtualPropsMixin<
     [propName in keyof VNT["virtualProperties"]]://Omit<VNT["virtualProperties"], keyof includedVirtualProps>]:
         VNT["virtualProperties"][propName] extends VirtualManyRelationshipProperty ?
             // For each x:many virtual property, add a method for requesting that virtual property:
-            <ThisRequest, SubSpec extends BaseDataRequest<VNT["virtualProperties"][propName]["target"], any, any>, FlagType extends string|undefined = undefined>
+            <ThisRequest, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
             // This is the method:
             (this: ThisRequest,
-                subRequest: (buildSubrequest: BaseDataRequest<VNT["virtualProperties"][propName]["target"], never, ResetMixins<ThisRequest, VNT["virtualProperties"][propName]["target"] & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]> >>) => SubSpec,
+                subRequest: (buildSubrequest: BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, never, ResetMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]> & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]> >>) => SubSpec,
                 options?: {ifFlag?: FlagType}
             ) => (
                 UpdateMixin<VNT, ThisRequest,
@@ -60,8 +64,8 @@ export type VirtualPropsMixin<
 
         : VNT["virtualProperties"][propName] extends VirtualOneRelationshipProperty ?
             // For each x:one virtual property, add a method for requesting that virtual property:
-            <ThisRequest, SubSpec extends BaseDataRequest<VNT["virtualProperties"][propName]["target"], any, any>, FlagType extends string|undefined = undefined>
-            (this: ThisRequest, subRequest: (buildSubequest: BaseDataRequest<VNT["virtualProperties"][propName]["target"], never, ResetMixins<ThisRequest, VNT["virtualProperties"][propName]["target"]>>) => SubSpec, options?: {ifFlag: FlagType}) => (
+            <ThisRequest, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
+            (this: ThisRequest, subRequest: (buildSubequest: BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, never, ResetMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]>>>) => SubSpec, options?: {ifFlag: FlagType}) => (
                 UpdateMixin<VNT, ThisRequest,
                     VirtualPropsMixin<VNT, includedVirtualProps>,
                     VirtualPropsMixin<VNT, includedVirtualProps & {
@@ -97,13 +101,13 @@ type RecursiveVirtualPropRequest<VNT extends VNodeTypeWithVirtualProps> = {
     )
 }
 
-export type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends BaseDataRequest<propType["target"], any, any>> = {
+export type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends BaseDataRequest<VPTarget<propType>, any, any>> = {
     ifFlag: string|undefined,
     spec: Spec,
     type: "many",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
 
-export type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends BaseDataRequest<propType["target"], any, any>> = {
+export type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends BaseDataRequest<VPTarget<propType>, any, any>> = {
     ifFlag: string|undefined,
     spec: Spec,
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
@@ -121,8 +125,8 @@ export type IncludedVirtualCypherExpressionProp<FT extends FieldType> = {
 // For example, if there is a (:Person)-[:ACTED_IN]->(:Movie) where "Person" is the main VNode and "Person.movies" is a
 // virtual property to list the movies they acted in, and the ACTED_IN relationship has a "role" property, then this is
 // used to make the "role" property appear as a virtual property on the Movie VNode.
-type ProjectRelationshipProps<Rel extends VNodeRelationship|undefined> = (
-    Rel extends VNodeRelationship ? {
+type ProjectRelationshipProps<Rel extends RelationshipDeclaration|undefined> = (
+    Rel extends RelationshipDeclaration ? {
         virtualProperties: {
             [K in keyof Rel["properties"]]: VirtualCypherExpressionPropertyForRelationshipProp<Rel["properties"][K]>
         }
@@ -161,7 +165,10 @@ export type DerivedPropsMixin<
                 DerivedPropsMixin<VNT, includedDerivedProps>,
                 DerivedPropsMixin<VNT, includedDerivedProps & { [PN in propName]: {
                     ifFlag: FlagType,
-                    valueType: GetDerivedPropValueType<VNT["derivedProperties"][propName]>,
+                    valueType: GetDerivedPropValueType<
+                        // VNT["derivedProperties"][propName] should be a DerivedProperty instance (due to VNodeType.declare()) but TypeScript doesn't know that.
+                        VNT["derivedProperties"][propName] extends DerivedProperty<any> ? VNT["derivedProperties"][propName] : never
+                    >,
                 } }>
             >
         )

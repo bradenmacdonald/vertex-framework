@@ -1,80 +1,68 @@
 import Joi from "@hapi/joi";
 import {
     VNodeType,
-    registerVNodeType,
-    unregisterVNodeType,
     ShortIdProperty,
 } from "..";
 import { suite, test, assertRejects, configureTestData, assert, log, before, after } from "../lib/intern-tests";
-import { getAllLabels } from "./vnode-base";
+import { getAllLabels, getRelationshipType } from "./vnode-base";
 
-/** A VNode type that exists just within this file, for very basic tests */
-class SomeVNT extends VNodeType {
-    static readonly label = "SomeVNT";
-    static readonly properties = {
-        ...VNodeType.properties,
-    };
-}
 
 suite("BaseVNodeType", () => {
     test("registerVNodeType", () => {
-        registerVNodeType(SomeVNT);
+
+        class SomeVNT extends VNodeType {
+            static readonly label = "SomeVNT";
+            static readonly properties = {
+                ...VNodeType.properties,
+            };
+        }
+
+        VNodeType.declare(SomeVNT);
         assert.throws(() => {
-            registerVNodeType(SomeVNT);
+            VNodeType.declare(SomeVNT);
         }, "Duplicate VNodeType label: SomeVNT");
     });
 });
 
 
 /** A VNodeType for use in this test suite. */
+@VNodeType.declare
 class Employee extends VNodeType {
     static label = "Employee";
-    static readonly properties = {
+    static properties = {
         ...VNodeType.properties,
         shortId: ShortIdProperty,
     };
 }
 
 /** A VNodeType for use in this test suite. */
+@VNodeType.declare
 class Manager extends Employee {
     static label = "Manager";
-    static readonly properties = {
+    static properties = {
         ...Employee.properties,
     };
-    static readonly rel = Manager.hasRelationshipsFromThisTo({
+    static rel = {
         // A -to-many relationship:
         MANAGER_OF: { to: [Employee], properties: { since: Joi.date() } }
-    });
+    };
 }
 
 /** A VNodeType for use in this test suite. */
+@VNodeType.declare
 class Executive extends Manager {
     static label = "Executive";
     static readonly properties = {
         ...Manager.properties,
     };
-    static readonly rel = Executive.hasRelationshipsFromThisTo({
+    static readonly rel = {
         ...Manager.rel,
         // A -to-one relationship:
         HAS_ASSISTANT: { to: [Employee], properties: { since: Joi.date() } }
-    });
+    };
 }
 
-suite("vnode-base", () => {
-
-
-    before(() => {
-        registerVNodeType(Employee);
-        registerVNodeType(Manager);
-        registerVNodeType(Executive);
-    });
-
-    after(() => {
-        unregisterVNodeType(Employee);
-        unregisterVNodeType(Manager);
-        unregisterVNodeType(Executive);
-    });
-
+suite(__filename, () => {
 
     suite("getAllLabels", () => {
 
@@ -92,10 +80,10 @@ suite("vnode-base", () => {
         });
     });
 
-    suite("VNodeType.hasRelationshipsFromThisTo", () => {
+    suite("VNodeType.rel relationship declarations", () => {
 
         test("basic sanity check", () => {
-            assert.strictEqual(Manager.rel.MANAGER_OF.label, "MANAGER_OF");
+            assert.strictEqual(getRelationshipType(Manager.rel.MANAGER_OF), "MANAGER_OF");
             assert.deepStrictEqual(Manager.rel.MANAGER_OF.to, [Employee]);
         });
 
@@ -104,7 +92,7 @@ suite("vnode-base", () => {
             assert.deepStrictEqual(Manager.rel.MANAGER_OF, Executive.rel.MANAGER_OF);
             assert.deepStrictEqual(Executive.rel.MANAGER_OF.to, [Employee]);
             // New relationship:
-            assert.strictEqual(Executive.rel.HAS_ASSISTANT.label, "HAS_ASSISTANT");
+            assert.strictEqual(getRelationshipType(Executive.rel.HAS_ASSISTANT), "HAS_ASSISTANT");
             assert.deepStrictEqual(Executive.rel.HAS_ASSISTANT.to, [Employee]);
         });
     });

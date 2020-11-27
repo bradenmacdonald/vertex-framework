@@ -3,15 +3,11 @@
  * 
  * The implementation of actually using them is tested in pull.test.ts
  */
-import Joi from "@hapi/joi";
 import {
     Action,
     C,
-    DerivedPropertyFactory,
-    isVNodeType,
-    registerVNodeType,
+    DerivedProperty,
     ShortIdProperty,
-    unregisterVNodeType,
     VirtualPropType,
     VNodeType,
 } from "..";
@@ -19,42 +15,44 @@ import { suite, test, assert, before, after } from "../lib/intern-tests";
 
 /** A VNodeType for use in this test suite. */
 class Employee extends VNodeType {
-    static label = "Employee";
+    static label = "EmployeeDPT";  // DPT = Derived Props Test
     static readonly properties = {
         ...VNodeType.properties,
         shortId: ShortIdProperty,
     };
 
-    static readonly virtualProperties = {
+    static virtualProperties = VNodeType.hasVirtualProperties({
         createAction: {
             // Get the Action that originally created this employee
             type: VirtualPropType.OneRelationship,
             query: C`(@target:${Action} {type: "CreateEmployee"})-[:${Action.rel.MODIFIED}]->(@this)`,
             target: Action,
         },
-    };
+    });
 
-    static readonly derivedProperties = Employee.hasDerivedProperties({
+    static derivedProperties = VNodeType.hasDerivedProperties({
         yearsWithCompany,
     });
 }
 
 /** A VNodeType for use in this test suite. */
+@VNodeType.declare
 class Manager extends Employee {
-    static label = "Manager";
+    static label = "ManagerDPT";  // DPT = Derived Props Test
     static readonly properties = {
         ...Employee.properties,
     };
 }
 
 /** A VNodeType for use in this test suite. */
+@VNodeType.declare
 class Executive extends Manager {
-    static label = "Executive";
+    static label = "ExecutiveDPT";  // DPT = Derived Props Test
     static readonly properties = {
         ...Manager.properties,
     };
 
-    static readonly derivedProperties = Executive.hasDerivedProperties({
+    static readonly derivedProperties = VNodeType.hasDerivedProperties({
         ...Manager.derivedProperties,
         annualBonus,
     });
@@ -64,7 +62,7 @@ class Executive extends Manager {
  * A sample "Derived property" that computes # of years an employee has been with the company
  * @param spec 
  */
-function yearsWithCompany(spec: DerivedPropertyFactory<number|null>): void { spec(
+function yearsWithCompany(): DerivedProperty<number|null> { return DerivedProperty.make(
     Employee,
     e => e.createAction(a=>a.timestamp),
     data => {
@@ -75,34 +73,20 @@ function yearsWithCompany(spec: DerivedPropertyFactory<number|null>): void { spe
         // Return a complex object and test that we can return/access data from virtual props too:
         return years;
     }
-)}
+);}
 
 
 /**
  * A sample "Derived property" that "computes" an annual bonus for each executive
  * @param spec 
  */
-function annualBonus(spec: DerivedPropertyFactory<number>): void { spec(
+function annualBonus(): DerivedProperty<number> { return DerivedProperty.make(
     Executive,
     e => e,
     data => { return 100_000; }
-)}
+);}
 
 suite(__filename, () => {
-
-
-    before(() => {
-        registerVNodeType(Employee);
-        registerVNodeType(Manager);
-        registerVNodeType(Executive);
-    });
-
-    after(() => {
-        unregisterVNodeType(Employee);
-        unregisterVNodeType(Manager);
-        unregisterVNodeType(Executive);
-    });
-
 
     suite("VNodeType.hasDerivedProperties", () => {
 

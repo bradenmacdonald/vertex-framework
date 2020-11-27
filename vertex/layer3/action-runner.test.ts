@@ -5,13 +5,12 @@ import {
     C,
     UUID,
     VNodeType,
-    registerVNodeType,
-    unregisterVNodeType,
     defineAction,
     SYSTEM_UUID,
     GenericCypherAction,
 } from "..";
 
+@VNodeType.declare
 class AstronomicalBody extends VNodeType {
     static label = "AstroBody";
     static readonly properties = {
@@ -21,6 +20,7 @@ class AstronomicalBody extends VNodeType {
     };
 }
 
+@VNodeType.declare
 class Planet extends AstronomicalBody {
     static label = "Planet";
     static readonly properties = {
@@ -43,16 +43,6 @@ const GenericCreateAction = defineAction<{labels: string[], data: any}, {uuid: U
 suite("action runner", () => {
 
     configureTestData({isolateTestWrites: true, loadTestProjectData: false});
-
-    before(() => {
-        registerVNodeType(AstronomicalBody);
-        registerVNodeType(Planet);
-    });
-
-    after(() => {
-        unregisterVNodeType(AstronomicalBody);
-        unregisterVNodeType(Planet);
-    });
 
     suite("test isolation", () => {
         // Test that our test cases have sufficient test isolation, via isolateTestWrites()

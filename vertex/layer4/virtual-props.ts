@@ -1,7 +1,7 @@
 import type { CypherQuery } from "../layer2/cypher-sugar";
 import type { FieldType } from "../layer2/cypher-return-shape";
-import { VNodeRelationship } from "../layer2/vnode-base";
-import { VNodeTypeWithVirtualProps } from "./vnode";
+import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
+import { VNodeType } from "./vnode";
 /**
  * Every VNode can declare "virtual properties" which are computed properties
  * (such as related VNodes) that can be loaded from the graph or other sources.
@@ -23,10 +23,11 @@ export const VirtualPropType = {
 export interface VirtualManyRelationshipProperty {
     type: typeof VirtualPropType.ManyRelationship;
     query: CypherQuery;
-    target: VNodeTypeWithVirtualProps;
+    /** The VNodeType that this virtual relationship property is pointing to */
+    target: {new(): BaseVNodeType; label: string};  // This type should be "target: VNodeType" but that prevents the use of the nice optional VNodeType.hasVirtualProperties() method.
     // One of the relationships in the query can be assigned to the variable @rel, and if so, specify its props here so
     // that the relationship properties can be optionally included (as part of the target node)
-    relationship?: VNodeRelationship,
+    relationship?: RelationshipDeclaration,
     // How should this relationship be ordered by default, if not by the default ordering of the target VNode?
     // Should be a cypher expression that can reference fields on @this, @target, or @rel (if @rel is used in the query)
     defaultOrderBy?: string,
@@ -34,7 +35,8 @@ export interface VirtualManyRelationshipProperty {
 export interface VirtualOneRelationshipProperty {
     type: typeof VirtualPropType.OneRelationship,
     query: CypherQuery,
-    target: VNodeTypeWithVirtualProps;
+    /** The VNodeType that this virtual relationship property is pointing to */
+    target: {new(): BaseVNodeType; label: string};  // This type should be "target: VNodeType" but that prevents the use of the nice optional VNodeType.hasVirtualProperties() method.
 }
 export interface VirtualCypherExpressionProperty {
     type: typeof VirtualPropType.CypherExpression,

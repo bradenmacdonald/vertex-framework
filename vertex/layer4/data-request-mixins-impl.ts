@@ -9,6 +9,7 @@
 
 import { C } from "../layer2/cypher-sugar";
 import { BaseDataRequest, MixinImplementation, DataRequestState } from "../layer3/data-request";
+import { DerivedProperty } from "./derived-props";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualPropType } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 
@@ -109,7 +110,7 @@ export const virtualPropsMixinImplementation: MixinImplementation = (dataRequest
             // Operation to add a virtual property to the request:
             if (virtualProp.type === VirtualPropType.ManyRelationship || virtualProp.type === VirtualPropType.OneRelationship) {
                 // Return a method that can be used to build the request for this virtual property type
-                const targetVNodeType = virtualProp.target;
+                const targetVNodeType = virtualProp.target as any as VNodeType;  // Typing of this is a bit weird, to allow the optional VNodeType.hasVirtualProperties() method to work without circular type issues.
                 return (buildSubRequest: (subRequest: BaseDataRequest<typeof targetVNodeType, never, any>) => BaseDataRequest<typeof targetVNodeType, any, any>, options?: {ifFlag: string|undefined}) => {
                     // Build the subrequest:
 
@@ -241,6 +242,7 @@ export const derivedPropsMixinImplementation: MixinImplementation = (dataRequest
                 // Construct the new request, with this derived property now included:
                 const request = requestWithDerivedPropAdded(dataRequest, propKey, {ifFlag: options?.ifFlag});
                 // And add in any dependencies required:
+                if (!(derivedProp instanceof DerivedProperty)) { throw new Error(`Derived property ${vnodeType}.${propKey} is invalid - missing @VNodeType.declare ?`); }
                 return derivedProp.dataSpec(request);
             };
         }

@@ -7,13 +7,11 @@ import {
     defaultCreateFor,
     defaultUpdateActionFor,
     UUID,
-    registerVNodeType,
-    unregisterVNodeType,
-    VNodeRelationship,
 } from "..";
 import { testGraph } from "../test-project";
 
 /** A VNodeType for use in this test suite. */
+@VNodeType.declare
 class Person extends VNodeType {
     static label = "PersonAHT";  // AHT: action-helpers.test
     static readonly properties = {
@@ -23,23 +21,24 @@ class Person extends VNodeType {
 }
 
 /** A VNodeType for use in this test suite. */
+@VNodeType.declare
 class AstronomicalBody extends VNodeType {
     static label = "AstroBodyAHT";  // AHT: action-helpers.test
     static readonly properties = {
         ...VNodeType.properties,
         shortId: ShortIdProperty,
     };
-    static readonly rel = AstronomicalBody.hasRelationshipsFromThisTo({
+    static readonly rel = {
         // A -to-one relationship:
         ORBITS: {
             to: [AstronomicalBody],
-            cardinality: VNodeRelationship.Cardinality.ToOneOrNone,
+            cardinality: VNodeType.Rel.ToOneOrNone,
             // An optional "periodInSeconds" property:
             properties: { periodInSeconds: Joi.number(), },
         },
         // A -to-many relationship:
         VISITED_BY: { to: [Person], properties: { when: Joi.date() } }
-    });
+    };
 }
 
 const CreatePerson = defaultCreateFor(Person, p => p.shortId);
@@ -102,16 +101,6 @@ const earthOrbitsTheSun = {key: "sun", periodInSeconds: 3.1558149e7};
 suite("action-helpers", () => {
 
     configureTestData({isolateTestWrites: true, loadTestProjectData: false});
-    before(() => {
-        registerVNodeType(Person);
-        registerVNodeType(AstronomicalBody);
-    });
-
-    after(() => {
-        unregisterVNodeType(Person);
-        unregisterVNodeType(AstronomicalBody);
-    });
-
 
     suite("updateToOneRelationship", () => {
 

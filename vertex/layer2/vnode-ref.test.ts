@@ -1,4 +1,4 @@
-import { C, VirtualPropType, VNodeType, VNodeTypeRef, isVNodeType, PropSchema, VNodeRelationship } from "..";
+import { C, VirtualPropType, VNodeType, VNodeTypeRef, isVNodeType, PropSchema } from "..";
 import { suite, test, assert, dedent } from "../lib/intern-tests";
 import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils";
 import {
@@ -13,11 +13,11 @@ export class OtherVNT extends VNodeType {
     static readonly label = "OtherVNT";
     static readonly properties = {...VNodeType.properties };
     static readonly defaultOrderBy = "@this.uuid";
-    static readonly rel = OtherVNT.hasRelationshipsFromThisTo({
+    static readonly rel = {
         /** This Movie is part of a franchise */
         SELF_RELATIONSHIP: { to: [OtherVNT] },
         SELF_RELATIONSHIP_WITH_REF: { to: [OtherVNTRef] },
-    });
+    };
     static readonly virtualProperties = {
         franchise: {
             type: VirtualPropType.OneRelationship,
@@ -44,10 +44,8 @@ suite("VNodeRef", () => {
 
     test("a forward reference's relationships can be accessed before the VNodeType is loaded", () => {
         const test = OtherVNTRef.rel.SELF_RELATIONSHIP;
-        // And typescript sees it as a VNodeRelationship:
-        checkType<AssertPropertyPresent<typeof test, "label", string>>();
-        checkType<AssertPropertyPresent<typeof test, "properties", PropSchema>>();
-        checkType<AssertPropertyPresent<typeof test, "to", any>>();
+        // And typescript sees it as a VNode Relationship declaration:
+        checkType<AssertPropertyPresent<typeof test, "to", Array<any>>>();
         checkType<AssertPropertyAbsent<typeof test, "somethingElse">>();
     });
 

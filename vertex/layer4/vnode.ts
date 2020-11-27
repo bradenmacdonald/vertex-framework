@@ -1,6 +1,6 @@
-import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType } from "../layer2/vnode-base";
-import { ConvertDerivedPropsDeclarationToSchema, DerivedProperty, DerivedPropertyDeclaration, DerivedPropertyFactory, DerivedPropsDeclaration, DerivedPropsSchema } from "./derived-props";
-import { VirtualPropsSchema } from "./virtual-props";
+import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType, RelationshipsSchema } from "../layer2/vnode-base";
+import { CleanDerivedProps, DerivedProperty, DerivedPropsSchema, DerivedPropsSchemaCleaned } from "./derived-props";
+import type { VirtualPropsSchema } from "./virtual-props";
 
 
 // In some parts of the code, it's necessary to refer to a type that has virtual props but not derived props:
@@ -19,32 +19,51 @@ export interface VNodeType extends VNodeTypeWithVirtualProps {
  */
 export abstract class VNodeType extends BaseVNodeType {
 
-    static readonly virtualProperties = emptyObj;
-    static readonly derivedProperties = emptyObj;
+    static readonly virtualProperties: VirtualPropsSchema = emptyObj;
+    static readonly derivedProperties: DerivedPropsSchema = emptyObj;
+
+    /** Completely optional helper method to declare a VNodeType's "rel" (relationships) property with correct typing. */
+    static hasRelationshipsFromThisTo<Rels extends RelationshipsSchema>(relationships: Rels): Rels {
+        return relationships;
+    }
+
+    /** Completely optional helper method to declare a VNodeType's "virtualProperties" with correct typing. */
+    static hasVirtualProperties<VPS extends VirtualPropsSchema>(props: VPS): VPS {
+        return props;
+    }
+
+    /** Completely optional helper method to declare a VNodeType's "derivedProperties" with correct typing */
+    static hasDerivedProperties<DPS extends DerivedPropsSchema>(props: DPS): CleanDerivedProps<DPS> {
+        // Note: we are returning this as a different type ("Cleaned"), but it's actually the decorator
+        // @VNodeType.declare that changes the type of this, converting any derived props that are functions to the
+        // DerivedProperty instances that they return. In practice that takes effect at class declaration time so it's
+        // convenient to let TypeScript know about the type now; otherwise TypeScript won't know.
+        return props as any;
+    }
 
     /**
-     * Helper method used to declare derived properties with correct typing. Do not override this.
-     * Usage:
-     *     static readonly derivedProperties = MyVNodeType.hasDerivedProperties({
-     *         propName,
-     *         ...
-     *     });
-     * 
-     * Where propName is a function that accepts a single method parameter (and optionally the VNodeType itself as the
-     * second parameter, if your derived property implementation is shared among multiple VNodeTypes). Call that method once
-     * to configure the property.
+     * Validate and register a VNodeType.
+     *
+     * Every VNodeType must be decorated with this function (or call this function with the VNodeType subclass, if not
+     * using decorators)
      */
-    static hasDerivedProperties<DPS extends DerivedPropsDeclaration>(this: any, propSchema: DPS): ConvertDerivedPropsDeclarationToSchema<DPS> {
-        const newSchema: any = {};     
-        for (const propName in propSchema) {
-            const propDeclaration = propSchema[propName];
-            if (propDeclaration instanceof DerivedProperty) {
-                newSchema[propName] = propDeclaration;
-            } else {
-                newSchema[propName] = new DerivedProperty<any>(propDeclaration as DerivedPropertyDeclaration<any>, this);
+    static declare(vnt: VNodeType): void {
+        // This is extending the base class "declare" static method:
+        BaseVNodeType.declare(vnt);
+
+        // Apply the correct typing to "derivedProperties", in case it wasn't already done.
+        // Specifically if any of the derived properties are functions, this will call them to convert them to DerivedProperty instances.
+        // (vnt as any).derivedProperties = this.hasDerivedProperties(vnt.derivedProperties);
+        for (const propName in vnt.derivedProperties) {
+            const value = vnt.derivedProperties[propName];
+            if (typeof value === "function") {
+                const derivedProp = value(vnt, propName);
+                vnt.derivedProperties[propName] = derivedProp;
+            }
+            if (!(vnt.derivedProperties[propName] instanceof DerivedProperty)) {
+                throw new Error(`On VNode type ${vnt.name}, derived property ${propName} is invalid - its declared function did not return a DerivedProperty instance.`);
             }
         }
-        return Object.freeze(newSchema);
     }
 }
 

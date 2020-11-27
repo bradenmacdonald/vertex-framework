@@ -9,6 +9,9 @@ import { NominalType } from "../lib/ts-utils";
 import { UUID } from "../lib/uuid";
 import { BaseVNodeType, RawVNode, ValidationError } from "../layer2/vnode-base";
 import { WrappedTransaction } from "../transaction";
+import { C } from "../layer2/cypher-sugar";
+// Unfortunately we have to "cheat" a bit and use VNodeType from layer 4 here instead of BaseVNodeType:
+import { VNodeType } from "../layer4/vnode";
 
 
 // A type of action, e.g. 'createUser'
@@ -108,10 +111,11 @@ export function getActionImplementation(type: ActionType): ActionImplementation|
 }
 
 
-export class Action extends BaseVNodeType {
+@VNodeType.declare
+export class Action extends VNodeType {
     static label = "Action";
     static readonly properties = {
-        ...BaseVNodeType.properties,
+        ...VNodeType.properties,
         // The action type, e.g. "Create Article", "Delete User", etc.
         type: Joi.string().required(),
         // The JSON data that defines the action, and contains enough data to undo it.
@@ -129,16 +133,29 @@ export class Action extends BaseVNodeType {
             throw new ValidationError("Invalid JSON in Action data.");
         }
     }
-    static readonly rel = Action.hasRelationshipsFromThisTo({
+    static readonly rel = {
         /** What VNodes were modified by this action */
-        MODIFIED: {},
+        MODIFIED: { to: [BaseVNodeType] },
         /** This Action reverted another one */
         REVERTED: {
             to: [Action],
         },
-    });
-    // In layer 4, this class is extended to include some virtual properties.
-    // Hence this base class is not registered using registerVNodeType(), as
-    // ActionWithVirtualProperties is used instead at runtime.
+    };
+
+    /////// The following is "forwards compatible" with functionality introduced in layer 4, but explicitly doesn't
+    /////// import any layer 4 functionality:
+    static readonly virtualProperties = {
+        revertedBy: {
+            type: "one-relationship" as const,
+            query: C`(@target:${Action})-[:${Action.rel.REVERTED}]->(@this)`,
+            target: Action,
+        },
+        revertedAction: {
+            type: "one-relationship" as const,
+            query: C`(@this)-[:${Action.rel.REVERTED}]->(@target:${Action})`,
+            target: Action,
+        },
+    };
+    static readonly derivedProperties = {};
+    /////// End layer 4 compatiblity
 }
-// registerVNodeType(Action); is not called, on purpose ^

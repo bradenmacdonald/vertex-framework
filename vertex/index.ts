@@ -36,12 +36,10 @@ export {
     ShortIdProperty,
     UuidProperty,
     // BaseVNodeType - internal use only: we use VNodeType (from layer 4) in its place
-    VNodeRelationship,
+    RelationshipDeclaration,
     ValidationError,
     //getVNodeType - redefined in layer 4
     //isBaseVNodeType - internal use only
-    registerVNodeType,
-    unregisterVNodeType,  // for tests only
 } from "./layer2/vnode-base";
 
 export {
@@ -57,7 +55,7 @@ export {
 } from "./layer3/data-request";
 
 export {
-    // Action: we use ActionWithVirtualProperties (from layer 4) in its place
+    Action,
     ActionData,
     ActionImplementation,
     ActionResult,
@@ -82,10 +80,6 @@ export {
 //// Layer 4 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
-    ActionWithVirtualProperties as Action,
-} from "./layer4/action";
-
-export {
     VirtualManyRelationshipProperty,
     VirtualOneRelationshipProperty,
     VirtualCypherExpressionProperty,
@@ -95,6 +89,7 @@ export {
 } from "./layer4/virtual-props";
 
 export {
+    DerivedProperty,
     DerivedPropertyFactory,
 } from "./layer4/derived-props";
 

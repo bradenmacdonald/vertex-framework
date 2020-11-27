@@ -4,16 +4,15 @@ import {
     C,
     UUID,
     VNodeType,
-    registerVNodeType,
-    unregisterVNodeType,
     ShortIdProperty,
 } from "..";
 import { defaultCreateFor, defaultUpdateActionFor } from "./action-templates";
 import { testGraph } from "../test-project";
 
 /** A VNodeType for use in this test suite. */
+@VNodeType.declare
 class AstronomicalBody extends VNodeType {
-    static label = "AstroBody";
+    static label = "AstroBodyAT";  // AT = Action Templates test
     static readonly properties = {
         ...VNodeType.properties,
         shortId: ShortIdProperty,
@@ -21,16 +20,17 @@ class AstronomicalBody extends VNodeType {
     };
 }
 
+@VNodeType.declare
 class Planet extends AstronomicalBody {
-    static label = "Planet";
+    static label = "PlanetAT";  // AT = Action Templates test
     static readonly properties = {
         ...AstronomicalBody.properties,
         numberOfMoons: Joi.number(),
     };
-    static readonly rel = Planet.hasRelationshipsFromThisTo({
+    static readonly rel = {
         /** This planet has moon(s) */
         HAS_MOON: { to: [AstronomicalBody] },
-    });
+    };
 }
 
 const CreateAstroBody = defaultCreateFor(AstronomicalBody, ab => ab.shortId.mass);
@@ -59,20 +59,9 @@ const UpdatePlanet = defaultUpdateActionFor(Planet, p => p.shortId.mass.numberOf
 const CreatePlanet = defaultCreateFor(Planet, p => p.shortId.mass, UpdatePlanet);
 
 
-suite("action templates", () => {
+suite(__filename, () => {
 
     configureTestData({isolateTestWrites: true, loadTestProjectData: false});
-
-    before(() => {
-        registerVNodeType(AstronomicalBody);
-        registerVNodeType(Planet);
-    });
-
-    after(() => {
-        unregisterVNodeType(AstronomicalBody);
-        unregisterVNodeType(Planet);
-    });
-
 
     suite("defaultCreateFor", () => {
 
@@ -136,7 +125,7 @@ suite("action templates", () => {
                 CreatePlanet({shortId: "Earth", mass: 9000})
             );
             const result = await testGraph.read(tx => tx.query(C`MATCH (p:${Planet} {uuid: ${uuid}})`.RETURN({"labels(p)": {list: "string"} })));
-            assert.sameMembers(result[0]["labels(p)"], ["Planet", "AstroBody", "VNode"]);
+            assert.sameMembers(result[0]["labels(p)"], ["PlanetAT", "AstroBodyAT", "VNode"]);
         })
 
         test("it can set properties via the Update action", async () => {

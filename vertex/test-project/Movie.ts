@@ -3,12 +3,10 @@ import {
     C,
     defaultUpdateActionFor,
     defaultCreateFor,
-    registerVNodeType,
     VNodeType,
     VNodeTypeRef,
     ShortIdProperty,
     VirtualPropType,
-    VNodeRelationship,
 } from "../";
 
 // When necessary to avoid circular references, this pattern can be used to create a "Forward Reference" to a VNodeType:
@@ -19,32 +17,32 @@ import { MovieFranchise } from "./MovieFranchise";
 /**
  * A Movie VNode for testing
  */
+@VNodeType.declare
 export class Movie extends VNodeType {
-    static readonly label = "TestMovie";
-    static readonly properties = {
+    static label = "TestMovie";
+    static properties = {
         ...VNodeType.properties,
         shortId: ShortIdProperty,
         title: Joi.string().required(),
         year: Joi.number().integer().min(1888).max(2200).required(),
     };
-    static readonly defaultOrderBy = "@this.year DESC";
-    static readonly rel = Movie.hasRelationshipsFromThisTo({
+    static defaultOrderBy = "@this.year DESC";
+    static rel = VNodeType.hasRelationshipsFromThisTo({
         /** This Movie is part of a franchise */
         FRANCHISE_IS: {
             to: [MovieFranchise],
             properties: {},
-            cardinality: VNodeRelationship.Cardinality.ToOneOrNone,
+            cardinality: VNodeType.Rel.ToOneOrNone,
         },
     });
-    static readonly virtualProperties = {
+    static virtualProperties = VNodeType.hasVirtualProperties({
         franchise: {
             type: VirtualPropType.OneRelationship,
             query: C`(@this)-[:${Movie.rel.FRANCHISE_IS}]->(@target:${MovieFranchise})`,
             target: MovieFranchise,
         },
-    };
+    });
 }
-registerVNodeType(Movie);
 
 interface UpdateMovieExtraArgs {
     franchiseId?: string|null;
