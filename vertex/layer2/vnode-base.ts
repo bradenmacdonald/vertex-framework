@@ -22,16 +22,16 @@ export const emptyObj = Object.freeze({});
 const relTypeKey = Symbol("relTypeKey");
 
 
-interface RelationshipsDeclaration {
+export interface RelationshipsDeclaration {
     [RelName: string]: RelationshipDeclaration;
 }
 /** Interface used to declare each relationship that can come *from* this VNodeType to other VNodes */
 export interface RelationshipDeclaration {
     /**
      * This relationship is allowed to point _to_ VNodes of these types.
-     * Omit if it can point to any VNode.
+     * Use [VNodeType] itself to mean "Any VNodeType"
      */
-    to?: ReadonlyArray<BaseVNodeType>;
+    to: ReadonlyArray<{new(): _BaseVNodeType;label: string}>; // Would prefer to use ReadonlyArray<BaseVNodeType>, but it causes circular type issues when used with the hasRelationshipsFromThisTo helper function
     /** The properties that are expected/allowed on this relationship */
     properties?: Readonly<PropSchema>;
     /** Cardinality: set restrictions on how many nodes this relationship can point to. */
@@ -53,9 +53,8 @@ enum Cardinality {
     ToManyUnique = ":*u",
 }
 
-
 /**
- * Abstract base class for a "VNode".
+ * Base class for a "VNode".
  * A VNode is a node in the Neo4j graph that follows certain rules:
  *   - Every VNode is uniquely identified by a UUID
  *   - Every VNode optionally has a "shortId" string key; the shortId can be changed but previously used shortIds
@@ -67,7 +66,7 @@ enum Cardinality {
  * This class is not exposed directly in the public API for Vertex Framework. Instead, use the VNodeType class declared
  * in layer 4.
  */
-abstract class _BaseVNodeType {
+class _BaseVNodeType {
     public constructor() { throw new Error("VNodeType should never be instantiated. Use it statically only."); }
     static label = "VNode";
     static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
@@ -160,13 +159,11 @@ abstract class _BaseVNodeType {
 
         // Check for annoying circular references that TypeScript can't catch:
         Object.values(vnt.rel).forEach(rel => {
-            if (rel.to) {
-                rel.to.forEach((targetVNT, idx) => {
-                    if (targetVNT === undefined) {
-                        throw new Error(`Circular reference in ${vnt.name} definition: relationship ${getRelationshipType(rel)}.to[${idx}] is undefined.`);
-                    }
-                });
-            }
+            rel.to.forEach((targetVNT, idx) => {
+                if (targetVNT === undefined) {
+                    throw new Error(`Circular reference in ${vnt.name} definition: relationship ${getRelationshipType(rel)}.to[${idx}] is undefined.`);
+                }
+            });
         });
 
         // Store the "type" (name/label) of each relationship in its definition, so that when parts of the code

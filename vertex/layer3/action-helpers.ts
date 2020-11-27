@@ -35,7 +35,7 @@ export async function updateToOneRelationship<VNR extends RelationshipDeclaratio
     if (fromType.rel[relType] !== rel) {
         throw new Error(`Mismatch between relationship ${relType} and VNodeType ${fromType.label} which doesn't declare that exact relationship.`);
     }
-    const targetLabels = rel.to?.map(tn => tn.label) || ["VNode"];
+    const targetLabels = rel.to.map(tn => tn.label);
 
     if (toKey === null) {
         // We want to clear this x:1 relationship (set it to null)
@@ -118,7 +118,7 @@ export async function updateToManyRelationship<VNR extends RelationshipDeclarati
         throw new Error(`Mismatch between relationship ${relType} and VNodeType ${fromType.label} which doesn't declare that exact relationship.`);
     }
 
-    const targetLabels = rel.to?.map(tn => tn.label) || ["VNode"];
+    const targetLabels = rel.to.map(tn => tn.label);
 
     // Query the existing target node(s). (In an "IS_A" relationship, "target" means "parent")
     const relResult = await tx.query(C`

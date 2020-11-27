@@ -23,7 +23,7 @@ export class Person extends VNodeType {
         name: Joi.string(),
         dateOfBirth: Joi.date().iso(),//.options({convert: false}),
     };
-    static rel = {
+    static readonly rel = VNodeType.hasRelationshipsFromThisTo({
         /** This Person acted in a given movie */
         ACTED_IN: {
             to: [Movie],
@@ -37,7 +37,7 @@ export class Person extends VNodeType {
             properties: {},
             cardinality: VNodeType.Rel.ToManyUnique,
         },
-    };
+    });
     static virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,

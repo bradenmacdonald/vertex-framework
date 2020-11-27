@@ -134,7 +134,7 @@ export class Action extends BaseVNodeType {
     }
     static readonly rel = {
         /** What VNodes were modified by this action */
-        MODIFIED: {},
+        MODIFIED: { to: [BaseVNodeType] },
         /** This Action reverted another one */
         REVERTED: {
             to: [Action],
