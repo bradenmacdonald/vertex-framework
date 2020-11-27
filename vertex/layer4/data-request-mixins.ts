@@ -36,6 +36,10 @@ export type ConditionalRawPropsMixin<
 
 ///////////////// VirtualPropsMixin ////////////////////////////////////////////////////////////////////////////////////
 
+type VPTarget<VirtProp extends VirtualManyRelationshipProperty|VirtualOneRelationshipProperty> = (
+    VirtProp["target"] extends BaseVNodeType ? VirtProp["target"] : never
+);
+
 /** Allow requesting virtual properties, optionally based on whether or not a flag is set */
 export type VirtualPropsMixin<
     VNT extends VNodeTypeWithVirtualProps,
@@ -44,10 +48,10 @@ export type VirtualPropsMixin<
     [propName in keyof VNT["virtualProperties"]]://Omit<VNT["virtualProperties"], keyof includedVirtualProps>]:
         VNT["virtualProperties"][propName] extends VirtualManyRelationshipProperty ?
             // For each x:many virtual property, add a method for requesting that virtual property:
-            <ThisRequest, SubSpec extends BaseDataRequest<VNT["virtualProperties"][propName]["target"], any, any>, FlagType extends string|undefined = undefined>
+            <ThisRequest, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
             // This is the method:
             (this: ThisRequest,
-                subRequest: (buildSubrequest: BaseDataRequest<VNT["virtualProperties"][propName]["target"], never, ResetMixins<ThisRequest, VNT["virtualProperties"][propName]["target"] & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]> >>) => SubSpec,
+                subRequest: (buildSubrequest: BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, never, ResetMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]> & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]> >>) => SubSpec,
                 options?: {ifFlag?: FlagType}
             ) => (
                 UpdateMixin<VNT, ThisRequest,
@@ -60,8 +64,8 @@ export type VirtualPropsMixin<
 
         : VNT["virtualProperties"][propName] extends VirtualOneRelationshipProperty ?
             // For each x:one virtual property, add a method for requesting that virtual property:
-            <ThisRequest, SubSpec extends BaseDataRequest<VNT["virtualProperties"][propName]["target"], any, any>, FlagType extends string|undefined = undefined>
-            (this: ThisRequest, subRequest: (buildSubequest: BaseDataRequest<VNT["virtualProperties"][propName]["target"], never, ResetMixins<ThisRequest, VNT["virtualProperties"][propName]["target"]>>) => SubSpec, options?: {ifFlag: FlagType}) => (
+            <ThisRequest, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
+            (this: ThisRequest, subRequest: (buildSubequest: BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, never, ResetMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]>>>) => SubSpec, options?: {ifFlag: FlagType}) => (
                 UpdateMixin<VNT, ThisRequest,
                     VirtualPropsMixin<VNT, includedVirtualProps>,
                     VirtualPropsMixin<VNT, includedVirtualProps & {
@@ -97,13 +101,13 @@ type RecursiveVirtualPropRequest<VNT extends VNodeTypeWithVirtualProps> = {
     )
 }
 
-export type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends BaseDataRequest<propType["target"], any, any>> = {
+export type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends BaseDataRequest<VPTarget<propType>, any, any>> = {
     ifFlag: string|undefined,
     spec: Spec,
     type: "many",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
 
-export type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends BaseDataRequest<propType["target"], any, any>> = {
+export type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends BaseDataRequest<VPTarget<propType>, any, any>> = {
     ifFlag: string|undefined,
     spec: Spec,
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
