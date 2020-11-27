@@ -4,23 +4,11 @@ import { ActionWithVirtualProperties as Action } from "./layer4/action";
 import { runAction } from "./layer3/action-runner";
 import { log } from "./lib/log";
 import { UUID } from "./lib/uuid";
-import { pull, PullNoTx, pullOne, PullOneNoTx } from "./layer4/pull";
+import { PullNoTx, PullOneNoTx } from "./layer4/pull";
 import { migrations as coreMigrations } from "./layer2/schema";
 import { migrations as actionMigrations, SYSTEM_UUID } from "./layer3/schema";
 import { WrappedTransaction } from "./transaction";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
-import { query, queryOne } from "./layer2/query";
-
-
-/** Wrap a Neo4j Transaction with some convenience methods. */
-export function wrapTransaction(tx: Transaction): WrappedTransaction {
-    const mutableTx: any = tx;
-    mutableTx.query = (q: any) => query(q, tx);
-    mutableTx.queryOne = (q: any) => queryOne(q, tx);
-    mutableTx.pull = (a: any, b: any, c: any) => pull(tx as any, a, b, c);
-    mutableTx.pullOne = (a: any, b: any, c: any) => pullOne(tx as any, a, b, c);
-    return mutableTx;
-}
 
 
 export interface InitArgs {
@@ -56,7 +44,7 @@ export class Vertex implements VertexCore {
         const session = this.driver.session({defaultAccessMode: "READ"});
         let result: T;
         try {
-            result = await session.readTransaction(tx => code(wrapTransaction(tx)));
+            result = await session.readTransaction(tx => code(new WrappedTransaction(tx)));
         } finally {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             session.close();
@@ -126,7 +114,7 @@ export class Vertex implements VertexCore {
         const session = this.driver.session({defaultAccessMode: "WRITE"});
         let result: T;
         try {
-            result = await session.writeTransaction(tx => code(wrapTransaction(tx)));
+            result = await session.writeTransaction(tx => code(new WrappedTransaction(tx)));
         } finally {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             session.close();

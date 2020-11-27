@@ -9,8 +9,8 @@ import {
     unregisterVNodeType,
     defineAction,
     SYSTEM_UUID,
+    GenericCypherAction,
 } from "..";
-import { CypherQuery } from "../layer2/cypher-sugar";
 
 class AstronomicalBody extends VNodeType {
     static label = "AstroBody";
@@ -39,17 +39,6 @@ const GenericCreateAction = defineAction<{labels: string[], data: any}, {uuid: U
     },
     invert: (data, resultData) => null,
 });
-
-/** A generic create action that can run arbitrary cypher */
-const GenericCypherAction = defineAction<{cypher: CypherQuery, modifiedNodes: UUID[]}, {/* no result */}>({
-    type: `GenericCypherActionForART`,  // for Action Runner Tests
-    apply: async (tx, data) => {
-        await tx.query(data.cypher);
-        return { resultData: {}, modifiedNodes: data.modifiedNodes, };
-    },
-    invert: (data, resultData) => null,
-});
-
 
 suite("action runner", () => {
 
@@ -179,7 +168,7 @@ suite("action runner", () => {
         const cypher = C`MATCH (ab:${AstronomicalBody} {uuid: ${uuid}}) SET ab.mass = 5`;
         await assertRejects(
             testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: []})),
-            "A :AstroBody node was modified by this GenericCypherActionForART action (modified property mass) but not explicitly marked as modified by the Action.",
+            "A :AstroBody node was modified by this GenericCypherAction action (modified property mass) but not explicitly marked as modified by the Action.",
         );
         // Then it should work if it does mark the node as modified:
         await testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: [uuid]}));

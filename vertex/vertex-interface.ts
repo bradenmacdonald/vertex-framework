@@ -1,4 +1,3 @@
-import { Transaction } from "neo4j-driver";
 import { WrappedTransaction } from "./transaction";
 
 /**
@@ -22,7 +21,7 @@ export interface VertexCore {
     reverseAllMigrations(): Promise<void>;
 }
 
-type dbWriteType = <T>(code: (tx: Transaction) => Promise<T>) => Promise<T>;
+type dbWriteType = <T>(code: (tx: WrappedTransaction) => Promise<T>) => Promise<T>;
 
 export interface Migration {
     forward: (dbWrite: dbWriteType) => Promise<any>;

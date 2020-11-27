@@ -134,7 +134,7 @@ type VirtualCypherExpressionPropertyForRelationshipProp<Prop> = (
     // appears as a VirtualCypherExpressionProperty on the Movie VNode when accessed via the "person.movies.role"
     // virtual property, even though there is normally no "movies.role" virtual property.)
     Omit<VirtualCypherExpressionProperty, "valueType"> & {
-        // We don't really enforce relationship properties or know when they're nullable so assume they can always be null:
+        // We can't tell from typescript when Joi properties are nullable or not so assume they can always be null:
         valueType: {nullOr: (
             // "Prop" is the property definition (Joi validator) defined in the VNode.relationshipsFrom section
             Prop extends Joi.StringSchema ? "string" :

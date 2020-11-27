@@ -69,8 +69,11 @@ export {
     defaultCreateFor,
     defaultDeleteAndUnDeleteFor,
     defaultUpdateActionFor,
-    updateToOneRelationship,
 } from "./layer3/action-templates";
+
+export {
+    GenericCypherAction,
+} from "./layer3/action-generic";
 
 export {
     SYSTEM_UUID

@@ -283,6 +283,9 @@ function addDerivedPropertiesToResult(resultData: any, requestData: DataRequestS
                 addDerivedPropertiesToResult(subResultData, shapeData, filter);
             });
         } else if (propDefn.type === VirtualPropType.OneRelationship) {
+            if (resultData[propName] === null) {
+                return;
+            }
             addDerivedPropertiesToResult(resultData[propName], shapeData, filter);
         }
     });

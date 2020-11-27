@@ -3,12 +3,12 @@ import {
     C,
     defaultUpdateActionFor,
     defaultCreateFor,
-    updateToOneRelationship,
     registerVNodeType,
     VNodeType,
     VNodeTypeRef,
     ShortIdProperty,
     VirtualPropType,
+    VNodeRelationship,
 } from "../";
 
 // When necessary to avoid circular references, this pattern can be used to create a "Forward Reference" to a VNodeType:
@@ -33,6 +33,7 @@ export class Movie extends VNodeType {
         FRANCHISE_IS: {
             to: [MovieFranchise],
             properties: {},
+            cardinality: VNodeRelationship.Cardinality.ToOneOrNone,
         },
     });
     static readonly virtualProperties = {
@@ -53,15 +54,11 @@ export const UpdateMovie = defaultUpdateActionFor(Movie, m => m.shortId.title.ye
     otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot, changes) => {
         const previousValues: Partial<UpdateMovieExtraArgs> = {};
         if (args.franchiseId !== undefined) {
-            const {previousUuid} = await updateToOneRelationship({
-                fromType: Movie,
-                uuid: nodeSnapshot.uuid,
-                tx,
+            await tx.updateToOneRelationship({
+                from: [Movie, nodeSnapshot.uuid],
                 rel: Movie.rel.FRANCHISE_IS,
-                newId: args.franchiseId,
-                allowNull: true,
-            });
-            previousValues.franchiseId = previousUuid;
+                to: args.franchiseId,
+            }).then(({prevTo}) => previousValues.franchiseId = prevTo.key);
         }
         return {
             additionalModifiedNodes: [],
