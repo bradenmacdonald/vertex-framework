@@ -147,7 +147,27 @@ abstract class _BaseVNodeType {
         }
     }
 
+    /** Validate a VNodeType's declaration and register it, so it can be loaded at runtime using only its label. */
     static declare<T extends BaseVNodeType>(vnt: T): T {
+
+        if (vnt.properties.uuid !== UuidProperty) {
+            throw new Error(`${vnt.name} VNodeType does not inherit the required uuid property from the base class.`);
+        }
+
+        if ("shortId" in vnt.properties && vnt.properties.shortId !== ShortIdProperty) {
+            throw new Error(`If a VNode declares a shortId property, it must use the global ShortIdProperty definition.`);
+        }
+
+        // Check for annoying circular references that TypeScript can't catch:
+        Object.values(vnt.rel).forEach(rel => {
+            if (rel.to) {
+                rel.to.forEach((targetVNT, idx) => {
+                    if (targetVNT === undefined) {
+                        throw new Error(`Circular reference in ${vnt.name} definition: relationship ${getRelationshipType(rel)}.to[${idx}] is undefined.`);
+                    }
+                });
+            }
+        });
 
         // Store the "type" (name/label) of each relationship in its definition, so that when parts of the code
         // reference a relationship like SomeVNT.rel.FOO_BAR, we can get the name "FOO_BAR" from that value, even though
@@ -256,22 +276,6 @@ function registerVNodeType(vnt: BaseVNodeType): void {
     if (registeredNodeTypes[vnt.label] !== undefined) {
         throw new Error(`Duplicate VNodeType label: ${vnt.label}`);
     }
-    if (vnt.properties.uuid !== UuidProperty) {
-        throw new Error(`${vnt.name} VNodeType does not inherit the required uuid property from the base class.`);
-    }
-    if ("shortId" in vnt.properties && vnt.properties.shortId !== ShortIdProperty) {
-        throw new Error(`If a VNode declares a shortId property, it must use the global ShortIdProperty definition.`);
-    }
-    // Check for annoying circular references that TypeScript can't catch:
-    Object.values(vnt.rel).forEach(rel => {
-        if (rel.to) {
-            rel.to.forEach((targetVNT, idx) => {
-                if (targetVNT === undefined) {
-                    throw new Error(`Circular reference in ${vnt.name} definition: relationship ${getRelationshipType(rel)}.to[${idx}] is undefined.`);
-                }
-            });
-        }
-    });
     registeredNodeTypes[vnt.label] = vnt;
 }
 

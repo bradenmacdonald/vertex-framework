@@ -19,8 +19,8 @@ export interface VNodeType extends VNodeTypeWithVirtualProps {
  */
 export abstract class VNodeType extends BaseVNodeType {
 
-    static readonly virtualProperties = emptyObj;
-    static readonly derivedProperties = emptyObj;
+    static readonly virtualProperties: VirtualPropsSchema = emptyObj;
+    static readonly derivedProperties: DerivedPropsSchema = emptyObj;
 
     /**
      * Helper method used to declare derived properties with correct typing. Do not override this.
