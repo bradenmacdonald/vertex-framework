@@ -27,21 +27,21 @@ export class Movie extends VNodeType {
         year: Joi.number().integer().min(1888).max(2200).required(),
     };
     static defaultOrderBy = "@this.year DESC";
-    static rel = {
+    static rel = VNodeType.hasRelationshipsFromThisTo({
         /** This Movie is part of a franchise */
         FRANCHISE_IS: {
             to: [MovieFranchise],
             properties: {},
             cardinality: VNodeType.Rel.ToOneOrNone,
         },
-    };
-    static virtualProperties = {
+    });
+    static virtualProperties = VNodeType.hasVirtualProperties({
         franchise: {
             type: VirtualPropType.OneRelationship,
             query: C`(@this)-[:${Movie.rel.FRANCHISE_IS}]->(@target:${MovieFranchise})`,
             target: MovieFranchise,
         },
-    };
+    });
 }
 
 interface UpdateMovieExtraArgs {

@@ -21,13 +21,13 @@ export class MovieFranchise extends VNodeType {
         name: Joi.string().required(),
     };
     static defaultOrderBy = "@this.name";
-    static virtualProperties = {
+    static virtualProperties = VNodeType.hasVirtualProperties({
         movies: {
             type: VirtualPropType.ManyRelationship,
             query: C`(@this)<-[:${Movie.rel.FRANCHISE_IS}]-(@target:${Movie})`,
             target: Movie,
         },
-    };
+    });
 }
 
 // Note: for MovieFranchise, we test having only a Create action; no update.

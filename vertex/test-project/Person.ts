@@ -38,7 +38,7 @@ export class Person extends VNodeType {
             cardinality: VNodeType.Rel.ToManyUnique,
         },
     });
-    static virtualProperties = {
+    static virtualProperties = VNodeType.hasVirtualProperties({
         movies: {
             type: VirtualPropType.ManyRelationship,
             query: C`(@this)-[@rel:${Person.rel.ACTED_IN}]->(@target:${Movie})`,
@@ -68,7 +68,7 @@ export class Person extends VNodeType {
             cypherExpression: C`duration.between(date(@this.dateOfBirth), date()).years`,
             valueType: "number" as const,
         }
-    };
+    });
     static defaultOrderBy = "@this.name";
 
     static derivedProperties = Person.hasDerivedProperties({

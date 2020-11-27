@@ -55,7 +55,7 @@ export {
 } from "./layer3/data-request";
 
 export {
-    // Action: we use ActionWithVirtualProperties (from layer 4) in its place
+    Action,
     ActionData,
     ActionImplementation,
     ActionResult,
@@ -78,10 +78,6 @@ export {
 } from "./layer3/schema";
 
 //// Layer 4 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export {
-    ActionWithVirtualProperties as Action,
-} from "./layer4/action";
 
 export {
     VirtualManyRelationshipProperty,

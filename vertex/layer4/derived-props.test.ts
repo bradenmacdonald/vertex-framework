@@ -22,16 +22,16 @@ class Employee extends VNodeType {
         shortId: ShortIdProperty,
     };
 
-    static readonly virtualProperties = {
+    static virtualProperties = Employee.hasVirtualProperties({
         createAction: {
             // Get the Action that originally created this employee
             type: VirtualPropType.OneRelationship,
             query: C`(@target:${Action} {type: "CreateEmployee"})-[:${Action.rel.MODIFIED}]->(@this)`,
             target: Action,
         },
-    };
+    });
 
-    static readonly derivedProperties = Employee.hasDerivedProperties({
+    static derivedProperties = Employee.hasDerivedProperties({
         yearsWithCompany,
     });
 }

@@ -108,7 +108,8 @@ export function buildCypherQuery<Request extends BaseDataRequest<any, any, any>>
 
     /** Add an OPTIONAL MATCH clause to join each current node to many other nodes via some x:many relationship */
     const addManyRelationshipSubquery = (variableName: string, virtProp: VirtualManyRelationshipProperty, parentNodeVariable: string, request: DataRequestState): void => {
-        const newTargetVar = generateNameFor(virtProp.target);
+        const targetVNT = virtProp.target as any as VNodeType;  // Typing of this is a bit weird, to allow the optional VNodeType.hasVirtualProperties() method to work without circular type issues.
+        const newTargetVar = generateNameFor(targetVNT);
         workingVars.add(newTargetVar);
         if (Object.keys(virtProp.query.params).length) {
             throw new Error(`A virtual property query clause cannot have parameters.`);
@@ -133,7 +134,7 @@ export function buildCypherQuery<Request extends BaseDataRequest<any, any, any>>
         const virtPropsMap = addVirtualPropsForNode(newTargetVar, request, relationshipVariable);
 
         // Order the results of this subquery (has to happen immediately before the WITH...collect() line):
-        const orderBy = virtProp.defaultOrderBy || virtProp.target.defaultOrderBy;
+        const orderBy = virtProp.defaultOrderBy || targetVNT.defaultOrderBy;
         if (orderBy) {
             // TODO: allow ordering by properties of the relationship
             const orderExpression = orderBy.replace("@this", newTargetVar).replace("@rel", relationshipVariable || "@rel");
@@ -156,7 +157,7 @@ export function buildCypherQuery<Request extends BaseDataRequest<any, any, any>>
 
     /** Add an subquery clause to join each current node to at most one other node via some x:one relationship */
     const addOneRelationshipSubquery = (variableName: string, virtProp: VirtualOneRelationshipProperty, parentNodeVariable: string, request: DataRequestState): void => {
-        const newTargetVar = generateNameFor(virtProp.target);
+        const newTargetVar = generateNameFor(virtProp.target as any as VNodeType);
         workingVars.add(newTargetVar);
 
         if (Object.keys(virtProp.query.params).length) {

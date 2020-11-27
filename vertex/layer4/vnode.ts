@@ -27,8 +27,13 @@ export abstract class VNodeType extends BaseVNodeType {
         return relationships;
     }
 
+    /** Completely optional helper method to declare a VNodeType's "virtualProperties" with correct typing. */
+    static hasVirtualProperties<VPS extends VirtualPropsSchema>(props: VPS): VPS {
+        return props;
+    }
+
     /**
-     * Helper method used to declare derived properties with correct typing. Do not override this.
+     * Required helper method used to declare derived properties with correct typing.
      * Usage:
      *     static readonly derivedProperties = MyVNodeType.hasDerivedProperties({
      *         propName,

@@ -109,7 +109,7 @@ export const virtualPropsMixinImplementation: MixinImplementation = (dataRequest
             // Operation to add a virtual property to the request:
             if (virtualProp.type === VirtualPropType.ManyRelationship || virtualProp.type === VirtualPropType.OneRelationship) {
                 // Return a method that can be used to build the request for this virtual property type
-                const targetVNodeType = virtualProp.target;
+                const targetVNodeType = virtualProp.target as any as VNodeType;  // Typing of this is a bit weird, to allow the optional VNodeType.hasVirtualProperties() method to work without circular type issues.
                 return (buildSubRequest: (subRequest: BaseDataRequest<typeof targetVNodeType, never, any>) => BaseDataRequest<typeof targetVNodeType, any, any>, options?: {ifFlag: string|undefined}) => {
                     // Build the subrequest:
 
