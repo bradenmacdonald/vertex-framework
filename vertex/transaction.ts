@@ -1,6 +1,6 @@
 import type { Result, Transaction } from "neo4j-driver";
 import QueryRunner from "neo4j-driver/types/query-runner";
-import { UUID, VNodeRelationship } from ".";
+import { UUID, RelationshipDeclaration } from ".";
 
 import type { CypherQuery, QueryResponse } from "./layer2/cypher-sugar";
 import { query, queryOne } from "./layer2/query";
@@ -32,7 +32,7 @@ export class WrappedTransaction implements QueryRunner {
     
     public pullOne: PullOneNoTx = ((a: any, b: any, c: any) => pullOne(this, a, b, c)) as any;
 
-    public updateToOneRelationship<VNR extends VNodeRelationship>(args: {
+    public updateToOneRelationship<VNR extends RelationshipDeclaration>(args: {
         from: [vnt: VNodeType, uuid: UUID],
         rel: VNR,
         to: string|null|OneRelationshipSpec<VNR>,
@@ -40,7 +40,7 @@ export class WrappedTransaction implements QueryRunner {
         return updateToOneRelationship(this, args);
     }
 
-    public updateToManyRelationship<VNR extends VNodeRelationship>(args: {
+    public updateToManyRelationship<VNR extends RelationshipDeclaration>(args: {
         from: [vnt: VNodeType, uuid: UUID],
         rel: VNR,
         to: RelationshipSpec<VNR>[],

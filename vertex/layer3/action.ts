@@ -108,6 +108,9 @@ export function getActionImplementation(type: ActionType): ActionImplementation|
 }
 
 
+// @VNodeType.declare is not called, on purpose.
+// In layer 4, this class is extended to include some virtual properties, and it is "declared" there.
+// ActionWithVirtualProperties is used in place of this class at runtime.
 export class Action extends BaseVNodeType {
     static label = "Action";
     static readonly properties = {
@@ -129,16 +132,12 @@ export class Action extends BaseVNodeType {
             throw new ValidationError("Invalid JSON in Action data.");
         }
     }
-    static readonly rel = Action.hasRelationshipsFromThisTo({
+    static readonly rel = {
         /** What VNodes were modified by this action */
         MODIFIED: {},
         /** This Action reverted another one */
         REVERTED: {
             to: [Action],
         },
-    });
-    // In layer 4, this class is extended to include some virtual properties.
-    // Hence this base class is not registered using registerVNodeType(), as
-    // ActionWithVirtualProperties is used instead at runtime.
+    };
 }
-// registerVNodeType(Action); is not called, on purpose ^

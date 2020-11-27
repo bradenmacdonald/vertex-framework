@@ -5,26 +5,25 @@ import {
     defaultUpdateActionFor,
     defineAction,
     DerivedPropertyFactory,
-    registerVNodeType,
     ShortIdProperty,
     VirtualPropType,
     VNodeType,
-    VNodeRelationship,
 } from "../";
 import { Movie } from "./Movie";
 
 /**
  * A Person VNode type
  */
+@VNodeType.declare
 export class Person extends VNodeType {
-    static readonly label = "TestPerson";
-    static readonly properties = {
+    static label = "TestPerson";
+    static properties = {
         ...VNodeType.properties,
         shortId: ShortIdProperty,
         name: Joi.string(),
         dateOfBirth: Joi.date().iso(),//.options({convert: false}),
     };
-    static readonly rel = Person.hasRelationshipsFromThisTo({
+    static rel = {
         /** This Person acted in a given movie */
         ACTED_IN: {
             to: [Movie],
@@ -36,10 +35,10 @@ export class Person extends VNodeType {
         FRIEND_OF: {
             to: [Person],
             properties: {},
-            cardinality: VNodeRelationship.Cardinality.ToManyUnique,
+            cardinality: VNodeType.Rel.ToManyUnique,
         },
-    });
-    static readonly virtualProperties = {
+    };
+    static virtualProperties = {
         movies: {
             type: VirtualPropType.ManyRelationship,
             query: C`(@this)-[@rel:${Person.rel.ACTED_IN}]->(@target:${Movie})`,
@@ -70,13 +69,12 @@ export class Person extends VNodeType {
             valueType: "number" as const,
         }
     };
-    static readonly defaultOrderBy = "@this.name";
+    static defaultOrderBy = "@this.name";
 
-    static readonly derivedProperties = Person.hasDerivedProperties({
+    static derivedProperties = Person.hasDerivedProperties({
         ageJS,
     });
 }
-registerVNodeType(Person);
 
 /**
  * Compute the person's age in JavaScript (as opposed to in Cypher, like the .age virtual property does.)

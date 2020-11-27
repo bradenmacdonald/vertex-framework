@@ -11,41 +11,40 @@ import {
     C,
     UUID,
     VNodeType,
-    registerVNodeType,
-    unregisterVNodeType,
     ShortIdProperty,
-    VNodeRelationship,
     GenericCypherAction,
 } from "..";
 
+@VNodeType.declare
 class BirthCertificate extends VNodeType {
     static label = "BirthCertRVT";  // RVT: Relationship Validation Tests
     static readonly properties = {...VNodeType.properties};
 }
 
+@VNodeType.declare
 class Person extends VNodeType {
     static label = "PersonRVT";  // RVT: Relationship Validation Tests
     static readonly properties = {...VNodeType.properties, shortId: ShortIdProperty};
-    static readonly rel = Person.hasRelationshipsFromThisTo({
+    static readonly rel = {
         HAS_BIRTH_CERT: {
             to: [BirthCertificate],
-            cardinality: VNodeRelationship.Cardinality.ToOneRequired,  // Every person must have a birth certificate
+            cardinality: VNodeType.Rel.ToOneRequired,  // Every person must have a birth certificate
         },
         HAS_FRIEND: {
             to: [Person],
-            cardinality: VNodeRelationship.Cardinality.ToManyUnique,
+            cardinality: VNodeType.Rel.ToManyUnique,
             properties: {
                 friendsSince: Joi.date().required(),
             },
         },
         HAS_SPOUSE: {
             to: [Person],
-            cardinality: VNodeRelationship.Cardinality.ToOneOrNone,
+            cardinality: VNodeType.Rel.ToOneOrNone,
             properties: {
                 marriedOn: Joi.date().required(),
             },
         },
-    });
+    };
 }
 
 const createPerson = async (name: string): Promise<UUID> => {
@@ -61,16 +60,6 @@ const createPerson = async (name: string): Promise<UUID> => {
 suite(__filename, () => {
 
     configureTestData({isolateTestWrites: true, loadTestProjectData: false});
-
-    before(() => {
-        registerVNodeType(BirthCertificate);
-        registerVNodeType(Person);
-    });
-
-    after(() => {
-        unregisterVNodeType(BirthCertificate);
-        unregisterVNodeType(Person);
-    });
 
     suite("test relationship validation", () => {
         

@@ -8,10 +8,7 @@ import {
     Action,
     C,
     DerivedPropertyFactory,
-    isVNodeType,
-    registerVNodeType,
     ShortIdProperty,
-    unregisterVNodeType,
     VirtualPropType,
     VNodeType,
 } from "..";
@@ -19,7 +16,7 @@ import { suite, test, assert, before, after } from "../lib/intern-tests";
 
 /** A VNodeType for use in this test suite. */
 class Employee extends VNodeType {
-    static label = "Employee";
+    static label = "EmployeeDPT";  // DPT = Derived Props Test
     static readonly properties = {
         ...VNodeType.properties,
         shortId: ShortIdProperty,
@@ -40,16 +37,18 @@ class Employee extends VNodeType {
 }
 
 /** A VNodeType for use in this test suite. */
+@VNodeType.declare
 class Manager extends Employee {
-    static label = "Manager";
+    static label = "ManagerDPT";  // DPT = Derived Props Test
     static readonly properties = {
         ...Employee.properties,
     };
 }
 
 /** A VNodeType for use in this test suite. */
+@VNodeType.declare
 class Executive extends Manager {
-    static label = "Executive";
+    static label = "ExecutiveDPT";  // DPT = Derived Props Test
     static readonly properties = {
         ...Manager.properties,
     };
@@ -89,20 +88,6 @@ function annualBonus(spec: DerivedPropertyFactory<number>): void { spec(
 )}
 
 suite(__filename, () => {
-
-
-    before(() => {
-        registerVNodeType(Employee);
-        registerVNodeType(Manager);
-        registerVNodeType(Executive);
-    });
-
-    after(() => {
-        unregisterVNodeType(Employee);
-        unregisterVNodeType(Manager);
-        unregisterVNodeType(Executive);
-    });
-
 
     suite("VNodeType.hasDerivedProperties", () => {
 

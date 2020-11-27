@@ -3,7 +3,7 @@
  * one will encounter when creating a project using Vertex Framework. See the description of VNodeTypeRef below for
  * details.
  */
-import { getVNodeType, VNodeRelationship, BaseVNodeType } from "./vnode-base";
+import { getVNodeType, BaseVNodeType, RelationshipDeclaration } from "./vnode-base";
 
 /** Interface for our "Fake" VNodeType which holds the label used to lazily load the real type. */
 interface FakeVNodeType {
@@ -83,11 +83,12 @@ export const VNodeTypeRef = <VNT extends BaseVNodeType>(label_: string): VNT => 
 
 /// More proxies, to allow access to [VNodeTypeRef].rel.SOME_RELATIONSHIP before VNodeType has loaded:
 
-class RelationshipPlaceholder extends VNodeRelationship {
+class RelationshipPlaceholder {
+    #label: string;
     #refData: FakeVNodeType;
 
     constructor(label: string, refData: FakeVNodeType) {
-        super(label, {});
+        this.#label = label;
         this.#refData = refData;
     }
 
@@ -95,13 +96,13 @@ class RelationshipPlaceholder extends VNodeRelationship {
         return getVNode(this.#refData);
     }
 
-    get realRelationship(): VNodeRelationship {
-        return this.realParentVNode.rel[this.label];
+    get realRelationship(): RelationshipDeclaration {
+        return this.realParentVNode.rel[this.#label];
     }
 }
 
 // When a VNodeRef's .rel.SOME_REL relationships are accessed before the VNodeType has been fully declared and
-// initialized, this proxy acts as a placeholder for the VNodeRelationship, until it gets fully loaded.
+// initialized, this proxy acts as a placeholder for the RelationshipDeclaration, until it gets fully loaded.
 const VNodeRelationshipProxyHandler: ProxyHandler<RelationshipPlaceholder> = {
     set: (target, propKey, value, proxyObj) => false,  // Disallow setting properties
 

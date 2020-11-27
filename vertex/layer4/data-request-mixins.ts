@@ -10,7 +10,7 @@
 
 import Joi from "@hapi/joi";
 import { FieldType } from "../layer2/cypher-return-shape";
-import { VNodeRelationship, BaseVNodeType } from "../layer2/vnode-base";
+import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
 import { BaseDataRequest, UpdateMixin } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
@@ -121,8 +121,8 @@ export type IncludedVirtualCypherExpressionProp<FT extends FieldType> = {
 // For example, if there is a (:Person)-[:ACTED_IN]->(:Movie) where "Person" is the main VNode and "Person.movies" is a
 // virtual property to list the movies they acted in, and the ACTED_IN relationship has a "role" property, then this is
 // used to make the "role" property appear as a virtual property on the Movie VNode.
-type ProjectRelationshipProps<Rel extends VNodeRelationship|undefined> = (
-    Rel extends VNodeRelationship ? {
+type ProjectRelationshipProps<Rel extends RelationshipDeclaration|undefined> = (
+    Rel extends RelationshipDeclaration ? {
         virtualProperties: {
             [K in keyof Rel["properties"]]: VirtualCypherExpressionPropertyForRelationshipProp<Rel["properties"][K]>
         }

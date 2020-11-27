@@ -36,12 +36,10 @@ export {
     ShortIdProperty,
     UuidProperty,
     // BaseVNodeType - internal use only: we use VNodeType (from layer 4) in its place
-    VNodeRelationship,
+    RelationshipDeclaration,
     ValidationError,
     //getVNodeType - redefined in layer 4
     //isBaseVNodeType - internal use only
-    registerVNodeType,
-    unregisterVNodeType,  // for tests only
 } from "./layer2/vnode-base";
 
 export {

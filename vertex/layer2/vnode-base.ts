@@ -18,6 +18,41 @@ export const UuidProperty = Joi.string().custom(uuidValidator);
 export const ShortIdProperty = Joi.string().regex(/^[A-Za-z0-9.-]{1,32}$/).required();
 // An empty object that can be used as a default value for read-only properties
 export const emptyObj = Object.freeze({});
+// A private key used to store relationship types (labels) on their declarations
+const relTypeKey = Symbol("relTypeKey");
+
+
+interface RelationshipsDeclaration {
+    [RelName: string]: RelationshipDeclaration;
+}
+/** Interface used to declare each relationship that can come *from* this VNodeType to other VNodes */
+export interface RelationshipDeclaration {
+    /**
+     * This relationship is allowed to point _to_ VNodes of these types.
+     * Omit if it can point to any VNode.
+     */
+    to?: ReadonlyArray<BaseVNodeType>;
+    /** The properties that are expected/allowed on this relationship */
+    properties?: Readonly<PropSchema>;
+    /** Cardinality: set restrictions on how many nodes this relationship can point to. */
+    cardinality?: Cardinality,
+    // A private key used to store relationship types (labels) on their declarations. Set by the @VNode.declare decorator.
+    [relTypeKey]?: string;
+}
+enum Cardinality {
+    /** This relationship points to a single target node and it must be present. */
+    ToOneRequired = ":1",
+    /** This relationship points to a single target node if it exists, but the relationship may not exist. */
+    ToOneOrNone = ":0-1",
+    /**
+     * ToMany: This relationshipship can point to any number of nodes, including to the same node multiple times.
+     * This is the default, which is the same as having no restrictions on cardinality.
+     */
+    ToMany = ":*",
+    /** This relationship can point to many nodes, but cannot point to the same node multiple times */
+    ToManyUnique = ":*u",
+}
+
 
 /**
  * Abstract base class for a "VNode".
@@ -34,10 +69,10 @@ export const emptyObj = Object.freeze({});
  */
 abstract class _BaseVNodeType {
     public constructor() { throw new Error("VNodeType should never be instantiated. Use it statically only."); }
-    // static label: string;
+    static label = "VNode";
     static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
-    static readonly rel: {[K: string]: VNodeRelationship} = emptyObj;
+    static readonly rel: RelationshipsDeclaration = emptyObj;
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
     static readonly defaultOrderBy: string|undefined = undefined;
 
@@ -100,7 +135,7 @@ abstract class _BaseVNodeType {
                     }
                 }
                 // Check the properties, if their schema is specified:
-                if (Object.keys(spec.properties).length) {
+                if (Object.keys(spec.properties ?? emptyObj).length) {
                     rels.forEach(r => {
                         const valResult = Joi.object(spec.properties).validate(r.relProps);
                         if (valResult.error) {
@@ -112,30 +147,35 @@ abstract class _BaseVNodeType {
         }
     }
 
-    /**
-     * Helper method used to declare relationships with correct typing. Do not override this.
-     * Usage:
-     *     static readonly rel = MyVNodeType.hasRelationshipsFromThisTo({
-     *         ...
-     *     }, ParentClassIfAny);
-     */
-    static hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsDeclaration>(relationshipDetails: Rels): VNodeRelationshipsFor<Rels> {
-        const result: {[K in keyof Rels]: VNodeRelationship} = {} as any;
-        for (const relName in relationshipDetails) {
-            const rel = relationshipDetails[relName]
-            if (rel instanceof VNodeRelationship) {
-                result[relName] = rel;
-            } else {
-                result[relName] = new VNodeRelationship(relName, rel as any);
+    static declare<T extends BaseVNodeType>(vnt: T): T {
+
+        // Store the "type" (name/label) of each relationship in its definition, so that when parts of the code
+        // reference a relationship like SomeVNT.rel.FOO_BAR, we can get the name "FOO_BAR" from that value, even though
+        // the name was only declared as the key, and is not part of the FOO_BAR value.
+        for (const relationshipType of Object.keys(vnt.rel)) {
+            const relDeclaration = vnt.rel[relationshipType];
+            if (relDeclaration[relTypeKey] !== undefined && relDeclaration[relTypeKey] != relationshipType) {
+                // This is a very obscure edge case error, but if someone is saying something like
+                // rel = { FOO: SomeOtherVNodeType.rel.BAR } then we need to flag that we can't share the same
+                // relationship declaration and call it both FOO and BAR.
+                throw new Error(`The relationship ${vnt.name}.${relationshipType} is also declared somewhere else as type ${relDeclaration[relTypeKey]}.`);
             }
+            relDeclaration[relTypeKey] = relationshipType;
         }
-        return Object.freeze(result) as any;
+
+        // Freeze, register, and return the VNodeType:
+        //vnt = Object.freeze(vnt);
+        registerVNodeType(vnt);
+        return vnt;
     }
 
     // This method is not used for anything, but without at least one non-static method, TypeScript allows this:
     //     const test: _BaseVNodeType = "some string which is not a VNodeType!";
     protected __vnode(): void {/* */}
     protected static __vnode(): void {/* */}
+
+    // Helpers for declaring relationships:
+    static readonly Rel = Cardinality;
 }
 
 // This little trick (and the VNodeType interface below) are required so that this class is only used statically,
@@ -147,16 +187,32 @@ export interface BaseVNodeType {
     readonly label: string;
     readonly properties: PropSchemaWithUuid;
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
-    readonly rel: {[RelName: string]: VNodeRelationship};
+    readonly rel: RelationshipsDeclaration;
     readonly defaultOrderBy: string|undefined;
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 
-    hasRelationshipsFromThisTo<Rels extends VNodeRelationshipsDeclaration>(relationshipDetails: Rels): VNodeRelationshipsFor<Rels>;
+    declare<T extends BaseVNodeType>(vnt: T): T;
 }
 
 /** Helper function to check if some object is a VNodeType */
 export function isBaseVNodeType(obj: any): obj is BaseVNodeType {
     return Object.prototype.isPrototypeOf.call(_BaseVNodeType, obj);
+}
+
+/** Helper function to get the type/name of a relationship from its declaration - see _BaseVNodeType.declare() */
+export function getRelationshipType(rel: RelationshipDeclaration): string {
+    const relDeclaration = rel as any;
+    if (relDeclaration[relTypeKey] === undefined) {
+        throw new Error(`Tried accessing a relationship on a VNodeType that didn't use the @VNodeType.declare class decorator`);
+    }
+    return relDeclaration[relTypeKey];
+}
+/**
+ * Is the thing passed as a parameter a relationship declaration (that was declared in a VNode's "rel" static prop?)
+ * This checks for a private property that gets added to every relationship by the @VNodeType.declare decorator.
+ */
+export function isRelationshipDeclaration(relDeclaration: RelationshipDeclaration): relDeclaration is RelationshipDeclaration {
+    return typeof relDeclaration === "object" && relDeclaration[relTypeKey] !== undefined;
 }
 
 /**
@@ -194,65 +250,9 @@ export type RawVNode<T extends BaseVNodeType> = {
 } & { _identity: number; _labels: string[]; };
 
 
-interface VNodeRelationshipsDeclaration {
-    [RelName: string]: VNodeRelationshipData|VNodeRelationship;
-}
-enum Cardinality {
-    /** This relationship points to a single target node and it must be present. */
-    ToOneRequired = ":1",
-    /** This relationship points to a single target node if it exists, but the relationship may not exist. */
-    ToOneOrNone = ":0-1",
-    /**
-     * ToMany: This relationshipship can point to any number of nodes, including to the same node multiple times.
-     * This is the default, which is the same as having no restrictions on cardinality.
-     */
-    ToMany = ":*",
-    /** This relationship can point to many nodes, but cannot point to the same node multiple times */
-    ToManyUnique = ":*u",
-}
-/** Parameters used when defining a VNode; this simpler data is used to construct more complete VNodeRelationship objects */
-interface VNodeRelationshipData {
-    /**
-     * This relationship is allowed to point _to_ VNodes of these types.
-     * Omit if it can point to any VNode.
-     */
-    to?: ReadonlyArray<_BaseVNodeType>;  // For some reason ReadonlyArray<VNodeType> doesn't work
-    /** The properties that are expected/allowed on this relationship */
-    properties?: Readonly<PropSchema>;
-    /** Cardinality: set restrictions on how many nodes this relationship can point to. */
-    cardinality?: Cardinality,
-}
-
-/**
- * Defines a relationship that is allowed between a VNodeType and other VNodes in the graph
- */
-export class VNodeRelationship<PS extends PropSchema = PropSchema> {
-    readonly label: string;  // e.g. IS_FRIEND_OF
-    readonly #data: Readonly<VNodeRelationshipData>;
-    static readonly Cardinality = Cardinality;
-
-    constructor(label: string, initData: VNodeRelationshipData) {
-        this.label = label;
-        this.#data = initData;
-    }
-    get to(): ReadonlyArray<BaseVNodeType>|undefined { return this.#data.to as ReadonlyArray<BaseVNodeType>|undefined; }
-    get properties(): Readonly<PS> { return this.#data.properties || emptyObj as any; }
-    get cardinality(): Cardinality { return this.#data.cardinality || Cardinality.ToMany; }
-}
-
-// Internal helper to get a typed result when converting from a map of VNodeRelationshipData entries to VNodeRelationship entries
-type VNodeRelationshipsFor<Rels extends VNodeRelationshipsDeclaration> = {
-    [K in keyof Rels]: (
-        Rels[K] extends VNodeRelationship ?
-            Rels[K]  // This is already a VNodeRelationship, inherited from the parent class.
-        :
-            VNodeRelationship<Rels[K]["properties"] extends PropSchema ? Rels[K]["properties"] : PropSchema>
-    )
-};
-
 const registeredNodeTypes: {[label: string]: BaseVNodeType} = {};
 
-export function registerVNodeType(vnt: BaseVNodeType): void {
+function registerVNodeType(vnt: BaseVNodeType): void {
     if (registeredNodeTypes[vnt.label] !== undefined) {
         throw new Error(`Duplicate VNodeType label: ${vnt.label}`);
     }
@@ -267,17 +267,12 @@ export function registerVNodeType(vnt: BaseVNodeType): void {
         if (rel.to) {
             rel.to.forEach((targetVNT, idx) => {
                 if (targetVNT === undefined) {
-                    throw new Error(`Circular reference in ${vnt.name} definition: relationship ${rel.label}.to[${idx}] is undefined.`);
+                    throw new Error(`Circular reference in ${vnt.name} definition: relationship ${getRelationshipType(rel)}.to[${idx}] is undefined.`);
                 }
             });
         }
     });
     registeredNodeTypes[vnt.label] = vnt;
-}
-
-/** Only to be used for tests. Undoes a call to registerVNodeType() */
-export function unregisterVNodeType(vnt: BaseVNodeType): void {
-    delete registeredNodeTypes[vnt.label];
 }
 
 /** Exception: A VNode with the specified label has not been registered [via registerVNodeType()]  */
@@ -294,13 +289,15 @@ export function getVNodeType(label: string): BaseVNodeType {
 
 export function getAllLabels(vnt: BaseVNodeType): string[] {
     if (!vnt.label || vnt.label === "VNode") {
-        throw new Error(`VNodeType ${vnt} has no valid label.`);
+        throw new Error(`VNodeType ${vnt.name} has no valid label.`);
     }
     const labels = [];
     for (let t = vnt; t.label; t = Object.getPrototypeOf(t)) {
         labels.push(t.label);
+        if (t.label === "VNode") {
+            break;
+        }
     }
-    labels.push("VNode");
     return labels;
 }
 

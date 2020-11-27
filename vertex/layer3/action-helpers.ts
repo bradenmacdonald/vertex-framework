@@ -1,23 +1,29 @@
 import { C } from "../layer2/cypher-sugar";
 import { UUID } from "../lib/uuid";
 import { WrappedTransaction } from "../transaction";
-import type { VNodeRelationship, BaseVNodeType, PropertyDataType } from "../layer2/vnode-base";
+import { RelationshipDeclaration, BaseVNodeType, PropertyDataType, getRelationshipType, PropSchema } from "../layer2/vnode-base";
 import { log } from "../lib/log";
 
-export type OneRelationshipSpec<VNR extends VNodeRelationship> = {
+export type OneRelationshipSpec<VNR extends RelationshipDeclaration> = {
     key: string|UUID|null;
-} & {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
+} & (
+    VNR["properties"] extends PropSchema ?
+        {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
+    :
+        {/* empty object */}
+    )
 
 /**
  * Designed for use in an "Update"-type Action, this helper method will update a relationship from the current VNode,
  * pointing to either another VNode or null. (an "x:1" relationship, e.g. "1:1" or "many:1")
  */
-export async function updateToOneRelationship<VNR extends VNodeRelationship>(tx: WrappedTransaction, {from, rel, to}: {
+export async function updateToOneRelationship<VNR extends RelationshipDeclaration>(tx: WrappedTransaction, {from, rel, to}: {
     from: [vnt: BaseVNodeType, uuid: UUID],
     rel: VNR,
     to: string|null|OneRelationshipSpec<VNR>,
 }): Promise<{prevTo: OneRelationshipSpec<VNR>}> {
     const [fromType, fromUuid] = from;
+    const relType = getRelationshipType(rel);  // Name of the relationship
     const {toKey, relationshipProps} = (() => {
         if (typeof to === "string" || to === null) {
             return {toKey: to, relationshipProps: {}};
@@ -26,8 +32,8 @@ export async function updateToOneRelationship<VNR extends VNodeRelationship>(tx:
         return {toKey: key, relationshipProps};
     })();
 
-    if (fromType.rel[rel.label] !== rel) {
-        throw new Error(`Mismatch between relationship ${rel.label} and VNodeType ${fromType.label} which doesn't declare that exact relationship.`);
+    if (fromType.rel[relType] !== rel) {
+        throw new Error(`Mismatch between relationship ${relType} and VNodeType ${fromType.label} which doesn't declare that exact relationship.`);
     }
     const targetLabels = rel.to?.map(tn => tn.label) || ["VNode"];
 
@@ -68,7 +74,7 @@ export async function updateToOneRelationship<VNR extends VNodeRelationship>(tx:
         `.RETURN({"oldTargets": {list: {map: {uuid: "uuid", properties: "any"}}}}));
         if (mergeResult.length === 0) {
             // The above query should only fail if the MATCH clauses don't match anything.
-            throw new Error(`Cannot change ${fromType.name} relationship ${rel.label} to "${toKey}" - target not found.`);
+            throw new Error(`Cannot change ${fromType.name} relationship ${relType} to "${toKey}" - target not found.`);
         }
         
         if (mergeResult[0].oldTargets.length) {
@@ -79,9 +85,14 @@ export async function updateToOneRelationship<VNR extends VNodeRelationship>(tx:
 }
 
 
-export type RelationshipSpec<VNR extends VNodeRelationship> = {
+export type RelationshipSpec<VNR extends RelationshipDeclaration> = {
     key: string|UUID;
-} & {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
+} & (
+    VNR["properties"] extends PropSchema ?
+        {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
+    :
+        {/* empty object */}
+)
 
 /**
  * Designed for use in an "Update"-type Action, this helper method will update a relationship from the current VNode,
@@ -94,16 +105,17 @@ export type RelationshipSpec<VNR extends VNodeRelationship> = {
  * could use this method to say both
  *     (Bob)-[:ATE {on: tuesday}]->(Hamburger) and
  *     (Bob)-[:ATE {on: wednesday}]->(Hamburger)
- * If you don't want to allow that, set {cardinality: VNodeRelationship.Cardinality.ToManyUnique} on the relationship.
+ * If you don't want to allow that, set {cardinality: RelationshipDeclaration.Cardinality.ToManyUnique} on the relationship.
  */
-export async function updateToManyRelationship<VNR extends VNodeRelationship>(tx: WrappedTransaction, {from, rel, to}: {
+export async function updateToManyRelationship<VNR extends RelationshipDeclaration>(tx: WrappedTransaction, {from, rel, to}: {
     from: [vnt: BaseVNodeType, uuid: UUID],
     rel: VNR,
     to: RelationshipSpec<VNR>[],
 }): Promise<{prevTo: RelationshipSpec<VNR>[]}> {
     const [fromType, fromUuid] = from;
-    if (fromType.rel[rel.label] !== rel) {
-        throw new Error(`Mismatch between relationship ${rel.label} and VNodeType ${fromType.label} which doesn't declare that exact relationship.`);
+    const relType = getRelationshipType(rel);  // Name of the relationship
+    if (fromType.rel[relType] !== rel) {
+        throw new Error(`Mismatch between relationship ${relType} and VNodeType ${fromType.label} which doesn't declare that exact relationship.`);
     }
 
     const targetLabels = rel.to?.map(tn => tn.label) || ["VNode"];
@@ -142,9 +154,9 @@ export async function updateToManyRelationship<VNR extends VNodeRelationship>(tx
                 // Which one? Let's give a helpful error message.
                 const self = await tx.query(C`MATCH (self:${fromType} {uuid: ${fromUuid}})`.RETURN({"self.uuid": "uuid"}));
                 if (self.length !== 1) {
-                    throw new Error(`Cannot set ${rel.label} relationship from non-existent ${fromType.name} node with UUID ${fromUuid}`);
+                    throw new Error(`Cannot set ${relType} relationship from non-existent ${fromType.name} node with UUID ${fromUuid}`);
                 } else {
-                    throw new Error(`Cannot set ${rel.label} relationship to VNode with key "${key}" which doesn't exist or is the wrong type.`);
+                    throw new Error(`Cannot set ${relType} relationship to VNode with key "${key}" which doesn't exist or is the wrong type.`);
                 }
             }
         }

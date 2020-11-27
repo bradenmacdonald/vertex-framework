@@ -1,6 +1,6 @@
 import type { CypherQuery } from "../layer2/cypher-sugar";
 import type { FieldType } from "../layer2/cypher-return-shape";
-import { VNodeRelationship } from "../layer2/vnode-base";
+import { RelationshipDeclaration } from "../layer2/vnode-base";
 import { VNodeTypeWithVirtualProps } from "./vnode";
 /**
  * Every VNode can declare "virtual properties" which are computed properties
@@ -26,7 +26,7 @@ export interface VirtualManyRelationshipProperty {
     target: VNodeTypeWithVirtualProps;
     // One of the relationships in the query can be assigned to the variable @rel, and if so, specify its props here so
     // that the relationship properties can be optionally included (as part of the target node)
-    relationship?: VNodeRelationship,
+    relationship?: RelationshipDeclaration,
     // How should this relationship be ordered by default, if not by the default ordering of the target VNode?
     // Should be a cypher expression that can reference fields on @this, @target, or @rel (if @rel is used in the query)
     defaultOrderBy?: string,

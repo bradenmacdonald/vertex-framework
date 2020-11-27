@@ -1,9 +1,10 @@
 import { C } from "../layer2/cypher-sugar";
-import { registerVNodeType } from "../layer2/vnode-base";
 import { Action } from "../layer3/action";
 import { VirtualPropType } from "./virtual-props";
+import { VNodeType } from "./vnode";
 
 
+@VNodeType.declare
 export class ActionWithVirtualProperties extends Action {
     static readonly virtualProperties = {
         revertedBy: {
@@ -19,4 +20,3 @@ export class ActionWithVirtualProperties extends Action {
     };
     static readonly derivedProperties = {};
 }
-registerVNodeType(ActionWithVirtualProperties);
