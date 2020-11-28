@@ -1,9 +1,15 @@
 import { suite, test, assert, dedent, configureTestData } from "../lib/intern-tests";
 
-import { buildCypherQuery, DataRequestFilter, newDataRequest } from "./pull";
+import { buildCypherQuery as _buildCypherQuery, newDataRequest } from "./pull";
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils";
 import { testGraph, Person, Movie } from "../test-project";
-import { C, UUID } from "..";
+import { C, UUID, DataRequestFilter } from "..";
+import { BaseDataRequest } from "../layer3/data-request";
+import { FilteredRequest } from "./data-request-filtered";
+
+function buildCypherQuery(request: BaseDataRequest<any, any, any>, filter?: DataRequestFilter): ReturnType<typeof _buildCypherQuery> {
+    return _buildCypherQuery(new FilteredRequest(request, filter ?? {}));
+}
 
 
 suite("pull", () => {

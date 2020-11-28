@@ -8,10 +8,14 @@
  */
 
 import { C } from "../layer2/cypher-sugar";
+import { BaseVNodeType } from "../layer2/vnode-base";
 import { BaseDataRequest, MixinImplementation, DataRequestState } from "../layer3/data-request";
 import { DerivedProperty } from "./derived-props";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualPropType } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
+
+/** The type of a function which adds some fields onto an existing (or empty) data request */
+type RequestBuilderFn<VNT extends BaseVNodeType = any> = (existingRequest: BaseDataRequest<VNT, any, any>) => BaseDataRequest<VNT, any, any>;
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
@@ -21,7 +25,7 @@ interface ConditionalRequest {
     /** If a flag with this name is set in the filter when pull()ing data from the graph... */
     flagName: string;
     /** Then include these additional requested raw properties / virtual properties / derived properties: */
-    conditionalData: DataRequestState
+    conditionalRequest: RequestBuilderFn;
 }
 
 /**
@@ -35,16 +39,11 @@ export function getConditionalRawPropsData(dataRequest: DataRequestState): Condi
 export const conditionalRawPropsMixinImplementation: MixinImplementation = (dataRequest, methodName) => {
     if (methodName === "if") {
         // The user wants to conditionally include some properties:
-        return (flagName: string, requestBuilder: (emptyRequest: BaseDataRequest<any, any, any>) => BaseDataRequest<any, any, any>) => {
+        return (flagName: string, conditionalRequest: RequestBuilderFn) => {
             const currentData = getConditionalRawPropsData(dataRequest);
-            // Build a blank data request of the same type:
-            const emptyRequest: BaseDataRequest<any, any, any> = dataRequest.newRequestWithSameMixins(dataRequest.vnodeType);
-            // Now find out exactly which properties the user wants to conditionally include in the request:
-            const conditionalDataRequest: BaseDataRequest<any, any, any> = requestBuilder(emptyRequest);
-            const conditionalData = DataRequestState.getInternalState(conditionalDataRequest);
             // Store the new state into the parent data request:
             return dataRequest.cloneWithChanges({newMixinData: {
-                [condRawPropsMixinDataKey]: [...currentData, {flagName, conditionalData}],
+                [condRawPropsMixinDataKey]: [...currentData, {flagName, conditionalRequest}],
             }})
         };
     }
