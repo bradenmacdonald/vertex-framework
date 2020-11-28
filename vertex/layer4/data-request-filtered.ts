@@ -117,11 +117,10 @@ export class FilteredRequest {
                 throw new Error(`Internal error building virtual prop: ${this.vnodeType.name}.${propName}: can't find property definition`);
             }
             let subRequest: FilteredRequest|undefined;
-            if (requested[propName].shapeData) {
-                // Build the FilteredRequest from the shapeData (internal request state)
-                // TODO: change virtual props so they store the builder function, not the shape data. That makes this easier.
-                const subFilter = getSubFilter(this.filter, propName);
-                subRequest = new FilteredRequest(requested[propName].shapeData?.cloneWithChanges({}), subFilter);
+            if (requested[propName].subRequest) {
+                // Build the FilteredRequest specific to this virtual prop, saying which of its properties we want to include
+                const subFilter = getSubFilter(this.filter, propName);  // A different "subfilter" may apply
+                subRequest = new FilteredRequest(requested[propName].subRequest, subFilter);
             }
             return {propName, propDefn, subRequest};
         });

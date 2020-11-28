@@ -56,7 +56,7 @@ const virtPropsMixinDataKey = "virtPropsMixinDataKey";
 const projectedVirtualPropsKey = "projectedVirtualProps";
 
 interface VirtualPropRequest {
-    shapeData?: DataRequestState,
+    subRequest?: BaseDataRequest<any, any, any>,
 }
 
 // Virtual properties (like related objects) to pull from the database, along with details such as what data to pull
@@ -115,30 +115,24 @@ export const virtualPropsMixinImplementation: MixinImplementation = (dataRequest
                 return (buildSubRequest: (subRequest: BaseDataRequest<typeof targetVNodeType, never, any>) => BaseDataRequest<typeof targetVNodeType, any, any>) => {
                     // Build the subrequest:
 
-                    // Start with an empty request - the buildSubRequest() will use it to pick which properties of the target type should be included.
-                    let subRequestData = dataRequest.newRequestWithSameMixins(targetVNodeType);
-
-                    // But if this virtual property was already requested, merge the existing request with the new request:
-                    if (requestedVirtualProps[propKey] !== undefined) {
-                        const existingShapeData = requestedVirtualProps[propKey].shapeData;
-                        if (existingShapeData === undefined) {
-                            throw new Error(`Unexpectedly missing shape data for previously requested virtual property ${propKey}`);
+                    // If this virtual property has already been requested, build on that request; otherwise start with a blank request.
+                    // buildSubRequest() will use this to pick which properties of the target type should be included.
+                    let existingRequest = requestedVirtualProps[propKey]?.subRequest;
+                    if (existingRequest === undefined) {
+                        // Create a new blank data request for the target VNodeType:
+                        existingRequest = dataRequest.newRequestWithSameMixins(targetVNodeType);
+                        if (virtualProp.type === VirtualPropType.ManyRelationship) {
+                            // "Project" properties from the relationship onto the target VNode data request, so they can be optionally selected for inclusion:
+                            const projectedRelationshipProps = virtualPropsForRelationship(virtualProp);
+                            existingRequest = DataRequestState.getInternalState(existingRequest).cloneWithChanges({
+                                newMixinData: { [projectedVirtualPropsKey]: projectedRelationshipProps },
+                            });
                         }
-                        subRequestData = existingShapeData.cloneWithChanges({});  // Convert from DataRequestState back to BaseDataRequest
                     }
 
-                    if (virtualProp.type === VirtualPropType.ManyRelationship) {
-                        // "Project" properties from the relationship onto the target VNode data request, so they can be optionally selected for inclusion:
-                        const projectedRelationshipProps = virtualPropsForRelationship(virtualProp);
-                        subRequestData = DataRequestState.getInternalState(subRequestData).cloneWithChanges({
-                            newMixinData: { [projectedVirtualPropsKey]: projectedRelationshipProps },
-                        });
-                    }
-                    const subRequest = buildSubRequest(subRequestData);
+                    const subRequest = buildSubRequest(existingRequest);
                     // Return the new request, with this virtual property now included:
-                    return requestWithVirtualPropAdded(dataRequest, propKey, {
-                        shapeData: DataRequestState.getInternalState(subRequest),
-                    });
+                    return requestWithVirtualPropAdded(dataRequest, propKey, { subRequest });
                 };
             } else if (virtualProp.type === VirtualPropType.CypherExpression) {
                 return () => {
