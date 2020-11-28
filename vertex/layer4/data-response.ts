@@ -28,7 +28,7 @@ export type DataResponse<Request extends BaseDataRequest<BaseVNodeType, any, any
     Request extends BaseDataRequest<infer VNT, infer includedProperties, infer Mixins> ? (
         // Raw properties that are definitely included:
         {[rawProp in includedProperties]: PropertyDataType<VNT["properties"], rawProp>} &
-        // Raw properties that are conditionally included, depending on whether a certain flag is set or not:
+        // Any properties that are conditionally included, depending on whether a certain flag is set or not:
         (
             Mixins extends ConditionalRawPropsMixin<VNT, infer conditionallyRequestedProperties> & infer Other ?
                 UnWindConditionalPropsArray<conditionallyRequestedProperties>

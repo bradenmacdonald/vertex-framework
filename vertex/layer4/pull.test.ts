@@ -475,4 +475,122 @@ suite("pull", () => {
             assert.isAtMost(chrisPratt.ageJS.ageJS, 70);
         });
     });
+
+    suite("Deep conditional properties of all types", () => {
+
+        const request = (newDataRequest(Person)
+            .uuid
+            .if("namesFlag", p=>p
+                .name
+                .friends(f => f.name)
+                .costars(cs => cs.name)
+            ).if("numFriendsFlag", p=>p
+                .numFriends()
+                .friends(f => f.numFriends())
+                .costars(cs => cs.numFriends())
+            )
+        );
+        // This request will behave similarly to the preceding one, but is slightly different - for example in this
+        // second one, .friends is always set regardless of flags and only its properties change, while in the preceding
+        // one, .friends may or may not be present at all.
+        const request2 = (newDataRequest(Person)
+            .uuid
+            .if("namesFlag", p=>p.name)
+            .if("numFriendsFlag", p=>p.numFriends())
+            .friends(f => f
+                .if("namesFlag", f => f.name)
+                .if("numFriendsFlag", f => f.numFriends())
+            )
+            .costars(cs => cs
+                .if("namesFlag", cs => cs.name)
+                .if("numFriendsFlag", cs => cs.numFriends())
+            )
+        );
+
+        test("no flags set", async () => {
+            const chrisPratt = await testGraph.pullOne(request, {key: "chris-pratt"});
+            assert.isString(chrisPratt.uuid);
+            assert.isUndefined(chrisPratt.name);
+            assert.isUndefined(chrisPratt.numFriends);
+            assert.isUndefined(chrisPratt.friends);
+            assert.isUndefined(chrisPratt.costars);
+            // Request 2:
+            const chrisPratt2 = await testGraph.pullOne(request2, {key: "chris-pratt"});
+            assert.isString(chrisPratt2.uuid);
+            assert.isUndefined(chrisPratt2.name);
+            assert.isUndefined(chrisPratt2.numFriends);
+            // An empty object is returned for each friend and costar, because we included their virtual properties
+            // but only conditionally included the properties of the friends and costars:
+            assert.deepStrictEqual(chrisPratt2.friends, [ {} ]);
+            assert.deepStrictEqual(chrisPratt2.costars, [ {}, {}, {}, {}, {} ]);
+        });
+
+        test("namesFlag set", async () => {
+            const filter = {key: "chris-pratt", flags: ["namesFlag"]};
+            const friendsExpected = [{name: "Dwayne Johnson"}];
+            const costarsExpected = [
+                {name: "Dwayne Johnson"},
+                {name: "Karen Gillan"},
+                {name: "Karen Gillan"},  // TODO: Optional support for DISTINCT
+                {name: "Robert Downey Jr."},
+                {name: "Scarlett Johansson"},
+            ];
+
+            {
+                const chrisPratt = await testGraph.pullOne(request, filter);
+                assert.isString(chrisPratt.uuid);
+                assert.strictEqual(chrisPratt.name, "Chris Pratt");
+                // TODO / NOTE: Currently, the typing of "friends" in request 1 is
+                //     friends?: {name: string}&{numFriends: number}
+                // which is incorrect. However, representing the true type in TypeScript would get very complex; it
+                // would be something like:
+                //     friends?: {name: string}|{numFriends: number}|{name: string; numFriends: number}
+                // which could get exponentially complex, or just the following:
+                //     friends?: {name?: string; numFriends?: number}
+                // But solving for this edge case is likely not worth the trouble, especially since rewriting the data
+                // request into the format of "request2" solves the typing problem.
+                assert.deepStrictEqual(chrisPratt.friends, friendsExpected as any);
+                assert.deepStrictEqual(chrisPratt.costars, costarsExpected as any);
+            }
+
+            {
+                const chrisPratt = await testGraph.pullOne(request2, filter);
+                assert.isString(chrisPratt.uuid);
+                assert.strictEqual(chrisPratt.name, "Chris Pratt");
+                assert.deepStrictEqual(chrisPratt.friends, friendsExpected);
+                assert.deepStrictEqual(chrisPratt.costars, costarsExpected);
+            }
+        });
+
+        test("numFriends and namesFlag set", async () => {
+            const filter = {key: "chris-pratt", flags: ["namesFlag", "numFriendsFlag"]};
+
+            const friendsExpected = [{name: "Dwayne Johnson", numFriends: 2}];
+            const costarsExpected = [
+                {name: "Dwayne Johnson", numFriends: 2},
+                {name: "Karen Gillan", numFriends: 2},
+                {name: "Karen Gillan", numFriends: 2},  // TODO: Optional support for DISTINCT
+                {name: "Robert Downey Jr.", numFriends: 1},
+                {name: "Scarlett Johansson", numFriends: 2},
+            ];
+
+            {
+                const chrisPratt = await testGraph.pullOne(request, filter);
+                assert.isString(chrisPratt.uuid);
+                assert.strictEqual(chrisPratt.name, "Chris Pratt");
+                assert.strictEqual(chrisPratt.numFriends, 1);
+                assert.deepStrictEqual(chrisPratt.friends, friendsExpected);
+                assert.deepStrictEqual(chrisPratt.costars, costarsExpected);
+            }
+
+            {
+                const chrisPratt = await testGraph.pullOne(request2, filter);
+                assert.isString(chrisPratt.uuid);
+                assert.strictEqual(chrisPratt.name, "Chris Pratt");
+                assert.strictEqual(chrisPratt.numFriends, 1);
+                assert.deepStrictEqual(chrisPratt.friends, friendsExpected);
+                assert.deepStrictEqual(chrisPratt.costars, costarsExpected);
+            }
+        });
+    });
 });
