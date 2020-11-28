@@ -38,6 +38,7 @@ export type DataResponse<Request extends BaseDataRequest<BaseVNodeType, any, any
         (
             VNT extends VNodeTypeWithVirtualProps ?
                 Mixins extends VirtualPropsMixin<VNT, infer includedVirtualProps> & infer Other?
+                    keyof includedVirtualProps extends never ? unknown :  // This line makes types look nicer by hiding the "& {}" type when there are no included virtual props
                     {[virtualProp in keyof includedVirtualProps]: (
                         // A -to-many virtual property is included:
                         includedVirtualProps[virtualProp] extends IncludedVirtualManyProp<any, infer Spec> ?
@@ -58,6 +59,7 @@ export type DataResponse<Request extends BaseDataRequest<BaseVNodeType, any, any
         (
             VNT extends VNodeType ?
                 Mixins extends DerivedPropsMixin<VNT, infer includedDerivedProps> & infer Other?
+                    keyof includedDerivedProps extends never ? unknown :  // This line makes types look nicer by hiding the "& {}" type when there are no included derived props
                     {[propName in keyof includedDerivedProps]: (
                         includedDerivedProps[propName] extends IncludedDerivedPropRequest<infer ValueType> ?
                             ValueType
