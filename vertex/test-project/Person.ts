@@ -57,6 +57,7 @@ export class Person extends VNodeType {
             type: VirtualPropType.ManyRelationship,
             query: C`(@this)-[:${Person.rel.ACTED_IN}]->(:${Movie})<-[:${Person.rel.ACTED_IN}]-(@target:${Person})`,
             target: Person,
+            // TODO: Support making this DISTINCT
         },
         friends: {
             type: VirtualPropType.ManyRelationship,
@@ -74,6 +75,7 @@ export class Person extends VNodeType {
 
     static derivedProperties = Person.hasDerivedProperties({
         ageJS,
+        numFriends,
     });
 }
 
@@ -90,6 +92,17 @@ function ageJS(): DerivedProperty<{ageJS: number, ageNeo: number}> { return Deri
         const age = (today.getFullYear() - dob.getFullYear()) - (m < 0 || (m === 0 && today.getDate() < dob.getDate()) ? 1 : 0);
         // Return a complex object and test that we can return/access data from virtual props too:
         return {ageJS: age, ageNeo: data.age};
+    }
+)}
+
+/**
+ * A derived property for use in tests. Easier to work with than ageJS() since it doesn't change as time goes on :p
+ */
+function numFriends(): DerivedProperty<number> { return DerivedProperty.make(
+    Person,
+    p => p.friends(f => f),
+    data => {
+        return data.friends.length;
     }
 )}
 

@@ -1,7 +1,7 @@
 /**
  * A standard data request (BaseDataRequest) only allows specifying raw properties of a VNode.
  * These mixins extend the standard data request, so that one can request "virtual properties" (like related nodes),
- *  _conditionally_ request raw properties, and other things.
+ *  _conditionally_ request properties, and other things.
  *
  * This file contains the TypeScript types for the mixins, and a separate file contains their actual runtime
  * implementation, which is quite different. So the types in this file are a bit of a fake facade that provides a nice
@@ -18,20 +18,19 @@ import type { DerivedProperty } from "./derived-props";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
-/** Allow requesting raw properties conditionally, based on whether or not a "flag" is set: */
+/** Allow requesting other raw/virtual/derived properties conditionally, based on whether or not a "flag" is set: */
 export type ConditionalRawPropsMixin<
     VNT extends BaseVNodeType,
-    conditionallyRequestedProperties extends keyof VNT["properties"] = never,
+    conditionallyRequestedProperties extends BaseDataRequest<VNT, any, any>[] = [],
 > = ({
-    [propName in keyof VNT["properties"] as `${string & propName}IfFlag`]:
-        <ThisRequest>(this: ThisRequest, flagName: string) => (
-            UpdateMixin<VNT, ThisRequest,
-                // Change this mixin from:
-                ConditionalRawPropsMixin<VNT, conditionallyRequestedProperties>,
-                // to:
-                ConditionalRawPropsMixin<VNT, conditionallyRequestedProperties | propName>
-            >
-        )
+    if:
+        <ThisRequest, SubSpec extends BaseDataRequest<VNT, any, any>>
+            (this: ThisRequest, flagName: string, subRequest: (buildSubequest: BaseDataRequest<VNT, never, ResetMixins<ThisRequest, VNT>>) => SubSpec) => (
+                UpdateMixin<VNT, ThisRequest,
+                    ConditionalRawPropsMixin<VNT, conditionallyRequestedProperties>,
+                    ConditionalRawPropsMixin<VNT, [...conditionallyRequestedProperties, SubSpec]>
+                >
+            );
 });
 
 ///////////////// VirtualPropsMixin ////////////////////////////////////////////////////////////////////////////////////
@@ -52,12 +51,11 @@ export type VirtualPropsMixin<
             // This is the method:
             (this: ThisRequest,
                 subRequest: (buildSubrequest: BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, never, ResetMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]> & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]> >>) => SubSpec,
-                options?: {ifFlag?: FlagType}
             ) => (
                 UpdateMixin<VNT, ThisRequest,
                     VirtualPropsMixin<VNT, includedVirtualProps>,
                     VirtualPropsMixin<VNT, includedVirtualProps & {
-                        [PN in propName]: {ifFlag: FlagType, spec: SubSpec, type: "many"}
+                        [PN in propName]: {spec: SubSpec, type: "many"}
                     }>
                 >
             )
@@ -65,11 +63,11 @@ export type VirtualPropsMixin<
         : VNT["virtualProperties"][propName] extends VirtualOneRelationshipProperty ?
             // For each x:one virtual property, add a method for requesting that virtual property:
             <ThisRequest, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
-            (this: ThisRequest, subRequest: (buildSubequest: BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, never, ResetMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]>>>) => SubSpec, options?: {ifFlag: FlagType}) => (
+            (this: ThisRequest, subRequest: (buildSubequest: BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, never, ResetMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]>>>) => SubSpec) => (
                 UpdateMixin<VNT, ThisRequest,
                     VirtualPropsMixin<VNT, includedVirtualProps>,
                     VirtualPropsMixin<VNT, includedVirtualProps & {
-                        [PN in propName]: {ifFlag: FlagType, spec: SubSpec, type: "one"}
+                        [PN in propName]: {spec: SubSpec, type: "one"}
                     }>
                 >
             )
@@ -77,11 +75,11 @@ export type VirtualPropsMixin<
         : VNT["virtualProperties"][propName] extends VirtualCypherExpressionProperty ?
             // Add a method to include this [virtual property based on a cypher expression], optionally toggled via a flag:
             <ThisRequest, FlagType extends string|undefined = undefined>
-            (this: ThisRequest, options?: {ifFlag: FlagType}) => (
+            (this: ThisRequest) => (
                 UpdateMixin<VNT, ThisRequest,
                     VirtualPropsMixin<VNT, includedVirtualProps>,
                     VirtualPropsMixin<VNT, includedVirtualProps & {
-                        [PN in propName]: {ifFlag: FlagType, type: "cypher", valueType: VNT["virtualProperties"][propName]["valueType"]}
+                        [PN in propName]: {type: "cypher", valueType: VNT["virtualProperties"][propName]["valueType"]}
                     }>
                 >
             )
@@ -102,19 +100,16 @@ type RecursiveVirtualPropRequest<VNT extends VNodeTypeWithVirtualProps> = {
 }
 
 export type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends BaseDataRequest<VPTarget<propType>, any, any>> = {
-    ifFlag: string|undefined,
     spec: Spec,
     type: "many",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
 
 export type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends BaseDataRequest<VPTarget<propType>, any, any>> = {
-    ifFlag: string|undefined,
     spec: Spec,
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
 
 export type IncludedVirtualCypherExpressionProp<FT extends FieldType> = {
-    ifFlag: string|undefined,
     type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
     valueType: FT;  // This field also doesn't exist, but is required for type inference to work
 };
@@ -160,11 +155,10 @@ export type DerivedPropsMixin<
     [propName in keyof VNT["derivedProperties"]]:
         // For each derived property, add a method for requesting that derived property:
         <ThisRequest, FlagType extends string|undefined = undefined>
-        (this: ThisRequest, options?: {ifFlag?: FlagType}) => (
+        (this: ThisRequest) => (
             UpdateMixin<VNT, ThisRequest,
                 DerivedPropsMixin<VNT, includedDerivedProps>,
                 DerivedPropsMixin<VNT, includedDerivedProps & { [PN in propName]: {
-                    ifFlag: FlagType,
                     valueType: GetDerivedPropValueType<
                         // VNT["derivedProperties"][propName] should be a DerivedProperty instance (due to VNodeType.declare()) but TypeScript doesn't know that.
                         VNT["derivedProperties"][propName] extends DerivedProperty<any> ? VNT["derivedProperties"][propName] : never
@@ -180,7 +174,6 @@ type DerivedPropRequest<VNT extends VNodeType> = {
 }
 
 export type IncludedDerivedPropRequest<ValueType> = {
-    ifFlag: string|undefined,
     valueType: ValueType,
 };
 

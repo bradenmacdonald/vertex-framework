@@ -93,7 +93,6 @@ export {
     DerivedPropertyFactory,
 } from "./layer4/derived-props";
 
-
 export {
     VNodeType,
     isVNodeType,
@@ -102,7 +101,10 @@ export {
 
 export {
     DataRequestFilter,
-    buildCypherQuery,
+} from "./layer4/data-request-filtered";
+
+export {
+    newDataRequest,
 } from "./layer4/pull";
 
 //// High Level ////////////////////////////////////////////////////////////////////////////////////////////////////////
