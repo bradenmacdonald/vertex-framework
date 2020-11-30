@@ -14,6 +14,7 @@ import type { DataResponse } from "./data-response";
 import {
     conditionalRawPropsMixinImplementation,
     derivedPropsMixinImplementation,
+    includeDependenciesFlag,
     virtualPropsMixinImplementation,
 } from "./data-request-mixins-impl";
 import { DerivedProperty } from "./derived-props";
@@ -97,6 +98,8 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
         const targetVNT = virtProp.target as any as VNodeType;  // Typing of this is a bit weird, to allow the optional VNodeType.hasVirtualProperties() method to work without circular type issues.
         const newTargetVar = generateNameFor(targetVNT);
         workingVars.add(newTargetVar);
+        const matchedPathVar = generateNameFor("path");  // We have to include the matched path to the target node as one of the working variables, or different paths to the same node can get combined by aggreggation functions operating on child nodes, creating incorrect results.
+        workingVars.add(matchedPathVar);
         if (Object.keys(virtProp.query.params).length) {
             throw new Error(`A virtual property query clause cannot have parameters.`);
             // ^ This could be supported in the future though, if useful.
@@ -114,7 +117,7 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
             workingVars.add(relationshipVariable);
             matchClause = matchClause.replace("@rel", relationshipVariable);
         }
-        query += `\nOPTIONAL MATCH ${matchClause}\n`;
+        query += `\nOPTIONAL MATCH ${matchedPathVar} = ${matchClause}\n`;
 
         // Add additional subqeries, if any:
         const virtPropsMap = addVirtualPropsForNode(newTargetVar, request, relationshipVariable);
@@ -128,6 +131,7 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
         }
         // Construct the WITH statement that ends this subquery, collect()ing many related nodes into a single array property
         workingVars.delete(newTargetVar);
+        workingVars.delete(matchedPathVar);
         if (relationshipVariable) {
             workingVars.delete(relationshipVariable);
         }
@@ -143,6 +147,13 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
 
     /** Add an subquery clause to join each current node to at most one other node via some x:one relationship */
     const addOneRelationshipSubquery = (variableName: string, virtProp: VirtualOneRelationshipProperty, parentNodeVariable: string, request: FilteredRequest): void => {
+
+        // [Due to a bug with Cypher subqueries and path variables?] It's sometimes necessary to put a WITH clause first:
+        // See https://community.neo4j.com/t/strange-behavior-of-path-variables-with-call-subquery/29810
+        if ([...workingVars].find(varName => varName.includes("path"))) {
+            query += `WITH ${[...workingVars].join(", ")}\n`;
+        }
+
         const newTargetVar = generateNameFor(virtProp.target as any as VNodeType);
         workingVars.add(newTargetVar);
 
@@ -242,43 +253,6 @@ function readOnlyView<T extends Record<string, any>>(x: T): Readonly<T> {
     return new Proxy(x, { set: () => false, defineProperty: () => false, deleteProperty: () => false }) as Readonly<T>;
 }
 
-/**
- * Recursively add "derived properties" to the interim result from a call to pull() data from the database.
- * Derived properties have access to the raw+virtual properties that have been pulled so far.
- * 
- * This function adds fields to the "resultData" argument.
- */
-function addDerivedPropertiesToResult(resultData: any, request: FilteredRequest): void {
-    const derivedProperties = request.derivedPropertiesIncluded;
-
-    if (derivedProperties.length > 0) {
-        const dataSoFar = readOnlyView(resultData);  // Don't allow the derived property implementation to mutate this directly
-        for (const propName of derivedProperties) {
-            const derivedProp = request.vnodeType.derivedProperties[propName];
-            if (!(derivedProp instanceof DerivedProperty)) {
-                throw new Error(`Derived property ${request.vnodeType.name}.${propName} is invalid. Is the class not decorated with @VNodeType.declare ?`);
-            }
-            resultData[propName] = derivedProp.computeValue(dataSoFar);
-        }
-    }
-    // Now recursively handle derived properties for any virtual -to-many or -to-one relationships included in the result:
-    request.virtualPropertiesIncluded.forEach(({propName, propDefn, subRequest}) => {
-        if (!subRequest) {
-            return;
-        }
-        if (propDefn.type === VirtualPropType.ManyRelationship) {
-            resultData[propName].forEach((subResultData: any) => {
-                addDerivedPropertiesToResult(subResultData, subRequest);
-            });
-        } else if (propDefn.type === VirtualPropType.OneRelationship) {
-            if (resultData[propName] === null) {
-                return;
-            }
-            addDerivedPropertiesToResult(resultData[propName], subRequest);
-        }
-    });
-}
-
 export function pull<VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
     tx: WrappedTransaction,
     vnt: VNT,
@@ -296,24 +270,68 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
     const request: BaseDataRequest<VNodeTypeWithVirtualProps> = typeof arg2 === "function" ? arg2(newDataRequest(arg1)) : arg1;
     const filter: DataRequestFilter = (typeof arg2 === "function" ? arg3 : arg2) || {};
     const filteredRequest = new FilteredRequest(request, filter);
+    const filteredRequestWithDependencies = new FilteredRequest(request, {...filter, flags: [...filter.flags ?? [], includeDependenciesFlag]})
     
-    const query = buildCypherQuery(filteredRequest);
+    const query = buildCypherQuery(filteredRequestWithDependencies);
     log.debug(query.query);
     
     const result = await tx.run(query.query, query.params);
 
-    // topLevelFields: all raw and virtual properties included (excludes dervied properties for now)
-    const topLevelFields = [...filteredRequest.rawPropertiesIncluded, ...filteredRequest.virtualPropertiesIncluded.map(v => v.propName)];
+    // Now recursively add derived fields and remove any interim fields that we needed but weren't explicitly requested:
     return result.records.map(record => {
-        const newRecord: any = {};
-        for (const field of topLevelFields) {
-            newRecord[field] = record.get(field);
-        }
-        // Add derived properties, which may use the raw+virtual properties in their computation:
-        addDerivedPropertiesToResult(newRecord, filteredRequest);
-        return newRecord;
+        // The top-level entries in the result (but only the top level entries) need to be converted from 'Record' type to plain JS objects:
+        const obj = Object.fromEntries(record.entries());
+        log.debug(`Raw result: ${JSON.stringify(obj)}\n`);
+        return postProcessResult(obj, filteredRequest)
     });
 }
+
+/**
+ * Recursive helper function to (1) add in any derived properties requested, and (2) remove and fields that were
+ * required to compute derived properties but were not explicitly requested.
+ */
+function postProcessResult(origResult: Readonly<Record<string, any>>, request: FilteredRequest): Record<string, any> {
+    const newResult: any = {}
+    // First add any explicitly requested raw fields to the new result:
+    request.rawPropertiesIncluded.forEach(propName => newResult[propName] = origResult[propName]);
+
+    // Now recursively handle virtual properties included in the result:
+    request.virtualPropertiesIncluded.forEach(({propName, propDefn, subRequest}) => {
+        if (propDefn.type === VirtualPropType.ManyRelationship) {
+            if (subRequest === undefined) { throw new Error(`unexpectedly missing subrequest`); /* Just to appease TypeScript */ }
+            newResult[propName] = origResult[propName].map((subResultData: any) =>
+                postProcessResult(subResultData, subRequest)
+            );
+        } else if (propDefn.type === VirtualPropType.OneRelationship) {
+            if (origResult[propName] === null) {
+                newResult[propName] = null;
+            } else {
+                if (subRequest === undefined) { throw new Error(`unexpectedly missing subrequest`); /* Just to appease TypeScript */ }
+                newResult[propName] = postProcessResult(origResult[propName], subRequest);
+            }
+        } else {
+            newResult[propName] = origResult[propName];
+        }
+        log.debug(` -> newresult[${propName}] = ${JSON.stringify(newResult[propName])} from ${JSON.stringify(origResult[propName])}`);
+    });
+
+    // Then add derived properties to the result. They have access to all the data in the original result, which may
+    // include "dependency" properties that we have excluded from newResult.
+    const derivedProperties = request.derivedPropertiesIncluded;
+    if (derivedProperties.length > 0) {
+        const dataSoFar = readOnlyView(origResult);  // Don't allow the derived property implementation to mutate this directly
+        for (const propName of derivedProperties) {
+            const derivedProp = request.vnodeType.derivedProperties[propName];
+            if (!(derivedProp instanceof DerivedProperty)) {
+                throw new Error(`Derived property ${request.vnodeType.name}.${propName} is invalid. Is the class not decorated with @VNodeType.declare ?`);
+            }
+            newResult[propName] = derivedProp.computeValue(dataSoFar);
+        }
+    }
+
+    return newResult;
+}
+
 
 export function pullOne<VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
     tx: WrappedTransaction,

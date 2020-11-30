@@ -21,7 +21,7 @@ type RequestBuilderFn<VNT extends BaseVNodeType = any> = (existingRequest: BaseD
 
 const condRawPropsMixinDataKey = "condRawPropsMixinDataKey";
 
-interface ConditionalRequest {
+export interface ConditionalRequest {
     /** If a flag with this name is set in the filter when pull()ing data from the graph... */
     flagName: string;
     /** Then include these additional requested raw properties / virtual properties / derived properties: */
@@ -202,31 +202,33 @@ export function requestWithDerivedPropAdded(dataRequest: DataRequestState, propN
     return dataRequest.cloneWithChanges({newMixinData: { [derivedPropsMixinDataKey]: newData }});
 }
 
+export const includeDependenciesFlag = Symbol("_includeDependencies");
+
 /**
  * A user is building a data request, and they've call a method to potentially add a derived property to the request.
  * For example, in pull(p => p.age()), the ".age()" is what triggers this code, where propKey would be "age", and the
  * user is wanting to add the derived property "age" to the request "dataRequest"
  */
 export const derivedPropsMixinImplementation: MixinImplementation = (dataRequest, propKey) => {
-    if ((dataRequest.vnodeType as VNodeType).derivedProperties === undefined) {
+    const vnodeType = dataRequest.vnodeType as VNodeType;
+    const derivedProp = vnodeType.derivedProperties[propKey];
+    if (derivedProp === undefined) {
         return undefined;
     }
-    const vnodeType = dataRequest.vnodeType as VNodeType;
-    const requestedDerivedProps = getDerivedPropsData(dataRequest);
 
-    const derivedProp = vnodeType.derivedProperties[propKey];
-        if (derivedProp !== undefined) {
-            // Operation to add a derived property to the request:
-            if (requestedDerivedProps[propKey] !== undefined) {
-                throw new Error(`Derived property ${vnodeType}.${propKey} was requested multiple times in one data request, which is not supported.`);
-            }
-            return () => {
-                // Construct the new request, with this derived property now included:
-                const request = requestWithDerivedPropAdded(dataRequest, propKey);
-                // And add in any dependencies required:
-                if (!(derivedProp instanceof DerivedProperty)) { throw new Error(`Derived property ${vnodeType}.${propKey} is invalid - missing @VNodeType.declare ?`); }
-                return derivedProp.dataSpec(request);
-            };
+    // Operation to add a derived property to the request:
+    return () => {
+        // Construct the new request, with this derived property now included:
+        const request = requestWithDerivedPropAdded(dataRequest, propKey);
+        // And add in any dependencies required:
+        if (!(derivedProp instanceof DerivedProperty)) {
+            throw new Error(`Derived property ${vnodeType}.${propKey} is invalid - missing @VNodeType.declare ?`);
         }
-    return undefined;
+        // The code in pull() needs to be able to tell which fields were explicitly requested, and which were requested
+        // only for use by derived props, as dependencies. So we add those dependency fields conditionally, only when
+        // the special includeDependenciesFlag is set.
+        // (The special flag is a symbol to avoid attacks where applications pass query string params into filter.flags
+        // and a dependent property contains sensitive information that shouldn't be returned by pull())
+        return request.if(includeDependenciesFlag, (r: any) => derivedProp.dataSpec(r));
+    };
 };

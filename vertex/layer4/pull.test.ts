@@ -187,8 +187,8 @@ suite("pull", () => {
                 assert.equal(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
 
-                    OPTIONAL MATCH (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
-                    WITH _node, _movie1, _rel1 ORDER BY _movie1.year DESC
+                    OPTIONAL MATCH _path1 = (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _movie1, _path1, _rel1 ORDER BY _movie1.year DESC
                     WITH _node, collect(_movie1 {.title, .year}) AS _movies1
 
                     RETURN _movies1 AS movies ORDER BY _node.name
@@ -269,9 +269,9 @@ suite("pull", () => {
                 assert.equal(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})
 
-                    OPTIONAL MATCH (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
-                    WITH _node, _movie1, _rel1, (_rel1.role) AS _role1
-                    WITH _node, _movie1, _rel1, _role1 ORDER BY _rel1.role
+                    OPTIONAL MATCH _path1 = (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _movie1, _path1, _rel1, (_rel1.role) AS _role1
+                    WITH _node, _movie1, _path1, _rel1, _role1 ORDER BY _rel1.role
                     WITH _node, collect(_movie1 {.title, .year, role: _role1}) AS _moviesOrderedByRole1
 
                     RETURN _node.name AS name, _moviesOrderedByRole1 AS moviesOrderedByRole ORDER BY _node.name
@@ -337,8 +337,8 @@ suite("pull", () => {
                         RETURN _moviefranchise1 LIMIT 1
                     }
                     
-                    OPTIONAL MATCH (_moviefranchise1)<-[:FRANCHISE_IS]-(_movie1:TestMovie:VNode)
-                    WITH _node, _moviefranchise1, _movie1 ORDER BY _movie1.year DESC
+                    OPTIONAL MATCH _path1 = (_moviefranchise1)<-[:FRANCHISE_IS]-(_movie1:TestMovie:VNode)
+                    WITH _node, _moviefranchise1, _movie1, _path1 ORDER BY _movie1.year DESC
                     WITH _node, _moviefranchise1, collect(_movie1 {.title}) AS _movies1
                     WITH _node, _moviefranchise1 {.name, movies: _movies1} AS _franchise1
                     
@@ -398,24 +398,24 @@ suite("pull", () => {
                 assert.equal(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)
 
-                    OPTIONAL MATCH (_node)-[:FRIEND_OF]-(_person1:TestPerson:VNode)
+                    OPTIONAL MATCH _path1 = (_node)-[:FRIEND_OF]-(_person1:TestPerson:VNode)
                     
-                    OPTIONAL MATCH (_person1)-[:ACTED_IN]->(:TestMovie:VNode)<-[:ACTED_IN]-(_person2:TestPerson:VNode)
+                    OPTIONAL MATCH _path2 = (_person1)-[:ACTED_IN]->(:TestMovie:VNode)<-[:ACTED_IN]-(_person2:TestPerson:VNode)
                     
-                    OPTIONAL MATCH (_person2)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
-                    WITH _node, _person1, _person2, _movie1, _rel1 ORDER BY _movie1.year DESC
-                    WITH _node, _person1, _person2, collect(_movie1 {.title, .year}) AS _movies1
+                    OPTIONAL MATCH _path3 = (_person2)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _person1, _path1, _person2, _path2, _movie1, _path3, _rel1 ORDER BY _movie1.year DESC
+                    WITH _node, _person1, _path1, _person2, _path2, collect(_movie1 {.title, .year}) AS _movies1
                     
-                    OPTIONAL MATCH (_person2)-[:FRIEND_OF]-(_person3:TestPerson:VNode)
+                    OPTIONAL MATCH _path3 = (_person2)-[:FRIEND_OF]-(_person3:TestPerson:VNode)
                     
-                    OPTIONAL MATCH (_person3)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
-                    WITH _node, _person1, _person2, _movies1, _person3, _movie1, _rel1 ORDER BY _movie1.year DESC
-                    WITH _node, _person1, _person2, _movies1, _person3, collect(_movie1 {.title, .year}) AS _movies2
-                    WITH _node, _person1, _person2, _movies1, _person3, _movies2 ORDER BY _person3.name
-                    WITH _node, _person1, _person2, _movies1, collect(_person3 {.name, movies: _movies2}) AS _friends1
-                    WITH _node, _person1, _person2, _movies1, _friends1 ORDER BY _person2.name
-                    WITH _node, _person1, collect(_person2 {.name, movies: _movies1, friends: _friends1}) AS _costars1
-                    WITH _node, _person1, _costars1 ORDER BY _person1.name
+                    OPTIONAL MATCH _path4 = (_person3)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
+                    WITH _node, _person1, _path1, _person2, _path2, _movies1, _person3, _path3, _movie1, _path4, _rel1 ORDER BY _movie1.year DESC
+                    WITH _node, _person1, _path1, _person2, _path2, _movies1, _person3, _path3, collect(_movie1 {.title, .year}) AS _movies2
+                    WITH _node, _person1, _path1, _person2, _path2, _movies1, _person3, _path3, _movies2 ORDER BY _person3.name
+                    WITH _node, _person1, _path1, _person2, _path2, _movies1, collect(_person3 {.name, movies: _movies2}) AS _friends1
+                    WITH _node, _person1, _path1, _person2, _path2, _movies1, _friends1 ORDER BY _person2.name
+                    WITH _node, _person1, _path1, collect(_person2 {.name, movies: _movies1, friends: _friends1}) AS _costars1
+                    WITH _node, _person1, _path1, _costars1 ORDER BY _person1.name
                     WITH _node, collect(_person1 {.name, costars: _costars1}) AS _friends1
 
                     RETURN _friends1 AS friends ORDER BY _node.name
@@ -473,6 +473,9 @@ suite("pull", () => {
             assert.strictEqual(age, chrisPratt.ageJS.ageJS);
             assert.isAtLeast(chrisPratt.ageJS.ageJS, 40);
             assert.isAtMost(chrisPratt.ageJS.ageJS, 70);
+            // Dependencies used in the calculation but not explicitly requested should be excluded from the final result:
+            assert.isUndefined((chrisPratt as any).dateOfBirth);
+            assert.isUndefined((chrisPratt as any).age);
         });
     });
 

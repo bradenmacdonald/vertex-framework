@@ -7,6 +7,7 @@ import { CypherQuery } from "../layer2/cypher-sugar";
 import { VNodeType } from "./vnode";
 import { BaseDataRequest, DataRequestState } from "../layer3/data-request";
 import {
+    ConditionalRequest,
     getConditionalRawPropsData,
     getDerivedPropsData,
     getProjectedVirtualPropsData,
@@ -35,7 +36,7 @@ export interface DataRequestFilter {
     /** Order the results by one of the properties (e.g. "name" or "name DESC") */
     orderBy?: string;
     /** A list of flags that determines which flagged/conditional properties should get included in the response */
-    flags?: string[];
+    flags?: (string|symbol)[];
 
     // Subfilters allow specifying key/where filters and ordering on virtual properties. Note that "flags" are global
     // for the entire request, so you cannot specify different flags for a subfilter.
@@ -68,14 +69,27 @@ export class FilteredRequest {
         this.filter = filter;
         // At this point, we know enough to determine which "conditional" (flagged) raw/virtual/derived properties will
         // be included in the request or not:
-        const conditionalProperties = getConditionalRawPropsData(DataRequestState.getInternalState(request));
-        for (const conditionalProp of conditionalProperties) {
-            if (this.filter.flags?.includes(conditionalProp.flagName)) {
-                // This conditional property/properties should be included, because their flag is set.
-                // We call the provided function, which adds additional fields to the request.
-                request = conditionalProp.conditionalRequest(request);
+
+        const addConditionalProperties = (conditionalProperties: ConditionalRequest[]): void => {
+            for (const conditionalProp of conditionalProperties) {
+                if (this.filter.flags?.includes(conditionalProp.flagName)) {
+                    // This conditional property/properties should be included, because their flag is set.
+                    // We call the provided function, which adds additional fields to the request.
+                    request = conditionalProp.conditionalRequest(request);
+                }
             }
-        }
+        };
+
+        const conditionalProperties = getConditionalRawPropsData(DataRequestState.getInternalState(request));
+        addConditionalProperties(conditionalProperties);
+
+        // If we just conditionally added derived properties, they may have added some additional dependencies
+        // to "request" conditionally, so "conditionalProperties" may now be longer, and we need to process those too:
+        const additionalConditionalProperties = (
+            getConditionalRawPropsData(DataRequestState.getInternalState(request))
+        ).slice(conditionalProperties.length);
+        addConditionalProperties(additionalConditionalProperties);
+
         this.request = request;
     }
 
