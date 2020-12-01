@@ -357,6 +357,75 @@ export const graph = new Vertex({
 });
 ```
 
+## Dealing with circular references
+
+When creating a Node.js/TypeScript project, circular references can be a big pain. Often they are only detectable at runtime, resulting in strange bugs where some class in your code is unexpectedly `undefined`.
+
+Due to Vertex Framework's design that tries to provide as much type information as possible, there will be times when circular references to `VNodeType` classes come up in your code, sometimes unavoidably. Vertex Framework has a couple features to help reduce this pain:
+
+* Cypher syntactic sugar will lazily evaluate interpolated classes/values as late as possible, so a reference like `` C`MATCH (p:${Person})` `` will not evaluate `Person` right away (as it be undefined during module import), but instead will wait until the query actually needs to be compiled and executed, and then evaluate it.
+* Some other types of circular references will be detected at runtime and Vertex Framework will throw an exception clearly stating that the problem is most likely a circular reference.
+
+If you have an unavoidable circular reference, Vertex Framework provides a simple tool for solving the problem: **forward references** to VNodeTypes. For example, say you have a `Movie` VNodeType which has a -to-one relationship to `MovieFranchise`. You want `Movie` to have a `.franchise` virtual property to get the movie's franchise, but you also want the `MovieFranchise` VNodeType to have a `.movies` property to get the movies in that franchise. Here's how you can define both VNodeTypes using a forward reference:
+
+In `Movie.ts`:
+
+```typescript
+import { VNodeType, VNodeTypeRef } from "vertex-framework";
+
+// Declare a forward reference to Movie _before_ importing MovieFranchise.
+// Specify the type (typeof Movie) for TypeScript and the label ("Movie") for
+// Vertex Framework to use to find the full class definition at runtime.
+export const MovieRef: typeof Movie = VNodeTypeRef("Movie");
+
+import { MovieFranchise } from "./MovieFranchise";
+
+// Define Movie now:
+@VNodeType.declare
+export class Movie extends VNodeType {
+    static label = "Movie";
+    ...
+    static rel = VNodeType.hasRelationshipsFromThisTo({
+        /** This Movie is part of a franchise */
+        FRANCHISE_IS: {
+            to: [MovieFranchise],
+            properties: {},
+            cardinality: VNodeType.Rel.ToOneOrNone,
+        },
+    });
+    static virtualProperties = VNodeType.hasVirtualProperties({
+        franchise: {
+            type: VirtualPropType.OneRelationship,
+            query: C`(@this)-[:${Movie.rel.FRANCHISE_IS}]->(@target:${MovieFranchise})`,
+            target: MovieFranchise,
+        },
+    });
+}
+```
+
+Then, in `MovieFranchise.ts`:
+
+```typescript
+// Instead of importing Movie, which would cause a circular reference,
+// we import MovieRef:
+import { MovieRef as Movie } from "./Movie";
+
+@VNodeType.declare
+export class MovieFranchise extends VNodeType {
+    static label = "MovieFranchise";
+    ...
+    static virtualProperties = VNodeType.hasVirtualProperties({
+        movies: {
+            type: VirtualPropType.ManyRelationship,
+            query: C`(@this)<-[:${Movie.rel.FRANCHISE_IS}]-(@target:${Movie})`,
+            target: Movie,
+        },
+    });
+}
+```
+
+You should then generally be able to use `MovieRef` anywhere you would use `Movie`; behind the scenes, `MovieRef` is created as an ES6 `Proxy` object, which becomes a proxy for the real `Movie` class.
+
 ---
 
 ## Roadmap
