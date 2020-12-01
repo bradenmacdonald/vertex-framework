@@ -6,7 +6,7 @@ Vertex Framework is an **experimental** graph data management framework in activ
 
 Its design choices are oriented around the TechNotes use case and probably not suitable for general use at this time.
 
-🚧 **Vertex Framework is pre-alpha and unstable.** It's API will feature regular breaking changes. 🚧
+🚧 **Vertex Framework is pre-alpha and unstable.** Its API will feature regular breaking changes. 🚧
 
 ---
 
@@ -330,7 +330,7 @@ Also, when defining the properties, relationships, virtual properties, and deriv
 
 Vertex Framework includes a rudimentary migrations framework that your application can use to modify the database schema, for example to add a unique constraint on a particular property or to do a data migration if some fields/VNode types have been renamed.
 
-Here is an exmaple of how to initialize Vertex Framework with a custom migration:
+Here is an example of how to initialize Vertex Framework with a custom migration:
 
 ```typescript
 import { Vertex } from "vertex-framework";
@@ -361,7 +361,7 @@ export const graph = new Vertex({
 
 When creating a Node.js/TypeScript project, circular references can be a big pain. Often they are only detectable at runtime, resulting in strange bugs where some class in your code is unexpectedly `undefined`.
 
-Due to Vertex Framework's design that tries to provide as much type information as possible, there will be times when circular references to `VNodeType` classes come up in your code, sometimes unavoidably. Vertex Framework has a couple features to help reduce this pain:
+Due to Vertex Framework's design that tries to provide as much type information as possible, there will be times when circular references to `VNodeType` classes come up in your code, sometimes unavoidably. Vertex Framework has a couple of features to help reduce this pain:
 
 * Cypher syntactic sugar will lazily evaluate interpolated classes/values as late as possible, so a reference like `` C`MATCH (p:${Person})` `` will not evaluate `Person` right away (as it be undefined during module import), but instead will wait until the query actually needs to be compiled and executed, and then evaluate it.
 * Some other types of circular references will be detected at runtime and Vertex Framework will throw an exception clearly stating that the problem is most likely a circular reference.
