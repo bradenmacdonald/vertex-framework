@@ -596,4 +596,13 @@ suite("pull", () => {
             }
         });
     });
+
+    suite("Type safety check", () => {
+        test("Virtual properties have to be called", async () => {
+            if (Math.floor(1.0) == 2) {  // This is a compile time test, so we don't need to run any code.
+                // @ts-expect-error Requesting p.age must be done as p.age() since it's a virtual property
+                await testGraph.pull(Person, p => p.age);
+            }
+        })
+    });
 });

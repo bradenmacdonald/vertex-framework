@@ -1,8 +1,8 @@
 import { ReturnTypeFor } from "../layer2/cypher-return-shape";
 import { PropertyDataType, BaseVNodeType } from "../layer2/vnode-base";
-import { BaseDataRequest } from "../layer3/data-request";
+import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer3/data-request";
 import {
-    ConditionalRawPropsMixin,
+    ConditionalPropsMixin,
     DerivedPropsMixin,
     IncludedDerivedPropRequest,
     IncludedVirtualCypherExpressionProp,
@@ -13,9 +13,13 @@ import {
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 
 
-type UnWindConditionalPropsArray<conditionallyRequestedProperties extends BaseDataRequest<any, any, any>[]> = (
+type UnWindConditionalPropsArray<conditionallyRequestedProperties extends AnyDataRequest<any>[]> = (
     conditionallyRequestedProperties extends [infer Spec1, ...infer Rest] ?
-        Partial<DataResponse<Spec1>> & UnWindConditionalPropsArray<Rest>
+        // Should be just:
+        //     Partial<DataResponse<Spec1>> & UnWindConditionalPropsArray<Rest>
+        // But TypeScript can't figure that out so we need:
+        (Spec1 extends AnyDataRequest<any> ? Partial<DataResponse<Spec1>> : unknown)
+        & (Rest extends AnyDataRequest<any>[] ? UnWindConditionalPropsArray<Rest> : unknown)
     :
         unknown
 );
@@ -24,13 +28,13 @@ type UnWindConditionalPropsArray<conditionallyRequestedProperties extends BaseDa
 /**
  * When a Data Request is executed ("pulled") from the database, this defines the shape/type of the response
  */
-export type DataResponse<Request extends BaseDataRequest<BaseVNodeType, any, any>> = (
-    Request extends BaseDataRequest<infer VNT, infer includedProperties, infer Mixins> ? (
+export type DataResponse<Request extends AnyDataRequest<BaseVNodeType>> = (
+    Request extends BaseDataRequest<infer VNT, infer includedProperties, RequiredMixin & infer Mixins> ? (
         // Raw properties that are definitely included:
         {[rawProp in includedProperties]: PropertyDataType<VNT["properties"], rawProp>} &
         // Any properties that are conditionally included, depending on whether a certain flag is set or not:
         (
-            Mixins extends ConditionalRawPropsMixin<VNT, infer conditionallyRequestedProperties> & infer Other ?
+            Mixins extends ConditionalPropsMixin<VNT, infer conditionallyRequestedProperties> & infer Other ?
                 UnWindConditionalPropsArray<conditionallyRequestedProperties>
             : unknown
         ) &

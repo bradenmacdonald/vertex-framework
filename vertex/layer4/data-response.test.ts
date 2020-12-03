@@ -5,8 +5,9 @@ import type { BaseDataRequest, UUID } from "..";
 import { Person } from "../test-project";
 import type { DataResponse } from "./data-response";
 import { VNodeTypeWithVirtualProps } from "./vnode";
-import { ConditionalRawPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
+import { ConditionalPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
 import { BaseVNodeType } from "../layer2/vnode-base";
+import { RequiredMixin } from "../layer3/data-request";
 
 
 suite("DataResponse", () => {
@@ -16,7 +17,7 @@ suite("DataResponse", () => {
 
         // A helper function to create a typed DataRequest that supports raw properties and conditional (flagged) raw properties.
         // This does not include the mixins to support virtual or derived properties.
-        function newDataRequest<VNT extends BaseVNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, ConditionalRawPropsMixin<VNT>> {
+        function newDataRequest<VNT extends BaseVNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, RequiredMixin & ConditionalPropsMixin<VNT>> {
             // These tests only test typing so we don't have to actually implement this method.
             // Just return a Mock object to allow the chaining to work when building the request.
             return new Proxy({}, { get: (_, propName, proxy) => (propName in Person.properties ? proxy : () => proxy), }) as any;
@@ -59,7 +60,7 @@ suite("DataResponse", () => {
 
         // A helper function to create a typed DataRequest that supports raw properties and virtual properties.
         // This does not include the mixins to support derived properties.
-        function newDataRequest<VNT extends VNodeTypeWithVirtualProps>(vnodeType: VNT): BaseDataRequest<VNT, never, ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT>> {
+        function newDataRequest<VNT extends VNodeTypeWithVirtualProps>(vnodeType: VNT): BaseDataRequest<VNT, never, RequiredMixin & ConditionalPropsMixin<VNT> & VirtualPropsMixin<VNT>> {
             // These tests only test typing so we don't have to actually implement this method.
             // Just return a Mock object to allow the chaining to work when building the request.
             return new Proxy({}, { get: (_, propName, proxy) => (propName in Person.properties ? proxy : () => proxy), }) as any;

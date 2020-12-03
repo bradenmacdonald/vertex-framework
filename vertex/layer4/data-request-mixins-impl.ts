@@ -9,7 +9,7 @@
 
 import { C } from "../layer2/cypher-sugar";
 import { BaseVNodeType } from "../layer2/vnode-base";
-import { BaseDataRequest, MixinImplementation, DataRequestState } from "../layer3/data-request";
+import { BaseDataRequest, MixinImplementation, DataRequestState, AnyDataRequest } from "../layer3/data-request";
 import { DerivedProperty } from "./derived-props";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualPropType } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
@@ -56,7 +56,7 @@ const virtPropsMixinDataKey = "virtPropsMixinDataKey";
 const projectedVirtualPropsKey = "projectedVirtualProps";
 
 interface VirtualPropRequest {
-    subRequest?: BaseDataRequest<any, any, any>,
+    subRequest?: AnyDataRequest<any>,
 }
 
 // Virtual properties (like related objects) to pull from the database, along with details such as what data to pull

@@ -34,8 +34,19 @@ import {
 
 ///////////////// BaseDataRequest //////////////////////////////////////////////////////////////////////////////////////
 
-/** The base data request type. All data requests allow choosing among a VNodeType's raw properties. */
-export type BaseDataRequest<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"] = never, Mixins = unknown> = (
+const isDataRequest = Symbol("isDataRequest");
+export interface RequiredMixin {
+    [isDataRequest]: true;
+}
+
+/**
+ * The base data request type. All data requests allow choosing among a VNodeType's raw properties.
+ * Choosing among a VNodeType's other properties, like virtual and derived properties, is made possible when the data
+ * request contains "mixins".
+ * 
+ * To improve type safety, the "RequiredMixin" must always be one of the "mixins" present, but there can be others.
+ */
+export type BaseDataRequest<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"] = never, Mixins extends RequiredMixin = RequiredMixin> = (
     // For each raw property of the VNode that's not yet included in the request, add a property to add it to the request:
     AddRawProperties<VNT, requestedProperties, Mixins> &
     // Add the "allProps" helper that adds all properties to the request:
@@ -44,20 +55,22 @@ export type BaseDataRequest<VNT extends BaseVNodeType, requestedProperties exten
     Mixins
 );
 
+export type AnyDataRequest<VNT extends BaseVNodeType> = BaseDataRequest<VNT, any, RequiredMixin>;
+
 // For each raw property of the VNode that's not yet included in the request, add a property to add it to the request:
-type AddRawProperties<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"], Mixins> = {
+type AddRawProperties<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"], Mixins extends RequiredMixin> = {
     [propName in keyof Omit<VNT["properties"], requestedProperties>]: BaseDataRequest<VNT, requestedProperties | propName, Mixins>;
 };
 
-type AddAllProperties<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"], Mixins> = (
+type AddAllProperties<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"], Mixins extends RequiredMixin> = (
     // If all properties are not yet included, create a .allProps property which requests all properties of this VNodeType.
     keyof VNT["properties"] extends requestedProperties ? unknown : { allProps: BaseDataRequest<VNT, keyof VNT["properties"], Mixins>}
 );
 
 /** A helper that mixins can use to update their state in a data request. */
 export type UpdateMixin<VNT extends BaseVNodeType, ThisRequest, CurrentMixin, NewMixin> = (
-    ThisRequest extends BaseDataRequest<VNT, infer requestedProperties, CurrentMixin & infer Other> ?
-        BaseDataRequest<VNT, requestedProperties, NewMixin & Other>
+    ThisRequest extends BaseDataRequest<VNT, infer requestedProperties, CurrentMixin & RequiredMixin & infer Other> ?
+        BaseDataRequest<VNT, requestedProperties, NewMixin & RequiredMixin & Other>
     : never
 );
 
@@ -104,7 +117,7 @@ export class DataRequestState {
      * On the returned object, you can call properties like .uuid.name.dateOfBirth to add those properties to the
      * underlying request.
      */
-    static newRequest<VNT extends BaseVNodeType, Mixins>(vnodeType: VNT, mixins: MixinImplementation[]): BaseDataRequest<VNT, never, Mixins> {
+    static newRequest<VNT extends BaseVNodeType, Mixins extends RequiredMixin>(vnodeType: VNT, mixins: MixinImplementation[]): BaseDataRequest<VNT, never, Mixins> {
         const newObj = new DataRequestState(vnodeType, [], mixins.slice(), {});
         return new Proxy(newObj, DataRequestState.proxyHandler) as any as BaseDataRequest<VNT, never, Mixins>;
     }
@@ -197,8 +210,8 @@ export type RequestVNodeRawProperties<VNT extends BaseVNodeType, SelectedProps e
 export function getRequestedRawProperties<VNT extends BaseVNodeType, SelectedProps extends keyof VNT["properties"] = string & keyof VNT["properties"]>(vnodeType: VNT, requestFn: RequestVNodeRawProperties<VNT, SelectedProps>):
     Array<SelectedProps>
 {
-    // Create an empty data request, with no mixins, so it can only select from the VNodeType's raw properties:
-    const emptyRequest = DataRequestState.newRequest<VNT, unknown>(vnodeType, []);
+    // Create an empty data request, with no additional mixins, so it can only select from the VNodeType's raw properties:
+    const emptyRequest = DataRequestState.newRequest<VNT, RequiredMixin>(vnodeType, []);
     // Call the provided function to construct a complete request, starting with the empty request as a starting point:
     const completeRequest = requestFn(emptyRequest);
     const requestState = DataRequestState.getInternalState(completeRequest);

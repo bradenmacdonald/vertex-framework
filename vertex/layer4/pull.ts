@@ -8,8 +8,8 @@ import {
 } from "./virtual-props";
 import type { WrappedTransaction } from "../transaction";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
-import { BaseDataRequest, DataRequestState } from "../layer3/data-request";
-import { ConditionalRawPropsMixin, DerivedPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
+import { AnyDataRequest, BaseDataRequest, DataRequestState, RequiredMixin } from "../layer3/data-request";
+import { ConditionalPropsMixin, DerivedPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
 import type { DataResponse } from "./data-response";
 import {
     conditionalRawPropsMixinImplementation,
@@ -20,7 +20,7 @@ import {
 import { DerivedProperty } from "./derived-props";
 import { DataRequestFilter, FilteredRequest } from "./data-request-filtered";
 
-type PullMixins<VNT extends VNodeType> = ConditionalRawPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT>
+type PullMixins<VNT extends VNodeType> = ConditionalPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT> & RequiredMixin;
 
 /** Create an empty data request to use with pull() or pullOne() */
 export function newDataRequest<VNT extends VNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, PullMixins<VNT>> {
@@ -253,14 +253,14 @@ function readOnlyView<T extends Record<string, any>>(x: T): Readonly<T> {
     return new Proxy(x, { set: () => false, defineProperty: () => false, deleteProperty: () => false }) as Readonly<T>;
 }
 
-export function pull<VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
+export function pull<VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
     tx: WrappedTransaction,
     vnt: VNT,
     request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
     filter?: DataRequestFilter,
 ): Promise<DataResponse<Request>[]>;
 
-export function pull<Request extends BaseDataRequest<any, any, any>>(
+export function pull<Request extends AnyDataRequest<any>>(
     tx: WrappedTransaction,
     request: Request,
     filter?: DataRequestFilter,
@@ -333,14 +333,14 @@ function postProcessResult(origResult: Readonly<Record<string, any>>, request: F
 }
 
 
-export function pullOne<VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
+export function pullOne<VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
     tx: WrappedTransaction,
     vnt: VNT,
     request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
     filter?: DataRequestFilter,
 ): Promise<DataResponse<Request>>;
 
-export function pullOne<Request extends BaseDataRequest<any, any, any>>(
+export function pullOne<Request extends AnyDataRequest<any>>(
     tx: WrappedTransaction,
     request: Request,
     filter?: DataRequestFilter,
@@ -359,13 +359,13 @@ export async function pullOne(tx: WrappedTransaction, arg1: any, arg2?: any, arg
 // These types match the overload signature for pull(), but have no "tx" parameter; used in WrappedTransaction and Vertex for convenience.
 export type PullNoTx = (
     (
-        <VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
+        <VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
             vnt: VNT,
             request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
             filter?: DataRequestFilter,
         ) => Promise<DataResponse<Request>[]>
     ) & (
-        <Request extends BaseDataRequest<any, any, any>>(
+        <Request extends AnyDataRequest<any>>(
             request: Request,
             filter?: DataRequestFilter,
         ) => Promise<DataResponse<Request>[]>
@@ -374,13 +374,13 @@ export type PullNoTx = (
 
 export type PullOneNoTx = (
     (
-        <VNT extends VNodeType, Request extends BaseDataRequest<VNT, any, any>>(
+        <VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
             vnt: VNT,
             request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
             filter?: DataRequestFilter,
         ) => Promise<DataResponse<Request>>
     ) & (
-        <Request extends BaseDataRequest<any, any, any>>(
+        <Request extends AnyDataRequest<any>>(
             request: Request,
             filter?: DataRequestFilter,
         ) => Promise<DataResponse<Request>>

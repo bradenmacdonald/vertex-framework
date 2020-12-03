@@ -11,7 +11,7 @@
 import Joi from "@hapi/joi";
 import { FieldType } from "../layer2/cypher-return-shape";
 import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
-import { BaseDataRequest, UpdateMixin } from "../layer3/data-request";
+import { BaseDataRequest, AnyDataRequest, UpdateMixin, RequiredMixin } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import type { DerivedProperty } from "./derived-props";
@@ -19,16 +19,16 @@ import type { DerivedProperty } from "./derived-props";
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
 /** Allow requesting other raw/virtual/derived properties conditionally, based on whether or not a "flag" is set: */
-export type ConditionalRawPropsMixin<
+export type ConditionalPropsMixin<
     VNT extends BaseVNodeType,
-    conditionallyRequestedProperties extends BaseDataRequest<VNT, any, any>[] = [],
+    conditionallyRequestedProperties extends AnyDataRequest<any>[] = [],
 > = ({
     if:
-        <ThisRequest, SubSpec extends BaseDataRequest<VNT, any, any>>
+        <ThisRequest extends AnyDataRequest<any>, SubSpec extends AnyDataRequest<any>>
             (this: ThisRequest, flagName: string, subRequest: (buildSubequest: BaseDataRequest<VNT, never, ResetMixins<ThisRequest, VNT>>) => SubSpec) => (
                 UpdateMixin<VNT, ThisRequest,
-                    ConditionalRawPropsMixin<VNT, conditionallyRequestedProperties>,
-                    ConditionalRawPropsMixin<VNT, [...conditionallyRequestedProperties, SubSpec]>
+                    ConditionalPropsMixin<VNT, conditionallyRequestedProperties>,
+                    ConditionalPropsMixin<VNT, [...conditionallyRequestedProperties, SubSpec]>
                 >
             );
 });
@@ -44,10 +44,10 @@ export type VirtualPropsMixin<
     VNT extends VNodeTypeWithVirtualProps,
     includedVirtualProps extends RecursiveVirtualPropRequest<VNT>|unknown = unknown,
 > = ({
-    [propName in keyof VNT["virtualProperties"]]://Omit<VNT["virtualProperties"], keyof includedVirtualProps>]:
+    [propName in keyof VNT["virtualProperties"]]:
         VNT["virtualProperties"][propName] extends VirtualManyRelationshipProperty ?
             // For each x:many virtual property, add a method for requesting that virtual property:
-            <ThisRequest, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
+            <ThisRequest extends AnyDataRequest<any>, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
             // This is the method:
             (this: ThisRequest,
                 subRequest: (buildSubrequest: BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, never, ResetMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]> & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]> >>) => SubSpec,
@@ -62,7 +62,7 @@ export type VirtualPropsMixin<
 
         : VNT["virtualProperties"][propName] extends VirtualOneRelationshipProperty ?
             // For each x:one virtual property, add a method for requesting that virtual property:
-            <ThisRequest, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
+            <ThisRequest extends AnyDataRequest<any>, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
             (this: ThisRequest, subRequest: (buildSubequest: BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, never, ResetMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]>>>) => SubSpec) => (
                 UpdateMixin<VNT, ThisRequest,
                     VirtualPropsMixin<VNT, includedVirtualProps>,
@@ -99,12 +99,12 @@ type RecursiveVirtualPropRequest<VNT extends VNodeTypeWithVirtualProps> = {
     )
 }
 
-export type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends BaseDataRequest<VPTarget<propType>, any, any>> = {
+export type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends AnyDataRequest<VPTarget<propType>>> = {
     spec: Spec,
     type: "many",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
 
-export type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends BaseDataRequest<VPTarget<propType>, any, any>> = {
+export type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends AnyDataRequest<VPTarget<propType>>> = {
     spec: Spec,
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 };
@@ -188,16 +188,16 @@ type GetDerivedPropValueType<DerivedProp extends DerivedProperty<any>> = (
 // virtual properties (e.g. to select which fields to include for the target of one-to-many relationship), it's
 // necessary to incude the same mixins, but with a different VNodeType specified and the data about which fields are
 // included reset.
-type ResetMixins<Request extends BaseDataRequest<any, any, any>, newVNodeType extends BaseVNodeType> = (
-    Request extends BaseDataRequest<any, any, infer Mixins> ? (
-        ResetMixins1<Mixins, unknown, newVNodeType>
+type ResetMixins<Request extends BaseDataRequest<any, any, RequiredMixin>, newVNodeType extends BaseVNodeType> = (
+    Request extends BaseDataRequest<any, any, RequiredMixin & infer Mixins> ? (
+        RequiredMixin & ResetMixins1<Mixins, unknown, newVNodeType>
     ) : never
 );
 
 type ResetMixins1<OldMixins, NewMixins, newVNodeType extends BaseVNodeType> = (
     ResetMixins2<OldMixins, 
-        OldMixins extends ConditionalRawPropsMixin<any, any> ?
-            NewMixins & ConditionalRawPropsMixin<newVNodeType>
+        OldMixins extends ConditionalPropsMixin<any, any> ?
+            NewMixins & ConditionalPropsMixin<newVNodeType>
         : NewMixins
     , newVNodeType>
 );

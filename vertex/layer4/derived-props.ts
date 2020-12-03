@@ -1,5 +1,5 @@
 import type { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
-import type { BaseDataRequest } from "../layer3/data-request";
+import type { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer3/data-request";
 import type { DataResponse } from "./data-response";
 import type { VirtualPropsMixin } from "./data-request-mixins";
 
@@ -33,21 +33,21 @@ export type CleanDerivedProps<DPS extends DerivedPropsSchema> = {
 
 
 export interface DerivedPropertyFactory {
-    <VNT extends VNodeTypeWithVirtualProps, Request extends BaseDataRequest<VNT, any, any>, ValueType>(
+    <VNT extends VNodeTypeWithVirtualProps, Request extends AnyDataRequest<VNT>, ValueType>(
         appliesTo: VNT,
-        dataSpec: (rq: BaseDataRequest<VNT, never, VirtualPropsMixin<VNT>>) => Request,
+        dataSpec: (rq: BaseDataRequest<VNT, never, RequiredMixin & VirtualPropsMixin<VNT>>) => Request,
         computeValue: (data: DataResponse<Request>) => ValueType,
     ): DerivedProperty<ValueType>;
 }
 
 export class DerivedProperty<ValueType> {
-    readonly dataSpec: (rq: BaseDataRequest<any, never, any>) => BaseDataRequest<any, any, any>;
+    readonly dataSpec: (rq: BaseDataRequest<any, never, any>) => AnyDataRequest<any>;
     readonly computeValue: (data: any) => ValueType;
     readonly vnt: VNodeTypeWithVirtualProps;
 
     private constructor(
         vnt: VNodeTypeWithVirtualProps,
-        dataSpec: (rq: BaseDataRequest<any, never, any>) => BaseDataRequest<any, any, any>,
+        dataSpec: (rq: BaseDataRequest<any, never, any>) => AnyDataRequest<any>,
         computeValue: (data: any) => ValueType
     ) {
         this.vnt = vnt;
