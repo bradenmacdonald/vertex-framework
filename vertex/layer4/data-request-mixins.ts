@@ -154,7 +154,7 @@ export type DerivedPropsMixin<
 > = ({
     [propName in keyof VNT["derivedProperties"]]:
         // For each derived property, add a method for requesting that derived property:
-        <ThisRequest, FlagType extends string|undefined = undefined>
+        <ThisRequest>
         (this: ThisRequest) => (
             UpdateMixin<VNT, ThisRequest,
                 DerivedPropsMixin<VNT, includedDerivedProps>,
@@ -190,37 +190,13 @@ type GetDerivedPropValueType<DerivedProp extends DerivedProperty<any>> = (
 // included reset.
 type ResetMixins<Request extends BaseDataRequest<any, any, RequiredMixin>, newVNodeType extends BaseVNodeType> = (
     Request extends BaseDataRequest<any, any, RequiredMixin & infer Mixins> ? (
-        RequiredMixin & ResetMixins1<Mixins, unknown, newVNodeType>
+        RequiredMixin &
+        (Mixins extends ConditionalPropsMixin<any, any> ? ConditionalPropsMixin<newVNodeType> : unknown) &
+        (Mixins extends VirtualPropsMixin<any, any> ?
+            (newVNodeType extends VNodeTypeWithVirtualProps ? VirtualPropsMixin<newVNodeType> : unknown)
+        : unknown) &
+        (Mixins extends DerivedPropsMixin<any, any> ?
+            (newVNodeType extends VNodeType ? DerivedPropsMixin<newVNodeType> : unknown)
+        : unknown)
     ) : never
-);
-
-type ResetMixins1<OldMixins, NewMixins, newVNodeType extends BaseVNodeType> = (
-    ResetMixins2<OldMixins, 
-        OldMixins extends ConditionalPropsMixin<any, any> ?
-            NewMixins & ConditionalPropsMixin<newVNodeType>
-        : NewMixins
-    , newVNodeType>
-);
-
-type ResetMixins2<OldMixins, NewMixins, newVNodeType extends BaseVNodeType> = (
-    ResetMixins3<OldMixins,
-        OldMixins extends VirtualPropsMixin<any, any> ?
-            NewMixins & (
-                newVNodeType extends VNodeTypeWithVirtualProps ?
-                    VirtualPropsMixin<newVNodeType>
-                : unknown
-            )
-        : NewMixins
-    , newVNodeType>
-);
-
-
-type ResetMixins3<OldMixins, NewMixins, newVNodeType extends BaseVNodeType> = (
-    OldMixins extends DerivedPropsMixin<any, any> ?
-        NewMixins & (
-            newVNodeType extends VNodeType ?
-                DerivedPropsMixin<newVNodeType>
-            : unknown
-        )
-    : NewMixins
 );
