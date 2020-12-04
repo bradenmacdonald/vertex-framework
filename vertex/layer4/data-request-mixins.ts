@@ -193,3 +193,13 @@ type ResetMixins<Request extends BaseDataRequest<any, any, RequiredMixin>, newVN
         : unknown)
     ) : never
 );
+
+
+export type SubclassMixins<Request extends BaseDataRequest<any, any, RequiredMixin>, OldVNT extends VNodeType, NewVNT extends VNodeType> = (
+    Request extends BaseDataRequest<OldVNT, any, infer Mixins> ? (
+        RequiredMixin &
+        (Mixins extends ConditionalPropsMixin<OldVNT, infer data> & infer otherMixins ? ConditionalPropsMixin<NewVNT, data> : unknown) &
+        (Mixins extends VirtualPropsMixin<OldVNT, infer data> ? VirtualPropsMixin<NewVNT, data> : unknown) &
+        (Mixins extends DerivedPropsMixin<OldVNT, infer data> & infer otherMixins ? DerivedPropsMixin<NewVNT, data> : unknown)
+    ) : never
+);
