@@ -99,20 +99,20 @@ type RecursiveVirtualPropRequest<VNT extends VNodeTypeWithVirtualProps> = {
     )
 }
 
-export type IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends AnyDataRequest<VPTarget<propType>>> = {
+export interface IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends AnyDataRequest<VPTarget<propType>>> {
     spec: Spec,
     type: "many",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
-};
+}
 
-export type IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends AnyDataRequest<VPTarget<propType>>> = {
+export interface IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends AnyDataRequest<VPTarget<propType>>> {
     spec: Spec,
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
-};
+}
 
-export type IncludedVirtualCypherExpressionProp<FT extends FieldType> = {
+export interface IncludedVirtualCypherExpressionProp<FT extends FieldType> {
     type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
     valueType: FT;  // This field also doesn't exist, but is required for type inference to work
-};
+}
 
 // When using a virtual property to join some other VNode to another node, this ProjectRelationshipProps type is used to
 // "project" properties from the *relationship* so that they appear as virtual properties on the target VNode.
@@ -127,23 +127,16 @@ type ProjectRelationshipProps<Rel extends RelationshipDeclaration|undefined> = (
         }
     } : unknown
 );
-type VirtualCypherExpressionPropertyForRelationshipProp<Prop> = (
-    // This is a generated VirtualCypherExpressionProperty, used to make a property from the relationship appear as an
-    // available virtual property on the target VNode. (e.g. the "role" property from the ACTED_IN relationship now
-    // appears as a VirtualCypherExpressionProperty on the Movie VNode when accessed via the "person.movies.role"
-    // virtual property, even though there is normally no "movies.role" virtual property.)
-    Omit<VirtualCypherExpressionProperty, "valueType"> & {
-        // We can't tell from typescript when Joi properties are nullable or not so assume they can always be null:
-        valueType: {nullOr: (
-            // "Prop" is the property definition (Joi validator) defined in the VNode.relationshipsFrom section
-            Prop extends Joi.StringSchema ? "string" :
-            Prop extends Joi.NumberSchema ? "number" :
-            Prop extends Joi.BooleanSchema ? "boolean" :
-            Prop extends Joi.DateSchema ? "string" :
-            "any"
-        )}
-    }
-);
+interface VirtualCypherExpressionPropertyForRelationshipProp<Prop> extends Omit<VirtualCypherExpressionProperty, "valueType"> {
+    valueType: {nullOr: (
+        // "Prop" is the property definition (Joi validator) defined in the VNode.relationshipsFrom section
+        Prop extends Joi.StringSchema ? "string" :
+        Prop extends Joi.NumberSchema ? "number" :
+        Prop extends Joi.BooleanSchema ? "boolean" :
+        Prop extends Joi.DateSchema ? "string" :
+        "any"
+    )}
+}
 
 ///////////////// DerivedPropsMixin ////////////////////////////////////////////////////////////////////////////////////
 
