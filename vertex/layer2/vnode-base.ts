@@ -165,10 +165,10 @@ class _BaseVNodeType {
         }
 
         // Check for annoying circular references that TypeScript can't catch:
-        Object.values(vnt.rel).forEach(rel => {
+        Object.entries(vnt.rel).forEach(([relName, rel]) => {
             rel.to.forEach((targetVNT, idx) => {
                 if (targetVNT === undefined) {
-                    throw new Error(`Circular reference in ${vnt.name} definition: relationship ${getRelationshipType(rel)}.to[${idx}] is undefined.`);
+                    throw new Error(`Circular reference in ${vnt.name} definition: relationship ${vnt.name}.rel.${relName}.to[${idx}] is undefined.`);
                 }
             });
         });
