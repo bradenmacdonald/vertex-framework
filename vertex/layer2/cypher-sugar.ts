@@ -84,8 +84,8 @@ export class CypherQuery {
                 compiledString += paramValue.label + ":VNode";  // The VNode label is always required too, to ensure it's not a deleted node and that indexes are used.
             } else if (isRelationshipDeclaration(paramValue)) {
                 // Using a VNode Relationship in a string means you want the relationship type, e.g. "(u)-[:${User.rel.IS_FRIEND_OF}]->(otherUser)"
-                if (compiledString[compiledString.length - 1] !== ":") {
-                    throw new Error("Interpolating a VNode Relationship into a string is only supported for matching based on relationship type, and should come after a ':'. Use ${C(getRelationshipType(relationship))} if you need the label in some other way.");
+                if (compiledString[compiledString.length - 1] !== ":" && compiledString[compiledString.length - 1] !== "|") {
+                    throw new Error("Interpolating a VNode Relationship into a string is only supported for matching based on relationship type, and should come after a ':' or '|'. Use ${C(getRelationshipType(relationship))} if you need the label in some other way.");
                 }
                 compiledString += getRelationshipType(paramValue);
             } else if (paramValue instanceof CypherQuery) {
