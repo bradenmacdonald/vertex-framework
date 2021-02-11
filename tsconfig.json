@@ -11,19 +11,15 @@
         "moduleResolution": "Node",
         "strict": true,
         "target": "ES2019",
-        "typeRoots" : ["./node_modules/@types", "./typings"],
-        "experimentalDecorators": true
+        "typeRoots" : ["./node_modules/@types"],
+        "experimentalDecorators": true,
+        "declaration": true,
     },
     "include": [
-        "**/*.ts",
-        "**/*.tsx"
+        "vertex/**/*.ts",
     ],
     "exclude": [
-        "backend/test-lib",
-        "frontend",
-        "integration",
-        "**/*-test.ts",
-        "**/*-test.tsx",
+        "vertex/**/*-test.ts",
         "node_modules"
     ]
 }

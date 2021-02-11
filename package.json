@@ -2,11 +2,13 @@
   "name": "vertex-framework",
   "version": "0.0.1",
   "description": "Backend framework for graph-based web applications",
-  "main": "vertex/index.ts",
+  "main": "dist/index.ts",
   "scripts": {
     "test": "NODE_ENV=test intern",
     "lint": "eslint . --ext .js,.ts",
-    "entrypoint-test": "npm install && /bin/bash"
+    "entrypoint-test": "npm install && /bin/bash",
+    "build": "tsc",
+    "watch": "tsc --watch"
   },
   "author": "TechNotes",
   "license": "MIT",

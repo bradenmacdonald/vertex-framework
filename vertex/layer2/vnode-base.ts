@@ -39,7 +39,7 @@ export interface RelationshipDeclaration {
     // A private key used to store relationship types (labels) on their declarations. Set by the @VNode.declare decorator.
     [relTypeKey]?: string;
 }
-enum Cardinality {
+export enum Cardinality {
     /** This relationship points to a single target node and it must be present. */
     ToOneRequired = ":1",
     /** This relationship points to a single target node if it exists, but the relationship may not exist. */
@@ -66,7 +66,7 @@ enum Cardinality {
  * This class is not exposed directly in the public API for Vertex Framework. Instead, use the VNodeType class declared
  * in layer 4.
  */
-class _BaseVNodeType {
+export class _BaseVNodeType {
     public constructor() { throw new Error("VNodeType should never be instantiated. Use it statically only."); }
     static label = "VNode";
     static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
