@@ -1,0 +1,41 @@
+image: node:14
+
+variables:
+  # Set default neo4j password to "vertex"
+  NEO4J_AUTH: neo4j/vertex
+  # We need APOC functionality like triggers:
+  NEO4JLABS_PLUGINS: '["apoc"]'
+  # Enable automatic UUID creation on nodes:
+  NEO4J_apoc_uuid_enabled: "true"
+  NEO4J_apoc_trigger_enabled: "true"
+
+
+# Cache modules in between jobs
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .npm/
+
+before_script:
+  - npm ci --cache .npm --prefer-offline
+
+test:
+  stage: test
+  services:
+    - neo4j:4.2
+  script:
+    - npm run test
+
+lint:
+  stage: test
+  script:
+    - npm run lint
+
+build:
+  # This is considered a test because it ensures that the build happens correctly, but doesn't (yet) do anything with the result
+  stage: test
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/

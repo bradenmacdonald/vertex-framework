@@ -9,7 +9,7 @@ import {
 import type { WrappedTransaction } from "../transaction";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import { AnyDataRequest, BaseDataRequest, DataRequestState, RequiredMixin } from "../layer3/data-request";
-import { ConditionalPropsMixin, DerivedPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
+import { ConditionalPropsMixin, DerivedPropsMixin, SubclassMixins, VirtualPropsMixin } from "./data-request-mixins";
 import type { DataResponse } from "./data-response";
 import {
     conditionalRawPropsMixinImplementation,
@@ -21,14 +21,31 @@ import { DerivedProperty } from "./derived-props";
 import { DataRequestFilter, FilteredRequest } from "./data-request-filtered";
 
 type PullMixins<VNT extends VNodeType> = ConditionalPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT> & RequiredMixin;
+type BlankDataRequest<VNT extends VNodeType> = BaseDataRequest<VNT, never, PullMixins<VNT>>;
 
 /** Create an empty data request to use with pull() or pullOne() */
-export function newDataRequest<VNT extends VNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, PullMixins<VNT>> {
+export function newDataRequest<VNT extends VNodeType>(vnodeType: VNT): BlankDataRequest<VNT> {
     return DataRequestState.newRequest<VNT, PullMixins<VNT>>(vnodeType, [
         conditionalRawPropsMixinImplementation,
         virtualPropsMixinImplementation,
         derivedPropsMixinImplementation,
     ]);
+}
+
+type ConvertVNodeType<DataRequest, NewType extends VNodeType> = (
+    DataRequest extends BaseDataRequest<infer VNT, infer rawProps, infer Mixins> ?
+        BaseDataRequest<NewType, rawProps, SubclassMixins<Mixins, VNT extends VNodeType ? VNT : never, NewType>>
+    :
+        never
+);
+
+// TODO: Add tests for subclassDataRequest()
+export function subclassDataRequest<
+    VNT extends VNodeType,
+    Subclass extends VNT,
+    OrigRequest extends AnyDataRequest<VNT>
+>(origRequest: OrigRequest, subclassVnodeType: Subclass): ConvertVNodeType<OrigRequest, Subclass> {
+    return DataRequestState.getInternalState(origRequest).cloneForSubClass(subclassVnodeType);
 }
 
 
@@ -256,7 +273,7 @@ function readOnlyView<T extends Record<string, any>>(x: T): Readonly<T> {
 export function pull<VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
     tx: WrappedTransaction,
     vnt: VNT,
-    request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
+    request: ((builder: BlankDataRequest<VNT>) => Request),
     filter?: DataRequestFilter,
 ): Promise<DataResponse<Request>[]>;
 
@@ -336,7 +353,7 @@ function postProcessResult(origResult: Readonly<Record<string, any>>, request: F
 export function pullOne<VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
     tx: WrappedTransaction,
     vnt: VNT,
-    request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
+    request: ((builder: BlankDataRequest<VNT>) => Request),
     filter?: DataRequestFilter,
 ): Promise<DataResponse<Request>>;
 
@@ -361,7 +378,7 @@ export type PullNoTx = (
     (
         <VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
             vnt: VNT,
-            request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
+            request: ((builder: BlankDataRequest<VNT>) => Request),
             filter?: DataRequestFilter,
         ) => Promise<DataResponse<Request>[]>
     ) & (
@@ -376,7 +393,7 @@ export type PullOneNoTx = (
     (
         <VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
             vnt: VNT,
-            request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
+            request: ((builder: BlankDataRequest<VNT>) => Request),
             filter?: DataRequestFilter,
         ) => Promise<DataResponse<Request>>
     ) & (

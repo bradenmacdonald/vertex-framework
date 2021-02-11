@@ -141,6 +141,15 @@ export class DataRequestState {
         return new Proxy(newObj, DataRequestState.proxyHandler);
     }
 
+    cloneForSubClass<VNT extends BaseVNodeType>(subclassVnt: VNT): BaseDataRequest<VNT, never, any> {
+        if (!(subclassVnt === this.vnodeType || subclassVnt.prototype instanceof this.vnodeType)) {
+            throw new Error(`Cannot convert data request: ${subclassVnt.name} is not a subclass of ${this.vnodeType.name}`);
+        }
+        const newObj = new DataRequestState(subclassVnt, this.includedProperties, this.#activeMixins, this.mixinData);
+        // Return the new DataRequestState wrapped in a proxy so it still implements the BaseDataRequest interface
+        return new Proxy(newObj, DataRequestState.proxyHandler);
+    }
+
     private getRequestProperty(propKey: string): any {
         // Is this a regular, raw property of the VNodeType?
         if (this.vnodeType.properties[propKey] !== undefined) {

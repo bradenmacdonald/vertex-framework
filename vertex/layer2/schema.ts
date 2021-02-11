@@ -35,7 +35,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                 await tx.run("CREATE CONSTRAINT shortid_shortid_uniq ON (s:ShortId) ASSERT s.shortId IS UNIQUE");
             });
             // If we somehow create a VNode without giving it a UUID, make Neo4j generate one:
-            await dbWrite(tx => tx.run(`CALL apoc.uuid.install("VNode")`));
+            await dbWrite(tx => tx.run(`CALL apoc.uuid.install("VNode", {addToExistingNodes: false})`));
         },
         backward: async (dbWrite) => {
             await dbWrite(tx => tx.run(`CALL apoc.uuid.remove("VNode")`));
