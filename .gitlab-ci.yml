@@ -6,8 +6,8 @@ variables:
   # We need APOC functionality like triggers:
   NEO4JLABS_PLUGINS: '["apoc"]'
   # Enable automatic UUID creation on nodes:
-  apoc.uuid.enabled: "true"
-  apoc.trigger.enabled: "true"
+  NEO4J_apoc_uuid_enabled: "true"
+  NEO4J_apoc_trigger_enabled: "true"
 
 
 # Cache modules in between jobs
