@@ -46,7 +46,12 @@ publish:
   only:
     refs:
       - main
-      - dist-publish
+  before_script:
+    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$GIT_SSH_PRIV_KEY")
+    - mkdir -p ~/.ssh
+    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts
   script:
     - git config user.name "GitLab CI Bot"
     - git config user.email "team@technotes.org"
@@ -57,3 +62,4 @@ publish:
     - rm -f dist/.gitignore
     - git add dist
     - git commit --amend
+    - git push origin dist:dist
