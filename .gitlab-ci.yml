@@ -61,5 +61,5 @@ publish:
     - mv dist-cached dist
     - rm -f dist/.gitignore
     - git add dist
-    - git commit --amend
+    - git commit --amend --no-edit
     - git push origin dist:dist
