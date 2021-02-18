@@ -36,6 +36,30 @@ build:
   stage: test
   script:
     - npm run build
+    - mv dist dist-cached
   artifacts:
     paths:
-      - dist/
+      - dist-cached/
+
+publish:
+  stage: deploy
+  only:
+    refs:
+      - main
+  before_script:
+    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$GIT_SSH_PRIV_KEY")
+    - mkdir -p ~/.ssh
+    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts
+  script:
+    - git config user.name "GitLab CI Bot"
+    - git config user.email "team@technotes.org"
+    - git checkout dist
+    - git merge main --no-ff "Update distribution with main"
+    - rm -rf dist
+    - mv dist-cached dist
+    - rm -f dist/.gitignore
+    - git add dist
+    - git commit --amend
+    - git push origin dist:dist
