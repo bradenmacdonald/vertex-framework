@@ -56,7 +56,7 @@ publish:
     - git config user.name "GitLab CI Bot"
     - git config user.email "team@technotes.org"
     - git checkout dist
-    - git merge origin/main --no-ff "Update distribution with main"
+    - git merge origin/main --no-ff -m "Update distribution with main"
     - rm -rf dist
     - mv dist-cached dist
     - rm -f dist/.gitignore
