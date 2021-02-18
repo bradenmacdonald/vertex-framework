@@ -55,13 +55,14 @@ publish:
   script:
     - git config user.name "GitLab CI Bot"
     - git config user.email "team@technotes.org"
-    - git branch  # To check if the following fetch is needed.
-    - git fetch origin dist
-    - git checkout -b dist origin/dist
-    - git merge origin/main --no-ff -m "Update distribution with main"
+    # Since "origin" is configured using https, we need to add a new remote to be able to push:
+    - git remote add gitlab git@gitlab.com:${CI_PROJECT_PATH}.git
+    - git fetch gitlab
+    - git checkout -b dist gitlab/dist
+    - git merge gitlab/main --no-ff -m "Update distribution with main"
     - rm -rf dist
     - mv dist-cached dist
     - rm -f dist/.gitignore
     - git add dist
     - git commit --amend --no-edit
-    - git push origin dist:dist
+    - git push gitlab dist:dist
