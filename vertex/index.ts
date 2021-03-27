@@ -118,3 +118,7 @@ export {
 export {
     Vertex,
 } from "./vertex";
+
+export {
+    VertexTestDataSnapshot
+} from "./vertex-interface";
