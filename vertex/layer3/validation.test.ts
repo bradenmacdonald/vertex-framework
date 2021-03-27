@@ -13,6 +13,7 @@ import {
     VNodeType,
     ShortIdProperty,
     GenericCypherAction,
+    defaultCreateFor,
 } from "..";
 
 @VNodeType.declare
@@ -57,9 +58,36 @@ const createPerson = async (name: string): Promise<UUID> => {
 }
 
 
+
+@VNodeType.declare
+class Note extends VNodeType {
+    static label = "NoteVT";  // VT = validation tests
+    static readonly shortIdPrefix = "note-";
+    static readonly properties = {...VNodeType.properties, shortId: ShortIdProperty, text: Joi.string()};
+}
+
+const CreateNote = defaultCreateFor(Note, n => n.shortId);
+
+
 suite(__filename, () => {
 
     configureTestData({isolateTestWrites: true, loadTestProjectData: false});
+
+    suite("test shortIdPrefix validation", () => {
+
+        test("Creating a VNode with a valid shortIdPrefix works fine", async () => {
+            const {uuid} = await testGraph.runAsSystem(CreateNote({shortId: "note-test1"}));
+            const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note}), n HAS KEY ${uuid}`.RETURN({n: Note})));
+            assert.equal(check.n.shortId, "note-test1");
+        });
+
+        test("Creating a VNode with an invalid shortIdPrefix works fine", async () => {
+            await assertRejects(
+                testGraph.runAsSystem(CreateNote({shortId: "test1-note-foo"})),
+                `NoteVT has an invalid shortId "test1-note-foo". Expected it to start with "note-".`,
+            );
+        });
+    });
 
     suite("test relationship validation", () => {
         
