@@ -199,7 +199,7 @@ export class CypherQueryWithReturnShape<RS extends ReturnShape> extends CypherQu
 // Get what the expected response shape of a query is, if known. Meant only for use with query() and queryOne()
 export type QueryResponse<CQ extends CypherQuery> = (
     CQ extends CypherQueryWithReturnShape<infer RS> ? TypedResult<RS> :
-    CQ extends CypherQuery ? Neo4jRecord[] :
+    CQ extends CypherQuery ? Neo4jRecord :
     never
 );
 
