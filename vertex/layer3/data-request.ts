@@ -48,24 +48,14 @@ export interface RequiredMixin {
  */
 export type BaseDataRequest<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"] = never, Mixins extends RequiredMixin = RequiredMixin> = (
     // For each raw property of the VNode that's not yet included in the request, add a property to add it to the request:
-    AddRawProperties<VNT, requestedProperties, Mixins> &
+    {[propName in keyof Omit<VNT["properties"], requestedProperties>]: BaseDataRequest<VNT, requestedProperties | propName, Mixins>} &
     // Add the "allProps" helper that adds all properties to the request:
-    AddAllProperties<VNT, requestedProperties, Mixins> &
+    (keyof VNT["properties"] extends requestedProperties ? unknown : { allProps: BaseDataRequest<VNT, keyof VNT["properties"], Mixins>}) &
     // And finally any mixins, to allow requesting things like conditional or virtual properties:
     Mixins
 );
 
 export type AnyDataRequest<VNT extends BaseVNodeType> = BaseDataRequest<VNT, any, RequiredMixin>;
-
-// For each raw property of the VNode that's not yet included in the request, add a property to add it to the request:
-type AddRawProperties<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"], Mixins extends RequiredMixin> = {
-    [propName in keyof Omit<VNT["properties"], requestedProperties>]: BaseDataRequest<VNT, requestedProperties | propName, Mixins>;
-};
-
-type AddAllProperties<VNT extends BaseVNodeType, requestedProperties extends keyof VNT["properties"], Mixins extends RequiredMixin> = (
-    // If all properties are not yet included, create a .allProps property which requests all properties of this VNodeType.
-    keyof VNT["properties"] extends requestedProperties ? unknown : { allProps: BaseDataRequest<VNT, keyof VNT["properties"], Mixins>}
-);
 
 /** A helper that mixins can use to update their state in a data request. */
 export type UpdateMixin<VNT extends BaseVNodeType, ThisRequest, CurrentMixin, NewMixin> = (
