@@ -69,6 +69,8 @@ export enum Cardinality {
 export class _BaseVNodeType {
     public constructor() { throw new Error("VNodeType should never be instantiated. Use it statically only."); }
     static label = "VNode";
+    /** If this type has a shortId property, this is the prefix that all of its shortIds must have (e.g. "user-") */
+    static readonly shortIdPrefix: string = "";
     static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     static readonly rel: RelationshipsSchema = emptyObj;
@@ -76,7 +78,17 @@ export class _BaseVNodeType {
     static readonly defaultOrderBy: string|undefined = undefined;
 
     static async validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void> {
-        // Note: tests for this function are in layer3/relationship-validation.test.ts since they depend on actions
+        // Note: tests for this function are in layer3/validation.test.ts since they depend on actions
+
+        // Validate shortId prefix
+        if (this.shortIdPrefix !== "") {
+            if (!this.properties.shortId) {
+                throw new Error("A VNodeType cannot specify a shortIdPrefix if it doesn't declare the shortId property");
+            }
+            if (!dbObject.shortId.startsWith(this.shortIdPrefix)) {
+                throw new ValidationError(`${this.label} has an invalid shortId "${dbObject.shortId}". Expected it to start with "${this.shortIdPrefix}".`);
+            }
+        }
 
         // Validate properties:
         const validation = await Joi.object(this.properties).keys({
