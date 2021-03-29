@@ -21,10 +21,11 @@ import { DerivedProperty } from "./derived-props";
 import { DataRequestFilter, FilteredRequest } from "./data-request-filtered";
 
 type PullMixins<VNT extends VNodeType> = ConditionalPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT> & RequiredMixin;
-type BlankDataRequest<VNT extends VNodeType> = BaseDataRequest<VNT, never, PullMixins<VNT>>;
+// This alias seems to confuse TypeScript 4.2:
+//type BlankDataRequest<VNT extends VNodeType> = BaseDataRequest<VNT, never, PullMixins<VNT>>;
 
 /** Create an empty data request to use with pull() or pullOne() */
-export function newDataRequest<VNT extends VNodeType>(vnodeType: VNT): BlankDataRequest<VNT> {
+export function newDataRequest<VNT extends VNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, PullMixins<VNT>> {
     return DataRequestState.newRequest<VNT, PullMixins<VNT>>(vnodeType, [
         conditionalRawPropsMixinImplementation,
         virtualPropsMixinImplementation,
@@ -273,7 +274,7 @@ function readOnlyView<T extends Record<string, any>>(x: T): Readonly<T> {
 export function pull<VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
     tx: WrappedTransaction,
     vnt: VNT,
-    request: ((builder: BlankDataRequest<VNT>) => Request),
+    request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
     filter?: DataRequestFilter,
 ): Promise<DataResponse<Request>[]>;
 
@@ -353,7 +354,7 @@ function postProcessResult(origResult: Readonly<Record<string, any>>, request: F
 export function pullOne<VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
     tx: WrappedTransaction,
     vnt: VNT,
-    request: ((builder: BlankDataRequest<VNT>) => Request),
+    request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
     filter?: DataRequestFilter,
 ): Promise<DataResponse<Request>>;
 
@@ -378,7 +379,7 @@ export type PullNoTx = (
     (
         <VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
             vnt: VNT,
-            request: ((builder: BlankDataRequest<VNT>) => Request),
+            request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
             filter?: DataRequestFilter,
         ) => Promise<DataResponse<Request>[]>
     ) & (
@@ -393,7 +394,7 @@ export type PullOneNoTx = (
     (
         <VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
             vnt: VNT,
-            request: ((builder: BlankDataRequest<VNT>) => Request),
+            request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
             filter?: DataRequestFilter,
         ) => Promise<DataResponse<Request>>
     ) & (
