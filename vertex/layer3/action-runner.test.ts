@@ -77,7 +77,7 @@ suite("action runner", () => {
         const readResult = await testGraph.read(tx => tx.queryOne(C`
             MATCH (u:User:VNode)-[:PERFORMED]->(a:Action:VNode {type: ${GenericCreateAction.type}})-[:MODIFIED]->(p:${AstronomicalBody} {uuid: ${result.uuid}})
         `.RETURN({"u.shortId": "string", "u.uuid": "uuid"})));
-        assert.equal(readResult["u.shortId"], "system");
+        assert.equal(readResult["u.shortId"], "user-system");
         assert.equal(readResult["u.uuid"], SYSTEM_UUID);
     });
 
