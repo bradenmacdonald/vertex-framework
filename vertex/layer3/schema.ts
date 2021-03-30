@@ -17,8 +17,8 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
             await dbWrite(tx => tx.run(`
                 CREATE (u:User:VNode {
                     uuid: "${SYSTEM_UUID}",
-                    shortId: "system",
-                    realname: "System"
+                    shortId: "user-system",
+                    fullName: "System"
                 })-[:PERFORMED]->(a:Action:VNode {
                     // A UUID will be created automatically by apoc extension.
                     type: "CreateUser",
