@@ -247,7 +247,8 @@ export function getRelationshipType(rel: RelationshipDeclaration): string {
  * This checks for a private property that gets added to every relationship by the @VNodeType.declare decorator.
  */
 export function isRelationshipDeclaration(relDeclaration: RelationshipDeclaration): relDeclaration is RelationshipDeclaration {
-    return typeof relDeclaration === "object" && relDeclaration[relTypeKey] !== undefined;
+    // In JavaScript, typeof null === "object" which is why we need the middle condition here.
+    return typeof relDeclaration === "object" && relDeclaration !== null && relDeclaration[relTypeKey] !== undefined;
 }
 
 /**
