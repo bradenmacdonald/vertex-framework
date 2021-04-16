@@ -43,6 +43,7 @@ export interface UpdateActionImplementation<
     // (if any), to do things like update this VNode's relationships.
     OtherArgs extends Record<string, any>,
 > extends ActionImplementation<
+    `Update${VNT["label"]}`,
     // The parameters that can/must be passed to this action to run it:
     {key: string} & PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs,
     // The result of running this action will be "prevValues" which stores the previous values so the action can be
@@ -74,8 +75,10 @@ export function defaultUpdateActionFor<VNT extends BaseVNodeType, MutableProps e
     type PropertyArgs = PropertyValuesForUpdate<VNT, GetRequestedRawProperties<MutableProps>>;
     type Args = PropertyArgs & OtherArgs;
 
-    const UpdateAction = defineAction<{key: string} & Args, {prevValues: Args}>({
-        type: `Update${type.label}`,
+    const UpdateAction = defineAction({
+        type: `Update${type.label}` as `Update${VNT["label"]}`,
+        parameters: {} as {key: string} & Args,
+        resultData: {} as {prevValues: Args},
         apply: async (tx, data) => {
             // Load the current value of the VNode from the graph
             // TODO: why is "as RawVNode<VNT>" required on the next line here?
@@ -156,6 +159,7 @@ export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extend
     requiredProperties: RequiredProps,
     updateAction?: UAI
 ): ActionImplementation<
+    `Create${VNT["label"]}`,
     // This Create action _requires_ the following properties:
     RequiredArgsForCreate<VNT, GetRequestedRawProperties<RequiredProps>>
     // And accepts any _optional_ properties that the Update action understands:
@@ -167,8 +171,10 @@ export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extend
 
     type Args = RequiredArgsForCreate<VNT, GetRequestedRawProperties<RequiredProps>> & ArgsForUpdateAction<UAI>;
 
-    const CreateAction = defineAction<Args, {uuid: UUID, updateResult: null|{prevValues: any}}>({
-        type: `Create${type.label}`,
+    const CreateAction = defineAction({
+        type: `Create${type.label}` as `Create${VNT["label"]}`,
+        parameters: {} as Args,
+        resultData: {} as {uuid: UUID, updateResult: null|{prevValues: any}},
         apply: async (tx, data) => {
             const uuid = UUID();
             // This Create Action also runs an Update at the same time (if configured that way).
@@ -218,8 +224,9 @@ export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extend
         },
     });
 
-    const UndoCreateAction = defineAction<{uuid: string, updateResult: any}, Record<string, unknown>>({
+    const UndoCreateAction = defineAction({
         type: `UndoCreate${type.label}`,
+        parameters: {} as {uuid: string, updateResult: any},
         apply: async (tx, data) => {
             // First undo the update that may have been part of the create, since it may have created relationships
             // Or updated external systems, etc.
@@ -253,10 +260,12 @@ export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extend
 }
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-export function defaultDeleteAndUnDeleteFor(type: BaseVNodeType): [ActionImplementation<{key: string}, {}>, ActionImplementation<{uuid: UUID}, {}>] {
+export function defaultDeleteAndUnDeleteFor<VNT extends BaseVNodeType>(type: VNT): [ActionImplementation<`Delete${VNT["label"]}`, {key: string}, {}>, ActionImplementation<`UnDelete${VNT["label"]}`, {uuid: UUID}, {}>] {
 
-    const DeleteAction = defineAction<{key: string}, any>({
-        type: `Delete${type.label}`,
+    const DeleteAction = defineAction({
+        type: `Delete${type.label}` as `Delete${VNT["label"]}`,
+        parameters: {} as {key: string},
+        resultData: {} as {uuid: UUID},
         apply: async (tx, data) => {
             const result = await tx.queryOne(C`
                 MATCH (node:${type}), node HAS KEY ${data.key}
@@ -271,8 +280,9 @@ export function defaultDeleteAndUnDeleteFor(type: BaseVNodeType): [ActionImpleme
         },
     });
 
-    const UnDeleteAction = defineAction<{uuid: UUID}, any>({
-        type: `UnDelete${type.label}`,
+    const UnDeleteAction = defineAction({
+        type: `UnDelete${type.label}` as `UnDelete${VNT["label"]}`,
+        parameters: {} as {uuid: UUID},
         apply: async (tx, data) => {
             // We cannot use the HAS KEY lookup since it deliberately ignores :DeletedVNodes
             const result = await tx.queryOne(C`

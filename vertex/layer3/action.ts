@@ -5,7 +5,6 @@
  */
 import Joi from "@hapi/joi";
 
-import { NominalType } from "../lib/ts-utils";
 import { UUID } from "../lib/uuid";
 import { BaseVNodeType, RawVNode, ValidationError } from "../layer2/vnode-base";
 import { WrappedTransaction } from "../transaction";
@@ -13,11 +12,6 @@ import { C } from "../layer2/cypher-sugar";
 // Unfortunately we have to "cheat" a bit and use VNodeType from layer 4 here instead of BaseVNodeType:
 import { VNodeType } from "../layer4/vnode";
 
-
-// A type of action, e.g. 'createUser'
-export type ActionType = NominalType<string, "ActionType">;
-type ActionSubType<T extends string> = NominalType<T, "ActionType">
-export function ActionType<T extends string>(value: T): ActionSubType<T> { return value as ActionSubType<T>; }
 
 /**
  * Base interface that holds all the data to run a specific action.
@@ -29,7 +23,7 @@ export function ActionType<T extends string>(value: T): ActionSubType<T> { retur
  *     }
  */
 export type ActionData<Parameters extends Record<string, any> = {}, ResultData extends Record<string, any> = {}> = {  // eslint-disable-line @typescript-eslint/ban-types
-    type: ActionType;
+    type: string;
 } & Parameters;
 
 /**
@@ -57,7 +51,7 @@ export type ActionResult<T extends ActionData> = (
 
 
 /** Base class for an Action, defining the interface that all actions must adhere to. */
-export interface ActionImplementation<Parameters extends Record<string, any> = any, ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
+export interface ActionImplementation<ActionType extends string = string, Parameters extends Record<string, any> = any, ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
     readonly type: ActionType;
 
     // Generate the ActionData for this action:
@@ -75,7 +69,7 @@ export interface ActionImplementation<Parameters extends Record<string, any> = a
 /**
  * The global list of actions that have been defined by defineAction()
  */
-const actions: Map<ActionType, ActionImplementation> = new Map();
+const actions: Map<string, ActionImplementation> = new Map();
 
 /**
  * Define a new Action.
@@ -83,22 +77,23 @@ const actions: Map<ActionType, ActionImplementation> = new Map();
  * Returns an ActionImplementation which can be used to run actions of this type, and which
  * can be called to generate a data structure which represents a specific action of this type.
  */
-export function defineAction<Parameters extends Record<string, any>, ResultData>(
+export function defineAction<ActionTypeString extends string, Parameters extends Record<string, any>, ResultData = Record<string, never>>(
     {type, apply, invert}: {
-        type: string|ActionType;
+        type: ActionTypeString;
+        parameters: Parameters;
+        resultData?: ResultData;
         apply: (tx: WrappedTransaction, data: ActionData<Parameters, ResultData>) => Promise<ApplyResult<ResultData>>;
         invert: (data: ActionData & Parameters, resultData: ResultData) => ActionData|null;
     }
-): ActionImplementation<Parameters, ResultData> {
-    const actionType = type as ActionType;
-    if (actions.get(actionType) !== undefined) {
-        throw new Error(`Action ${actionType} already registered.`)
+): ActionImplementation<ActionTypeString, Parameters, ResultData> {
+    if (actions.get(type) !== undefined) {
+        throw new Error(`Action ${type} already registered.`)
     }
-    const impl = function(args: Parameters): ActionData<Parameters, ResultData> { return {type: actionType, ...args}; }
-    impl.type = actionType;
+    const impl = function(args: Parameters): ActionData<Parameters, ResultData> { return {type, ...args}; }
+    impl.type = type;
     impl.apply = apply;
     impl.invert = invert;
-    actions.set(actionType, impl);
+    actions.set(type, impl);
     return impl;
 }
 
@@ -106,7 +101,7 @@ export function defineAction<Parameters extends Record<string, any>, ResultData>
  * Get an Action Implementation, given an ActionType
  * @param type 
  */
-export function getActionImplementation(type: ActionType): ActionImplementation|undefined {
+export function getActionImplementation(type: string): ActionImplementation|undefined {
     return actions.get(type);
 }
 

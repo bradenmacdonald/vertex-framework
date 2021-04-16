@@ -13,10 +13,10 @@ export type AssertEqual<Type, Expected> =
         ? (Expected extends Type ? true : false)
         : false;
 
-// Helper for asserting that types are equal
+// Helper for asserting that types are not equal
 export type AssertNotEqual<Type, Expected> =
     Type extends Expected
-    ? true
+    ? false
     : (Expected extends Type ? false : true);
 
 // Helper for asserting that an object has a specific property

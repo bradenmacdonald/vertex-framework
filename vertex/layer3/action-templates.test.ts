@@ -8,6 +8,7 @@ import {
 } from "..";
 import { defaultCreateFor, defaultUpdateActionFor } from "./action-templates";
 import { testGraph } from "../test-project";
+import { AssertEqual, AssertNotEqual, checkType } from "../lib/ts-utils";
 
 /** A VNodeType for use in this test suite. */
 @VNodeType.declare
@@ -22,7 +23,7 @@ class AstronomicalBody extends VNodeType {
 
 @VNodeType.declare
 class Planet extends AstronomicalBody {
-    static label = "PlanetAT";  // AT = Action Templates test
+    static readonly label = "PlanetAT";  // AT = Action Templates test
     static readonly properties = {
         ...AstronomicalBody.properties,
         numberOfMoons: Joi.number(),
@@ -64,6 +65,11 @@ suite(__filename, () => {
     configureTestData({isolateTestWrites: true, loadTestProjectData: false});
 
     suite("defaultCreateFor", () => {
+
+        test("has a statically typed 'type'", () => {
+            checkType<AssertEqual<typeof CreatePlanet.type, "CreatePlanetAT">>();
+            checkType<AssertNotEqual<typeof CreatePlanet.type, "otherString">>();
+        })
 
         test("can create a VNode", async () => {
             const result = await testGraph.runAsSystem(
