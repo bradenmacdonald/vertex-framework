@@ -4,8 +4,8 @@ import { WrappedTransaction } from "../transaction";
 import { RelationshipDeclaration, BaseVNodeType, PropertyDataType, getRelationshipType, PropSchema } from "../layer2/vnode-base";
 import { log } from "../lib/log";
 
-export type OneRelationshipSpec<VNR extends RelationshipDeclaration> = {
-    key: string|UUID|null;
+export type OneRelationshipSpec<VNR extends RelationshipDeclaration, KeyType = string|UUID> = {
+    key: KeyType|null;
 } & (
     VNR["properties"] extends PropSchema ?
         {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
@@ -21,7 +21,7 @@ export async function updateToOneRelationship<VNR extends RelationshipDeclaratio
     from: [vnt: BaseVNodeType, uuid: UUID],
     rel: VNR,
     to: string|null|OneRelationshipSpec<VNR>,
-}): Promise<{prevTo: OneRelationshipSpec<VNR>}> {
+}): Promise<{prevTo: OneRelationshipSpec<VNR, UUID>}> {
     const [fromType, fromUuid] = from;
     const relType = getRelationshipType(rel);  // Name of the relationship
     const {toKey, relationshipProps} = (() => {
@@ -85,8 +85,8 @@ export async function updateToOneRelationship<VNR extends RelationshipDeclaratio
 }
 
 
-export type RelationshipSpec<VNR extends RelationshipDeclaration> = {
-    key: string|UUID;
+export type RelationshipSpec<VNR extends RelationshipDeclaration, KeyType = string|UUID> = {
+    key: KeyType;
 } & (
     VNR["properties"] extends PropSchema ?
         {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
@@ -111,7 +111,7 @@ export async function updateToManyRelationship<VNR extends RelationshipDeclarati
     from: [vnt: BaseVNodeType, uuid: UUID],
     rel: VNR,
     to: RelationshipSpec<VNR>[],
-}): Promise<{prevTo: RelationshipSpec<VNR>[]}> {
+}): Promise<{prevTo: RelationshipSpec<VNR, UUID>[]}> {
     const [fromType, fromUuid] = from;
     const relType = getRelationshipType(rel);  // Name of the relationship
     if (fromType.rel[relType] !== rel) {
@@ -125,7 +125,7 @@ export async function updateToManyRelationship<VNR extends RelationshipDeclarati
         MATCH (:${fromType} {uuid: ${fromUuid}})-[rel:${rel}]->(target:VNode)
         RETURN properties(rel) as oldProps, id(rel) as oldRelId, target.uuid, target.shortId
     `.givesShape({"oldProps": "any", "oldRelId": "number", "target.uuid": "string", "target.shortId": "string"}));
-    const prevTo: RelationshipSpec<VNR>[] = relResult.map(r => ({key: r["target.uuid"], ...r["oldProps"]}));
+    const prevTo: RelationshipSpec<VNR, UUID>[] = relResult.map(r => ({key: r["target.uuid"], ...r["oldProps"]}));
 
     // We'll build a list of all existing relationships, and remove entries from it as we find that they're supposed to be kept
     const existingRelationshipIdsToDelete = new Set<number>(relResult.map(e => e.oldRelId));

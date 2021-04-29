@@ -36,7 +36,7 @@ export class WrappedTransaction implements QueryRunner {
         from: [vnt: VNodeType, uuid: UUID],
         rel: VNR,
         to: string|null|OneRelationshipSpec<VNR>,
-    }): Promise<{prevTo: OneRelationshipSpec<VNR>}> {
+    }): Promise<{prevTo: OneRelationshipSpec<VNR, UUID>}> {
         return updateToOneRelationship(this, args);
     }
 
@@ -44,7 +44,7 @@ export class WrappedTransaction implements QueryRunner {
         from: [vnt: VNodeType, uuid: UUID],
         rel: VNR,
         to: RelationshipSpec<VNR>[],
-    }): Promise<{prevTo: RelationshipSpec<VNR>[]}> {
+    }): Promise<{prevTo: RelationshipSpec<VNR, UUID>[]}> {
         return updateToManyRelationship(this, args);
     }
 }
