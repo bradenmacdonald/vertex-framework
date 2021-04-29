@@ -4,7 +4,6 @@ import {
     defaultCreateFor,
     defaultUpdateActionFor,
     defineAction,
-    DerivedPropertyFactory,
     ShortIdProperty,
     VirtualPropType,
     VNodeType,
@@ -17,7 +16,7 @@ import { Movie } from "./Movie";
  */
 @VNodeType.declare
 export class Person extends VNodeType {
-    static label = "TestPerson";
+    static label = "TestPerson" as const;
     static properties = {
         ...VNodeType.properties,
         shortId: ShortIdProperty,
@@ -110,8 +109,14 @@ export const UpdatePerson = defaultUpdateActionFor(Person, p => p.name.dateOfBir
 
 export const CreatePerson = defaultCreateFor(Person, p => p.shortId.name, UpdatePerson);
 
-export const ActedIn = defineAction<{personId: string, movieId: string, role: string}, {/* */}>({
+export const ActedIn = defineAction({
     type: "ActedIn",
+    parameters: {} as {
+        personId: string,
+        movieId: string,
+        role: string,
+    },
+    //resultData: {} as Record<string, never>,
     apply: async (tx, data) => {
         const result = await tx.queryOne(C`
             MATCH (p:${Person}), p HAS KEY ${data.personId}
@@ -126,9 +131,14 @@ export const ActedIn = defineAction<{personId: string, movieId: string, role: st
     },
     invert: (data, resultData) => null,  // Not implemented
 });
+
 // Mark two people as being friends
-export const RecordFriends = defineAction<{personId: string, otherPersonId: string}, {/* */}>({
+export const RecordFriends = defineAction({
     type: "RecordFriends",
+    parameters: {} as {
+        personId: string,
+        otherPersonId: string,
+    },
     apply: async (tx, data) => {
         const result = await tx.queryOne(C`
             MATCH (p1:${Person}), p1 HAS KEY ${data.personId}

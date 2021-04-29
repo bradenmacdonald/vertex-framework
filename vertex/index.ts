@@ -60,7 +60,6 @@ export {
     ActionData,
     ActionImplementation,
     ActionResult,
-    ActionType,
     defineAction,
 } from "./layer3/action";
 

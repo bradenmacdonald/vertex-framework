@@ -30,8 +30,10 @@ class Planet extends AstronomicalBody {
 }
 
 /** A generic create action that can create a node with any labels and properties */
-const GenericCreateAction = defineAction<{labels: string[], data: any}, {uuid: UUID}>({
+const GenericCreateAction = defineAction({
     type: `GenericCreateForART`,  // for Action Runner Tests
+    parameters: {} as {labels: string[], data: any},
+    resultData: {} as {uuid: UUID},
     apply: async (tx, data) => {
         const uuid = UUID();
         await tx.query(C`CREATE (p:${C(data.labels.join(":"))} {uuid: ${uuid}}) SET p += ${data.data}`);
@@ -120,8 +122,10 @@ suite("action runner", () => {
 
     test("An action cannot create a node without including it in modifiedNodes", async () => {
         // Here is an action that creates a new node, and may or may not report that new node as "modified"
-        const CreateCeresAction = defineAction<{markAsModified: boolean}, {uuid: string}>({
+        const CreateCeresAction = defineAction({
             type: `CreateCeres1`,
+            parameters: {} as {markAsModified: boolean},
+            resultData: {} as {uuid: string},
             apply: async (tx, data) => {
                 const uuid = UUID();
                 await tx.query(C`

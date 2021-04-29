@@ -7,12 +7,13 @@ import { defineAction } from "./action";
  * 
  * This cannot be inverted (is not undoable).
  */
-export const GenericCypherAction = defineAction<{
-    cypher: CypherQuery,
-    produceResult?: (dbResult: any) => {resultData: any, modifiedNodes: UUID[]},
-    modifiedNodes?: UUID[],
-}, any>({
+export const GenericCypherAction = defineAction({
     type: `GenericCypherAction`,
+    parameters: {} as {
+        cypher: CypherQuery,
+        produceResult?: (dbResult: any) => {resultData: any, modifiedNodes: UUID[]},
+        modifiedNodes?: UUID[],
+    },
     apply: async (tx, data) => {
         const dbResult = await tx.query(data.cypher);
         const {resultData, modifiedNodes} = data.produceResult ? data.produceResult(dbResult) : {resultData: {}, modifiedNodes: []};
