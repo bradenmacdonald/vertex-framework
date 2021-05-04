@@ -35,6 +35,12 @@ registerSuite("UUIDv4 Class", {
             const uuid = new UUIDv4("6996ddbf-6cd0-4541-9ee9-3c37f8028941");
             assert.equal(JSON.stringify(uuid), `"6996ddbf-6cd0-4541-9ee9-3c37f8028941"`);
         },
+        "serializes to BigInt"() {
+            assert.equal(new UUIDv4("00000000-0000-0000-0000-000000000000").toBigInt(), 0n);
+            assert.equal(new UUIDv4("00000000-0000-0000-0000-000000000001").toBigInt(), 1n);
+            assert.equal(new UUIDv4("00000000-0000-0000-0000-000000c0ffee").toBigInt(), BigInt(0xc0ffee));
+            assert.equal(new UUIDv4("6996ddbf-6cd0-4541-9ee9-3c37f8028941").toBigInt(), 140352281664974002727793031314151737665n);
+        },
         "is sortable"() {
             const uuid1 = new UUIDv4("abcdef00-6cd0-4541-9ee9-3c37f8028941");
             const uuid2 = new UUIDv4("ffffffff-6cd0-4541-9ee9-3c37f8028941");
