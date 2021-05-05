@@ -5,7 +5,7 @@ import {
     defaultCreateFor,
     VNodeType,
     VNodeTypeRef,
-    ShortIdProperty,
+    SlugIdProperty,
     VirtualPropType,
 } from "../";
 
@@ -22,7 +22,7 @@ export class Movie extends VNodeType {
     static label = "TestMovie";
     static properties = {
         ...VNodeType.properties,
-        shortId: ShortIdProperty,
+        slugId: SlugIdProperty,
         title: Joi.string().required(),
         year: Joi.number().integer().min(1888).max(2200).required(),
     };
@@ -48,12 +48,12 @@ interface UpdateMovieExtraArgs {
     franchiseId?: string|null;
 }
 
-export const UpdateMovie = defaultUpdateActionFor(Movie, m => m.shortId.title.year, {
+export const UpdateMovie = defaultUpdateActionFor(Movie, m => m.slugId.title.year, {
     otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot, changes) => {
         const previousValues: Partial<UpdateMovieExtraArgs> = {};
         if (args.franchiseId !== undefined) {
             await tx.updateToOneRelationship({
-                from: [Movie, nodeSnapshot.uuid],
+                from: [Movie, nodeSnapshot.id],
                 rel: Movie.rel.FRANCHISE_IS,
                 to: args.franchiseId,
             }).then(({prevTo}) => previousValues.franchiseId = prevTo.key);
@@ -65,4 +65,4 @@ export const UpdateMovie = defaultUpdateActionFor(Movie, m => m.shortId.title.ye
     },
 });
 
-export const CreateMovie = defaultCreateFor(Movie, m => m.shortId.title.year, UpdateMovie);
+export const CreateMovie = defaultCreateFor(Movie, m => m.slugId.title.year, UpdateMovie);

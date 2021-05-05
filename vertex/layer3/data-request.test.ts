@@ -5,7 +5,7 @@ import {
     VNodeType,
     RequestVNodeRawProperties,
     getRequestedRawProperties,
-    ShortIdProperty,
+    SlugIdProperty,
 } from "..";
 
 
@@ -14,7 +14,7 @@ class SomeVNodeType extends VNodeType {
     static readonly label = "SomeVNodeType";
     static readonly properties = {
         ...VNodeType.properties,
-        shortId: ShortIdProperty,
+        slugId: SlugIdProperty,
         name: Joi.string(),
         number: Joi.number(),
         otherProp: Joi.string(),
@@ -29,14 +29,14 @@ suite("Data Request", () => {
     suite("RequestVNodeRawProperties + getRequestedRawProperties", () => {
 
         test("Can be used to specify raw properties", () => {
-            const selector: RequestVNodeRawProperties<typeof SomeVNodeType> = v => v.uuid.name;
+            const selector: RequestVNodeRawProperties<typeof SomeVNodeType> = v => v.id.name;
             const selectedProperties = getRequestedRawProperties(SomeVNodeType, selector);
-            assert.sameMembers(selectedProperties, ["uuid", "name"]);
+            assert.sameMembers(selectedProperties, ["id", "name"]);
         });
 
         test("Preserves the selected order of properties", () => {
-            const selectedProperties = getRequestedRawProperties(SomeVNodeType, v => v.otherProp.number.name.uuid);
-            assert.deepStrictEqual(selectedProperties, ["otherProp", "number", "name", "uuid"]);
+            const selectedProperties = getRequestedRawProperties(SomeVNodeType, v => v.otherProp.number.name.id);
+            assert.deepStrictEqual(selectedProperties, ["otherProp", "number", "name", "id"]);
         });
 
         test("Provides fully typed building of the request", () => {
@@ -65,13 +65,13 @@ suite("Data Request", () => {
 
         test(".allProps will add all properties, in the order they were declared on the VNodeType", () => {
             const selectedProperties = getRequestedRawProperties(SomeVNodeType, v => v.allProps);
-            assert.deepStrictEqual(selectedProperties, ["uuid", "shortId", "name", "number", "otherProp"]);
+            assert.deepStrictEqual(selectedProperties, ["id", "slugId", "name", "number", "otherProp"]);
         });
 
         test(".allProps doesn't duplicate already selected properties", () => {
             const selectedProperties = getRequestedRawProperties(SomeVNodeType, v => v.otherProp.name.allProps);
             // Note also how the order has changed, with otherProp and name first, then the rest in declaration order:
-            assert.deepStrictEqual(selectedProperties, ["otherProp", "name", "uuid", "shortId", "number"]);
+            assert.deepStrictEqual(selectedProperties, ["otherProp", "name", "id", "slugId", "number"]);
         });
 
         test("ignoring the type system and adding a property twice has no effect", () => {

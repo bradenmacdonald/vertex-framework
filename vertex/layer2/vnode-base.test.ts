@@ -1,7 +1,7 @@
 import Joi from "@hapi/joi";
 import {
     VNodeType,
-    ShortIdProperty,
+    SlugIdProperty,
 } from "..";
 import { suite, test, assertRejects, configureTestData, assert, log, before, after } from "../lib/intern-tests";
 import { getAllLabels, getRelationshipType } from "./vnode-base";
@@ -31,7 +31,7 @@ class Employee extends VNodeType {
     static label = "Employee";
     static properties = {
         ...VNodeType.properties,
-        shortId: ShortIdProperty,
+        slugId: SlugIdProperty,
     };
 }
 

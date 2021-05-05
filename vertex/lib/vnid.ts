@@ -28,6 +28,15 @@ export function isVNID(value: any): value is VNID {
     }
 }
 
+/**
+ * Framework-internal helper function that's like "isVNID" but faster and less accurate.
+ * This returns true if a string looks like a properly formatted VNID, but doesn't validate that the characters are
+ * in allowed ranges or that it can parse to an actual UUID.
+ */
+export function looksLikeVNID(value: string): value is VNID {
+    return value.length >= 2 && value.length <= 23 && value.charAt(0) === "_";
+}
+
 /** Helper function: encode a UUID into VNID format (base 62 with underscore prefix) */
 function encodeVNID(value: UUIDv4): VNID {
     return "_" + toBase62(value.toBigInt()) as VNID;

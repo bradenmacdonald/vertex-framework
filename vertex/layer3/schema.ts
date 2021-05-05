@@ -2,25 +2,25 @@
  * The core database Schema for Actions in a Vertex Framework Application
  */
 import { Migration } from "../vertex-interface";
-import { UUID } from "../lib/uuid";
+import { VNID } from "../lib/vnid";
 
-// The UUID of the system user.
-export const SYSTEM_UUID: UUID = UUID("00000000-0000-0000-0000-000000000000");
+// The VNID of the system user.
+export const SYSTEM_VNID: VNID = VNID("_0");
 
 export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
     // ES6 objects preserve string key order, so these migrations don't need numbers, only string IDs.
     systemUser: {
-        dependsOn: ["vnode", "shortIdTrigger"],
+        dependsOn: ["vnode", "slugIdTrigger"],
         forward: async (dbWrite) => {
             // Create the system user. This is a "bootstrap" User/Action because every user must be created via an
             // action and every action must be performed by a user. So here the system user creates itself.
             await dbWrite(tx => tx.run(`
                 CREATE (u:User:VNode {
-                    uuid: "${SYSTEM_UUID}",
-                    shortId: "user-system",
+                    id: "${SYSTEM_VNID}",
+                    slugId: "user-system",
                     fullName: "System"
                 })-[:PERFORMED]->(a:Action:VNode {
-                    // A UUID will be created automatically by apoc extension.
+                    id: "${VNID()}",
                     type: "CreateUser",
                     data: "{}",
                     timestamp: datetime(),
@@ -29,7 +29,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
             `));
         },
         backward: async (dbWrite) => {
-            await dbWrite(tx => tx.run(`MATCH (u:User:VNode {uuid: "${SYSTEM_UUID}"}) DETACH DELETE u`));
+            await dbWrite(tx => tx.run(`MATCH (u:User:VNode {id: "${SYSTEM_VNID}"}) DETACH DELETE u`));
         },
     },
     trackActionChanges: {
@@ -66,16 +66,24 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
 
                             // Check that any newly created nodes are included in the list of nodes :MODIFIED by the current Action
                             [
-                                n IN $createdNodes WHERE NOT n:Action AND NOT n:ShortId
+                                n IN $createdNodes WHERE NOT n:Action AND NOT n:SlugId
                                 | {node: n, reason: 'created node'}
                             ] AS createdNodes,
 
                             // Check that any nodes with modified properties are included in the list of nodes :MODIFIED by the current Action
                             [
-                                modProp IN apoc.coll.flatten(
+
+                                // for some reason apoc.coll.flatten is missing? https://github.com/neo4j-contrib/neo4j-apoc-procedures/issues/1887
+                                //modProp IN apoc.coll.flatten(
+                                //    apoc.map.values($assignedNodeProperties, keys($assignedNodeProperties)) +
+                                //    apoc.map.values($removedNodeProperties, keys($removedNodeProperties))
+                                //)
+                                // So we use reduce to achieve a flatten in pure cypher:
+                                modProp IN reduce(output = [], r IN (
                                     apoc.map.values($assignedNodeProperties, keys($assignedNodeProperties)) +
                                     apoc.map.values($removedNodeProperties, keys($removedNodeProperties))
-                                )
+                                ) | output + r)
+
                                 | {node: modProp.node, reason: 'modified property ' + modProp.key}
                             ] AS modifiedProps,
 

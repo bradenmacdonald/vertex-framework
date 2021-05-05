@@ -1,21 +1,21 @@
 import * as Joi from "@hapi/joi";
 import { UUID } from "../lib/uuid";
+import { VNID, isVNID } from "../lib/vnid";
 import { WrappedTransaction } from "../transaction";
 import { C } from "./cypher-sugar";
 
-/** Strict UUID Validator for Joi */
-export const uuidValidator: Joi.CustomValidator = (stringValue, helpers) => {
-    if (stringValue !== UUID(stringValue)) {
-        throw new Error("UUID is not in standard form.");
+/** Strict VNID Validator for Joi */
+const vnidValidator: Joi.CustomValidator = (stringValue, helpers) => {
+    if (!isVNID(stringValue)) {
+        throw new Error("Invalid VNID");
     }
     return stringValue;
 };
 
-// Every VNode is uniquely and permanently identified by a UUID
-export const UuidProperty = Joi.string().custom(uuidValidator);
-// In order to prevent any ambiguity between UUIDs and shortIds, shortIds are required to be shorter than UUID strings
-// A UUID string like 00000000-0000-0000-0000-000000000000 is 36 characters long, so shortIds are limited to 32.
-export const ShortIdProperty = Joi.string().regex(/^[A-Za-z0-9.-]{1,32}$/).required();
+// Every VNode is uniquely and permanently identified by a VNID
+export const VNIDProperty = Joi.string().custom(vnidValidator);
+// Some VNodeTypes also use a "slug ID", which can be changed
+export const SlugIdProperty = Joi.string().regex(/^[-\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]+$/u).required();
 // An empty object that can be used as a default value for read-only properties
 export const emptyObj = Object.freeze({});
 // A private key used to store relationship types (labels) on their declarations
@@ -56,8 +56,8 @@ export enum Cardinality {
 /**
  * Base class for a "VNode".
  * A VNode is a node in the Neo4j graph that follows certain rules:
- *   - Every VNode is uniquely identified by a UUID
- *   - Every VNode optionally has a "shortId" string key; the shortId can be changed but previously used shortIds
+ *   - Every VNode is uniquely identified by a VNID
+ *   - Every VNode optionally has a "slugId" string key; the slugId can be changed but previously used slugIds
  *     continue to point to the same VNode.
  *   - VNodes can only be modified (mutated) via "Actions", which are recorded via an Action VNode in the graph.
  *   - Each VNode is an instance of one or more VNode types ("labels" in Neo4j), which enforce a strict schema of
@@ -69,9 +69,9 @@ export enum Cardinality {
 export class _BaseVNodeType {
     public constructor() { throw new Error("VNodeType should never be instantiated. Use it statically only."); }
     static label = "VNode";
-    /** If this type has a shortId property, this is the prefix that all of its shortIds must have (e.g. "user-") */
-    static readonly shortIdPrefix: string = "";
-    static readonly properties: PropSchemaWithUuid = {uuid: UuidProperty};
+    /** If this type has a slugId property, this is the prefix that all of its slugIds must have (e.g. "user-") */
+    static readonly slugIdPrefix: string = "";
+    static readonly properties: PropSchemaWithVNID = {id: VNIDProperty};
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     static readonly rel: RelationshipsSchema = emptyObj;
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
@@ -80,13 +80,13 @@ export class _BaseVNodeType {
     static async validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void> {
         // Note: tests for this function are in layer3/validation.test.ts since they depend on actions
 
-        // Validate shortId prefix
-        if (this.shortIdPrefix !== "") {
-            if (!this.properties.shortId) {
-                throw new Error("A VNodeType cannot specify a shortIdPrefix if it doesn't declare the shortId property");
+        // Validate slugId prefix
+        if (this.slugIdPrefix !== "") {
+            if (!this.properties.slugId) {
+                throw new Error("A VNodeType cannot specify a slugIdPrefix if it doesn't declare the slugId property");
             }
-            if (!dbObject.shortId.startsWith(this.shortIdPrefix)) {
-                throw new ValidationError(`${this.label} has an invalid shortId "${dbObject.shortId}". Expected it to start with "${this.shortIdPrefix}".`);
+            if (!dbObject.slugId.startsWith(this.slugIdPrefix)) {
+                throw new ValidationError(`${this.label} has an invalid slugId "${dbObject.slugId}". Expected it to start with "${this.slugIdPrefix}".`);
             }
         }
 
@@ -168,12 +168,12 @@ export class _BaseVNodeType {
      */
     protected static declare(vnt: BaseVNodeType): void {
 
-        if (vnt.properties.uuid !== UuidProperty) {
-            throw new Error(`${vnt.name} VNodeType does not inherit the required uuid property from the base class.`);
+        if (vnt.properties.id !== VNIDProperty) {
+            throw new Error(`${vnt.name} VNodeType does not inherit the required id property from the base class.`);
         }
 
-        if ("shortId" in vnt.properties && vnt.properties.shortId !== ShortIdProperty) {
-            throw new Error(`If a VNode declares a shortId property, it must use the global ShortIdProperty definition.`);
+        if ("slugId" in vnt.properties && vnt.properties.slugId !== SlugIdProperty) {
+            throw new Error(`If a VNode declares a slugId property, it must use the global SlugIdProperty definition.`);
         }
 
         // Check for annoying circular references that TypeScript can't catch:
@@ -220,7 +220,7 @@ export const BaseVNodeType = _BaseVNodeType;
 export interface BaseVNodeType {
     new(): _BaseVNodeType;
     readonly label: string;
-    readonly properties: PropSchemaWithUuid;
+    readonly properties: PropSchemaWithVNID;
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     readonly rel: RelationshipsSchema;
     readonly defaultOrderBy: string|undefined;
@@ -261,14 +261,15 @@ export interface PropSchema {
 }
 
 /**
- * A property schema that includes a UUID. All VNodes in the graph have a UUID so comply with this schema.
+ * A property schema that includes a VNID. All VNodes in the graph have a VNID so comply with this schema.
  */
-interface PropSchemaWithUuid {
-    uuid: Joi.StringSchema;
+interface PropSchemaWithVNID {
+    id: Joi.StringSchema;
     [K: string]: Joi.AnySchema;
 }
 
 export type PropertyDataType<Props extends PropSchema, propName extends keyof Props> = (
+    propName extends "id" ? VNID :
     propName extends "uuid" ? UUID :
     Props[propName] extends Joi.StringSchema ? string :
     Props[propName] extends Joi.NumberSchema ? number :

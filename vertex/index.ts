@@ -7,6 +7,16 @@
 //// Lib ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
+    VNID,
+    isVNID,
+} from "./lib/vnid";
+
+export {
+    SlugId,
+    VNodeKey,
+} from "./lib/key";
+
+export {
     UUID,
 } from "./lib/uuid";
 
@@ -33,8 +43,8 @@ export {
     InvalidNodeLabel,
     PublicValidationError,
     RawVNode,
-    ShortIdProperty,
-    UuidProperty,
+    SlugIdProperty,
+    VNIDProperty,
     // BaseVNodeType - internal use only: we use VNodeType (from layer 4) in its place
     RelationshipDeclaration,
     ValidationError,
@@ -74,7 +84,7 @@ export {
 } from "./layer3/action-generic";
 
 export {
-    SYSTEM_UUID
+    SYSTEM_VNID
 } from "./layer3/schema";
 
 //// Layer 4 ///////////////////////////////////////////////////////////////////////////////////////////////////////////

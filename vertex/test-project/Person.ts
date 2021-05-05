@@ -4,7 +4,7 @@ import {
     defaultCreateFor,
     defaultUpdateActionFor,
     defineAction,
-    ShortIdProperty,
+    SlugIdProperty,
     VirtualPropType,
     VNodeType,
 } from "../";
@@ -19,7 +19,7 @@ export class Person extends VNodeType {
     static label = "TestPerson" as const;
     static properties = {
         ...VNodeType.properties,
-        shortId: ShortIdProperty,
+        slugId: SlugIdProperty,
         name: Joi.string(),
         dateOfBirth: Joi.date().iso(),//.options({convert: false}),
     };
@@ -107,7 +107,7 @@ function numFriends(): DerivedProperty<number> { return DerivedProperty.make(
 
 export const UpdatePerson = defaultUpdateActionFor(Person, p => p.name.dateOfBirth);
 
-export const CreatePerson = defaultCreateFor(Person, p => p.shortId.name, UpdatePerson);
+export const CreatePerson = defaultCreateFor(Person, p => p.slugId.name, UpdatePerson);
 
 export const ActedIn = defineAction({
     type: "ActedIn",
@@ -123,9 +123,9 @@ export const ActedIn = defineAction({
             MATCH (m:${Movie}), m HAS KEY ${data.movieId}
             MERGE (p)-[rel:${Person.rel.ACTED_IN}]->(m)
             SET rel.role = ${data.role}
-            `.RETURN({"p.uuid": "uuid"}));
+            `.RETURN({"p.id": "vnid"}));
         return {
-            modifiedNodes: [result["p.uuid"]],
+            modifiedNodes: [result["p.id"]],
             resultData: {},
         };
     },
@@ -144,9 +144,9 @@ export const RecordFriends = defineAction({
             MATCH (p1:${Person}), p1 HAS KEY ${data.personId}
             MATCH (p2:${Person}), p2 HAS KEY ${data.otherPersonId}
             MERGE (p1)-[:${Person.rel.FRIEND_OF}]->(p2)
-        `.RETURN({"p1.uuid": "uuid", "p2.uuid": "uuid"}));
+        `.RETURN({"p1.id": "vnid", "p2.id": "vnid"}));
         return {
-            modifiedNodes: [result["p1.uuid"], result["p2.uuid"]],
+            modifiedNodes: [result["p1.id"], result["p2.id"]],
             resultData: {},
         };
     },

@@ -2,6 +2,7 @@
  * Syntactic sugar for writing Cypher queries.
  */
 import { Record as Neo4jRecord, int as neo4jinteger } from "neo4j-driver";
+import { looksLikeVNID } from "../lib/vnid";
 import { ReturnShape, TypedResult } from "./cypher-return-shape";
 import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from "./vnode-base";
 
@@ -27,9 +28,9 @@ import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from 
  *   e.g. Input:  C`SET node.${C(fieldName)} = ${value}`
  *        Output: "SET node.lastName = $p1"
  * 
- * - A non-standard ", ___ HAS KEY _____" syntax can be used in MATCH clauses to match VNodes by either UUID or shortId.
+ * - A non-standard ", ___ HAS KEY _____" syntax can be used in MATCH clauses to match VNodes by either VNID or slugId.
  *   e.g. Input:  C`MATCH (u:${User}), u HAS KEY ${username}`
- *        Output: "MATCH (u:User:VNode), (u:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $p1})"
+ *        Output: "MATCH (u:User:VNode), (u:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $p1})"
  * 
  * - Custom named parameters can be added to the query, via withParams(). This creates a new copy of the
  *   CypherQuery, so that a single base query can be made into several derived queries with different parameters.
@@ -218,10 +219,10 @@ export {C};
 /**
  * In a cypher query, replace ", someVar HAS KEY $varName" with an appropriate matching condition.
  *
- * Vertex framework's VNodes all use a UUID as their primary key, but many can also be looked up using a "shortId". The
+ * Vertex framework's VNodes all use a VNID as their primary key, but many can also be looked up using a "slugId". The
  * special syntax
  *  MATCH (node:Label)..., node HAS KEY $key
- * is used to lookup nodes by a variable $key, where $key can be _either_ a UUID or primary key
+ * is used to lookup nodes by a variable $key, where $key can be _either_ a VNID or primary key
  */
 export function replaceHasKey(cypherQuery: string, params: Readonly<Record<string, any>>): string {
     return cypherQuery.replace(/(,\s+)(\w+) HAS KEY \$(\w+)/gm, (_, commaWhitespace, nodeVariable, keyParamName) => {
@@ -229,11 +230,11 @@ export function replaceHasKey(cypherQuery: string, params: Readonly<Record<strin
         if (typeof keyValue !== "string") {
             throw new Error(`Expected a "${keyParamName}" parameter in the query for the ${nodeVariable} HAS KEY $${keyParamName} lookup.`);
         }
-        if (keyValue.length === 36) {
-            // Look up by UUID.
-            return `${commaWhitespace}(${nodeVariable}:VNode {uuid: $${keyParamName}})`;
+        if (looksLikeVNID(keyValue)) {
+            // Look up by VNID.
+            return `${commaWhitespace}(${nodeVariable}:VNode {id: $${keyParamName}})`;
         } else {
-            return `${commaWhitespace}(${nodeVariable}:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $${keyParamName}})`;
+            return `${commaWhitespace}(${nodeVariable}:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $${keyParamName}})`;
         }
     });
 }

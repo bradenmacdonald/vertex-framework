@@ -12,7 +12,7 @@ const OtherVNTRef: typeof OtherVNT = VNodeTypeRef("OtherVNT");
 export class OtherVNT extends VNodeType {
     static readonly label = "OtherVNT";
     static readonly properties = {...VNodeType.properties };
-    static readonly defaultOrderBy = "@this.uuid";
+    static readonly defaultOrderBy = "@this.id";
     static readonly rel = {
         /** This Movie is part of a franchise */
         SELF_RELATIONSHIP: { to: [OtherVNT] },

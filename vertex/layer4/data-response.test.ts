@@ -1,7 +1,7 @@
 import { suite, test } from "../lib/intern-tests";
 
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils";
-import type { BaseDataRequest, UUID } from "..";
+import type { BaseDataRequest, VNID } from "..";
 import { Person } from "../test-project";
 import type { DataResponse } from "./data-response";
 import { VNodeTypeWithVirtualProps } from "./vnode";
@@ -30,7 +30,7 @@ suite("DataResponse", () => {
 
             checkType<AssertEqual<typeof response.name, string>>();
             checkType<AssertPropertyPresent<typeof response, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "uuid">>();
+            checkType<AssertPropertyAbsent<typeof response, "id">>();
         });
 
         test("Request all properties", () => {
@@ -40,9 +40,9 @@ suite("DataResponse", () => {
 
             checkType<AssertEqual<typeof response.name, string>>();
             checkType<AssertPropertyPresent<typeof response, "name", string>>();
-            checkType<AssertPropertyPresent<typeof response, "uuid", UUID>>();
+            checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
             checkType<AssertPropertyPresent<typeof response, "dateOfBirth", string>>();
-            checkType<AssertPropertyPresent<typeof response, "shortId", string>>();
+            checkType<AssertPropertyPresent<typeof response, "slugId", string>>();
             checkType<AssertPropertyAbsent<typeof response, "other">>();
         });
 
@@ -52,7 +52,7 @@ suite("DataResponse", () => {
             const response: DataResponse<typeof request> = undefined as any;
 
             checkType<AssertPropertyOptional<typeof response, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "uuid">>();
+            checkType<AssertPropertyAbsent<typeof response, "id">>();
         });
     });
 
@@ -73,7 +73,7 @@ suite("DataResponse", () => {
 
             checkType<AssertEqual<typeof response.name, string>>();
             checkType<AssertPropertyPresent<typeof response, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "uuid">>();
+            checkType<AssertPropertyAbsent<typeof response, "id">>();
         });
 
         test("Request all properties", () => {
@@ -83,9 +83,9 @@ suite("DataResponse", () => {
 
             checkType<AssertEqual<typeof response.name, string>>();
             checkType<AssertPropertyPresent<typeof response, "name", string>>();
-            checkType<AssertPropertyPresent<typeof response, "uuid", UUID>>();
+            checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
             checkType<AssertPropertyPresent<typeof response, "dateOfBirth", string>>();
-            checkType<AssertPropertyPresent<typeof response, "shortId", string>>();
+            checkType<AssertPropertyPresent<typeof response, "slugId", string>>();
             checkType<AssertPropertyAbsent<typeof response, "other">>();
         });
 
@@ -95,34 +95,34 @@ suite("DataResponse", () => {
             const response: DataResponse<typeof request> = undefined as any;
 
             checkType<AssertPropertyOptional<typeof response, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "uuid">>();
+            checkType<AssertPropertyAbsent<typeof response, "id">>();
         });
 
         test("Request a raw property and conditionally Request another raw property", () => {
 
-            const request = newDataRequest(Person).shortId.if("someFlag", p => p.name);
+            const request = newDataRequest(Person).slugId.if("someFlag", p => p.name);
             const response: DataResponse<typeof request> = undefined as any;
 
-            checkType<AssertPropertyPresent<typeof response, "shortId", string>>();
+            checkType<AssertPropertyPresent<typeof response, "slugId", string>>();
             checkType<AssertPropertyOptional<typeof response, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "uuid">>();
+            checkType<AssertPropertyAbsent<typeof response, "id">>();
         });
 
         test("Request a virtual property", () => {
 
-            const request = newDataRequest(Person).age().uuid.if("d", p => p.shortId).if("test", p => p.dateOfBirth);
+            const request = newDataRequest(Person).age().id.if("d", p => p.slugId).if("test", p => p.dateOfBirth);
             const response: DataResponse<typeof request> = undefined as any;
 
             checkType<AssertPropertyPresent<typeof response, "age", number>>();
-            checkType<AssertPropertyPresent<typeof response, "uuid", UUID>>();
-            checkType<AssertPropertyOptional<typeof response, "shortId", string>>();
+            checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
+            checkType<AssertPropertyOptional<typeof response, "slugId", string>>();
             checkType<AssertPropertyOptional<typeof response, "dateOfBirth", string>>();
             checkType<AssertPropertyAbsent<typeof response, "other">>();
         });
 
         test("Complex request using all mixins and including a projected property", () => {
             const request = (newDataRequest(Person)
-                .uuid
+                .id
                 .friends(f => f
                     .name
                     .if("flag", f => f.dateOfBirth.age())
@@ -133,17 +133,17 @@ suite("DataResponse", () => {
                 )
             );
             const response: DataResponse<typeof request> = undefined as any;
-            checkType<AssertPropertyPresent<typeof response, "uuid", UUID>>();
+            checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
             checkType<AssertPropertyPresent<typeof response.friends[0], "name", string>>();
             checkType<AssertPropertyOptional<typeof response.friends[0], "dateOfBirth", string>>();
             checkType<AssertPropertyOptional<typeof response.friends[0], "age", number>>();
             const costar = response?.friends[0].costars[0];  // The ? is just to make this work at runtime since we're using a mock.
             checkType<AssertPropertyPresent<typeof costar, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof costar, "uuid">>();
+            checkType<AssertPropertyAbsent<typeof costar, "id">>();
             checkType<AssertPropertyPresent<typeof costar.movies[0], "title", string>>();
             checkType<AssertPropertyPresent<typeof costar.movies[0], "year", number>>();
             checkType<AssertPropertyPresent<typeof costar.movies[0], "role", string|null>>();  // Projected properties are always nullable
-            checkType<AssertPropertyAbsent<typeof costar.movies[0], "uuid">>();
+            checkType<AssertPropertyAbsent<typeof costar.movies[0], "id">>();
         });
     });
 });

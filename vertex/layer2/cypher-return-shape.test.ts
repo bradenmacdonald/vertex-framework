@@ -83,7 +83,7 @@ suite("Cypher return shape specification", () => {
 
             test("retrieve a Person VNode", async () => {
                 const shape = ReturnShape({p: Person});
-                const results = await runAndConvert(`MATCH (p:TestPerson:VNode {shortId: $shortId}) RETURN p`, {shortId: "the-rock"}, shape);
+                const results = await runAndConvert(`MATCH (p:TestPerson:VNode {slugId: $slugId}) RETURN p`, {slugId: "the-rock"}, shape);
                 assert.lengthOf(results, 1);
                 const theRock = results[0].p;
     
@@ -91,7 +91,7 @@ suite("Cypher return shape specification", () => {
                 checkType<AssertPropertyAbsent<typeof theRock, "someOtherThing">>();
     
                 assert.strictEqual(theRock.name, "Dwayne Johnson");
-                assert.strictEqual(theRock.shortId, "the-rock");
+                assert.strictEqual(theRock.slugId, "the-rock");
                 assert.includeMembers(theRock._labels, ["TestPerson", "VNode"]);
                 assert.isNumber(theRock._identity);
             });
@@ -108,7 +108,7 @@ suite("Cypher return shape specification", () => {
         test("retrieving a non-VNode as a VNode should fail", async () => {
             const shape = ReturnShape({p: Person});
             await assertRejects(
-                runAndConvert(`MATCH (s:ShortId) RETURN s AS p LIMIT 1`, {}, shape),
+                runAndConvert(`MATCH (s:SlugId) RETURN s AS p LIMIT 1`, {}, shape),
                 "Field p is a node but is missing the VNode label"
             );
         });
