@@ -72,18 +72,10 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
 
                             // Check that any nodes with modified properties are included in the list of nodes :MODIFIED by the current Action
                             [
-
-                                // for some reason apoc.coll.flatten is missing? https://github.com/neo4j-contrib/neo4j-apoc-procedures/issues/1887
-                                //modProp IN apoc.coll.flatten(
-                                //    apoc.map.values($assignedNodeProperties, keys($assignedNodeProperties)) +
-                                //    apoc.map.values($removedNodeProperties, keys($removedNodeProperties))
-                                //)
-                                // So we use reduce to achieve a flatten in pure cypher:
-                                modProp IN reduce(output = [], r IN (
-                                    apoc.map.values($assignedNodeProperties, keys($assignedNodeProperties)) +
-                                    apoc.map.values($removedNodeProperties, keys($removedNodeProperties))
-                                ) | output + r)
-
+                                modProp IN apoc.coll.flatten(
+                                   apoc.map.values($assignedNodeProperties, keys($assignedNodeProperties)) +
+                                   apoc.map.values($removedNodeProperties, keys($removedNodeProperties))
+                                )
                                 | {node: modProp.node, reason: 'modified property ' + modProp.key}
                             ] AS modifiedProps,
 
