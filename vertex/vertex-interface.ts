@@ -1,3 +1,4 @@
+import { VNID, VNodeKey } from "./lib/key";
 import { WrappedTransaction } from "./transaction";
 
 /**
@@ -9,6 +10,7 @@ export interface VertexCore {
     isTriggerInstalled(name: string): Promise<boolean>;
     _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
     _restrictedAllowWritesWithoutAction(someCode: () => Promise<any>): Promise<void>;
+    vnidForKey(key: VNodeKey): Promise<VNID>;
 
     snapshotDataForTesting(): Promise<VertexTestDataSnapshot>;
     resetDBToSnapshot(snapshot: VertexTestDataSnapshot): Promise<void>;

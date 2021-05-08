@@ -2,12 +2,14 @@ import neo4j, { Driver, Transaction } from "neo4j-driver";
 import { Action, ActionData, ActionResult, getActionImplementation } from "./layer3/action";
 import { runAction } from "./layer3/action-runner";
 import { log } from "./lib/log";
-import { VNID } from "./lib/vnid";
+import { looksLikeVNID, VNID } from "./lib/vnid";
 import { PullNoTx, PullOneNoTx } from "./layer4/pull";
 import { migrations as coreMigrations } from "./layer2/schema";
 import { migrations as actionMigrations, SYSTEM_VNID } from "./layer3/schema";
 import { WrappedTransaction } from "./transaction";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
+import { VNodeKey } from "./lib/key";
+import { C } from "./layer2/cypher-sugar";
 
 
 export interface InitArgs {
@@ -101,6 +103,16 @@ export class Vertex implements VertexCore {
         }
         // Now apply the undo action:
         return await runAction(this, undoAction, args.asUserId, args.actionId);
+    }
+
+    /**
+     * Given a VNode Key (either a VNID or a SlugId), convert it to a VNID.
+     */
+    public async vnidForKey(key: VNodeKey): Promise<VNID> {
+        if (looksLikeVNID(key)) {
+            return key;
+        }
+        return this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": "vnid"}))).then(result => result["vn.id"]);
     }
 
     /**
