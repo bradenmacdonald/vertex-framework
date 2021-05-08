@@ -95,11 +95,11 @@ Here is a query using "plain" Cypher:
 const firstMovieTitle = await graph.read(async tx => {
 
     const result = await tx.run(`
-        MATCH (p:Person:VNode {uuid: $uuid})
+        MATCH (p:Person:VNode {id: $id})
         MATCH (p)-[:ACTED_IN]->(m:Movie:VNode)
         RETURN m
     `, {
-        uuid: personId,
+        id: personId,
     });
 
     return result.records[0].get("m").title;
@@ -113,7 +113,7 @@ And here is the same query using the optional syntactic sugar:
 const firstMovieTitle = await graph.read(async tx => {
 
     const result = await tx.query(C`
-        MATCH (p:${Person} {uuid: ${personId}})
+        MATCH (p:${Person} {id: ${personId}})
         MATCH (p)-[:${Person.rel.ACTED_IN}]->(m:${Movie})
     `.RETURN({m: Movie}));
 
@@ -125,16 +125,16 @@ const firstMovieTitle = await graph.read(async tx => {
 This second example shows:
 
 * TypeScript knows what fields are available on the returned `m` record, and the types of each, such as the `title` field which is a `string`.
-* Variables like `personId` can be interpolated directly into the query - there's no need to define a neo4j parameter variable like `$uuid` and then pass a separate object with parameter values. You can rest assured that the data values are still passed as parameters though, ensuring that query plans can be re-used and your application is safe against Cypher injection attacks.
+* Variables like `personId` can be interpolated directly into the query - there's no need to define a neo4j parameter variable like `$id` and then pass a separate object with parameter values. You can rest assured that the data values are still passed as parameters though, ensuring that query plans can be re-used and your application is safe against Cypher injection attacks.
 * Instead of hard-coding labels and relationship types, you can interpolate a `VNode` type and its relationship definitions. The syntactic sugar code knows that these are labels, not parameters, and will replace `:${Person}` with the correct `:Person:VNode` label, and similar for relationships.
   * This has the advantage that if you make any typo or reference a relationship that has been renamed, etc., TypeScript will immediately highlight your error, making query writing and refactoring easier.
-  * If you're wondering why `:${Person}` gets replaced with both `:Person` and `:VNode` labels, that is required since only `:VNode` has an index on UUIDs, and Vertex Framework handles data "deletion" by keep data around but removing the `:VNode` label.)
+  * If you're wondering why `:${Person}` gets replaced with both `:Person` and `:VNode` labels, that is required since only `:VNode` has an index on VNIDs, and Vertex Framework handles data "deletion" by keep data around but removing the `:VNode` label.)
 
 For complex custom queries, `.givesShape` can be used to specify arbitrary return types that TypeScript will be aware of, though the syntax is a little more verbose:
 
 ```typescript
 const result = await tx.query(C`
-    MATCH (p:${Person} {uuid: ${personUuid}})
+    MATCH (p:${Person} {id: ${personId}})
     MATCH (p)-[rel:${Person.rel.ACTED_IN}]->(m:${Movie})
     RETURN {title: m.title, role: rel.role} AS movie
 `.givesShape({
@@ -292,16 +292,16 @@ With that example, each entry in the result array will have optional `friends` a
 
 Conditional properties are designed to partially provide one of the big features of GraphQL - that API clients can specify which fields they need - in a REST API, while also ensuring that the application has full control over what queries are allowed and what data can be returned.
 
-## ShortIds
+## slugIds
 
-Vertex Framework requires that every VNode has a `uuid` primary key. Optionally, some VNode types can have a "secondary key" by defining a property called `shortId` and setting its type to `ShortIdProperty`. A short ID is a string between 1 and 32 characters long used as a changeable identifier for that VNode. For example, a person named Alex might have the shortId `p-alex`.
+Vertex Framework requires that every VNode has a `uuid` primary key. Optionally, some VNode types can have a "secondary key" by defining a property called `slugId` and setting its type to `slugIdProperty`. A short ID is a string between 1 and 32 characters long used as a changeable identifier for that VNode. For example, a person named Alex might have the slugId `p-alex`.
 
-Unlike the primary key, the `shortId` of a given VNode can be changed when needed. However, Vertex Framework ensures that even though shortIds can be changed, "old" shortIds will continue to work and to "point to" the same VNode. This allows you to use shortIds in URLs, confident that even if the shortId is changed at some point, the URL will continue to work forever.
+Unlike the primary key, the `slugId` of a given VNode can be changed when needed. However, Vertex Framework ensures that even though slugIds can be changed, "old" slugIds will continue to work and to "point to" the same VNode. This allows you to use slugIds in URLs, confident that even if the slugId is changed at some point, the URL will continue to work forever.
 
 To support this, a special syntax is required for looking up VNodes:
 
 ```typescript
-const key = "p-alex";  // Key can be a UUID or a shortId
+const key = "p-alex";  // Key can be a VNID or a slugId
 const alex = (await graph.read(tx => tx.queryOne(C`
 
     MATCH (p:${Person}), p HAS KEY ${key}
@@ -309,7 +309,7 @@ const alex = (await graph.read(tx => tx.queryOne(C`
 `.RETURN({p: Person})))).p;
 ```
 
-That is, in any `MATCH` clause, use `, nodeVariable HAS KEY ${keyVariable}` to lookup a VNode by key, where the key variable can be either a UUID or a shortId. The query will get rewritten to look up the VNode using either `MATCH (p:Person:VNode), (p:VNode {uuid: $key})` in the case of a UUID or `MATCH (p:Person:VNode), (p:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $key})`. The `ShortId` graph nodes required to make this work are automatically managed by Vertex Framework.
+That is, in any `MATCH` clause, use `, nodeVariable HAS KEY ${keyVariable}` to lookup a VNode by key, where the key variable can be either a VNID or a slugId. The query will get rewritten to look up the VNode using either `MATCH (p:Person:VNode), (p:VNode {id: $key})` in the case of a VNID or `MATCH (p:Person:VNode), (p:VNode)<-[:IDENTIFIES]-(:slugId {slugId: $key})`. The `slugId` graph nodes required to make this work are automatically managed by Vertex Framework.
 
 ## Inheritance
 
