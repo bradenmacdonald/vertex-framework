@@ -9,9 +9,9 @@ import { suite, test, assertRejects, assert, log, before, after, configureTestDa
 import { testGraph, } from "../test-project";
 import {
     C,
-    UUID,
+    VNID,
     VNodeType,
-    ShortIdProperty,
+    SlugIdProperty,
     GenericCypherAction,
     defaultCreateFor,
 } from "..";
@@ -25,7 +25,7 @@ class BirthCertificate extends VNodeType {
 @VNodeType.declare
 class Person extends VNodeType {
     static label = "PersonRVT";  // RVT: Relationship Validation Tests
-    static readonly properties = {...VNodeType.properties, shortId: ShortIdProperty};
+    static readonly properties = {...VNodeType.properties, slugId: SlugIdProperty};
     static readonly rel = {
         HAS_BIRTH_CERT: {
             to: [BirthCertificate],
@@ -48,13 +48,13 @@ class Person extends VNodeType {
     };
 }
 
-const createPerson = async (name: string): Promise<UUID> => {
-    const uuid = UUID(), birthCertUuid = UUID();
+const createPerson = async (name: string): Promise<VNID> => {
+    const id = VNID(), birthCertId = VNID();
     await testGraph.runAsSystem(GenericCypherAction({
-        cypher: C`CREATE (p:${Person} { uuid: ${uuid}, shortId: ${name}})-[:${Person.rel.HAS_BIRTH_CERT}]->(bc:${BirthCertificate} {uuid: ${birthCertUuid}})`,
-        modifiedNodes: [uuid, birthCertUuid],
+        cypher: C`CREATE (p:${Person} { id: ${id}, slugId: ${name}})-[:${Person.rel.HAS_BIRTH_CERT}]->(bc:${BirthCertificate} {id: ${birthCertId}})`,
+        modifiedNodes: [id, birthCertId],
     }));
-    return uuid;
+    return id;
 }
 
 
@@ -62,29 +62,29 @@ const createPerson = async (name: string): Promise<UUID> => {
 @VNodeType.declare
 class Note extends VNodeType {
     static label = "NoteVT";  // VT = validation tests
-    static readonly shortIdPrefix = "note-";
-    static readonly properties = {...VNodeType.properties, shortId: ShortIdProperty, text: Joi.string()};
+    static readonly slugIdPrefix = "note-";
+    static readonly properties = {...VNodeType.properties, slugId: SlugIdProperty, text: Joi.string()};
 }
 
-const CreateNote = defaultCreateFor(Note, n => n.shortId);
+const CreateNote = defaultCreateFor(Note, n => n.slugId);
 
 
 suite(__filename, () => {
 
     configureTestData({isolateTestWrites: true, loadTestProjectData: false});
 
-    suite("test shortIdPrefix validation", () => {
+    suite("test slugIdPrefix validation", () => {
 
-        test("Creating a VNode with a valid shortIdPrefix works fine", async () => {
-            const {uuid} = await testGraph.runAsSystem(CreateNote({shortId: "note-test1"}));
-            const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note}), n HAS KEY ${uuid}`.RETURN({n: Note})));
-            assert.equal(check.n.shortId, "note-test1");
+        test("Creating a VNode with a valid slugIdPrefix works fine", async () => {
+            const {id} = await testGraph.runAsSystem(CreateNote({slugId: "note-test1"}));
+            const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note}), n HAS KEY ${id}`.RETURN({n: Note})));
+            assert.equal(check.n.slugId, "note-test1");
         });
 
-        test("Creating a VNode with an invalid shortIdPrefix works fine", async () => {
+        test("Creating a VNode with an invalid slugIdPrefix works fine", async () => {
             await assertRejects(
-                testGraph.runAsSystem(CreateNote({shortId: "test1-note-foo"})),
-                `NoteVT has an invalid shortId "test1-note-foo". Expected it to start with "note-".`,
+                testGraph.runAsSystem(CreateNote({slugId: "test1-note-foo"})),
+                `NoteVT has an invalid slugId "test1-note-foo". Expected it to start with "note-".`,
             );
         });
     });
@@ -93,16 +93,16 @@ suite(__filename, () => {
         
         test("ToOneRequired cardinality makes a to-one relationship required", async () => {
             // Try creating a person and a birth certificate - this should succeed:
-            const aliceUuid = UUID(), bcUuid = UUID(), bobUuid = UUID();
+            const aliceId = VNID(), bcId = VNID(), bobId = VNID();
             await testGraph.runAsSystem(GenericCypherAction({
-                cypher: C`CREATE (p:${Person} { uuid: ${aliceUuid}, shortId: "Alice"})-[:${Person.rel.HAS_BIRTH_CERT}]->(bc:${BirthCertificate} {uuid: ${bcUuid}})`,
-                modifiedNodes: [aliceUuid, bcUuid],
+                cypher: C`CREATE (p:${Person} { id: ${aliceId}, slugId: "Alice"})-[:${Person.rel.HAS_BIRTH_CERT}]->(bc:${BirthCertificate} {id: ${bcId}})`,
+                modifiedNodes: [aliceId, bcId],
             }));
             // Try creating a person without the required BirthCertificate:
             await assertRejects(
                 testGraph.runAsSystem(GenericCypherAction({
-                    cypher: C`CREATE (p:${Person} { uuid: ${bobUuid}, shortId: "Bob"})`,
-                    modifiedNodes: [bobUuid],
+                    cypher: C`CREATE (p:${Person} { id: ${bobId}, slugId: "Bob"})`,
+                    modifiedNodes: [bobId],
                 })),
                 "Required relationship type HAS_BIRTH_CERT must point to one node, but does not exist."
             );
@@ -110,19 +110,19 @@ suite(__filename, () => {
         
         test("ToOneRequired cardinality prohibits relationship to multiple nodes", async () => {
             // Try creating a person and a birth certificate - this should succeed:
-            const aliceUuid = UUID(), bcUuid = UUID(), bcUuid2 = UUID();
+            const aliceId = VNID(), bcId = VNID(), bcId2 = VNID();
             await testGraph.runAsSystem(GenericCypherAction({
-                cypher: C`CREATE (p:${Person} { uuid: ${aliceUuid}, shortId: "Alice"})-[:${Person.rel.HAS_BIRTH_CERT}]->(bc:${BirthCertificate} {uuid: ${bcUuid}})`,
-                modifiedNodes: [aliceUuid, bcUuid],
+                cypher: C`CREATE (p:${Person} { id: ${aliceId}, slugId: "Alice"})-[:${Person.rel.HAS_BIRTH_CERT}]->(bc:${BirthCertificate} {id: ${bcId}})`,
+                modifiedNodes: [aliceId, bcId],
             }));
             // Try adding an additional birth certificate to that person:
             await assertRejects(
                 testGraph.runAsSystem(GenericCypherAction({
                     cypher: C`
-                        MATCH (p:${Person} {shortId: "Alice"})
-                        CREATE (p)-[:${Person.rel.HAS_BIRTH_CERT}]->(bc:${BirthCertificate} {uuid: ${bcUuid2}})
+                        MATCH (p:${Person} {slugId: "Alice"})
+                        CREATE (p)-[:${Person.rel.HAS_BIRTH_CERT}]->(bc:${BirthCertificate} {id: ${bcId2}})
                     `,
-                    modifiedNodes: [aliceUuid, bcUuid],
+                    modifiedNodes: [aliceId, bcId],
                 })),
                 "Required to-one relationship type HAS_BIRTH_CERT is pointing to more than one node."
             );
@@ -131,27 +131,27 @@ suite(__filename, () => {
         test("ToOneOrNone cardinality prohibits relationship to multiple nodes", async () => {
             // Try creating a person with no spouse - this should succeed:
             // Create alice, bob, and charli:
-            const aliceUuid = await createPerson("alice");
-            const bobUuid = await createPerson("bob");
-            const charliUuid = await createPerson("charli");
+            const aliceId = await createPerson("alice");
+            const bobId = await createPerson("bob");
+            const charliId = await createPerson("charli");
             // Alice's spouse is Bob:
             await testGraph.runAsSystem(GenericCypherAction({
                 cypher: C`
-                    MATCH (alice:${Person} {shortId: "alice"})
-                    MATCH (bob:${Person} {shortId: "bob"})
+                    MATCH (alice:${Person} {slugId: "alice"})
+                    MATCH (bob:${Person} {slugId: "bob"})
                     CREATE (alice)-[:${Person.rel.HAS_SPOUSE} {marriedOn: "2010-01-01"}]->(bob)
                 `,
-                modifiedNodes: [aliceUuid, bobUuid],
+                modifiedNodes: [aliceId, bobId],
             })),
             // Try adding an additional spouse to Alice:
             await assertRejects(
                 testGraph.runAsSystem(GenericCypherAction({
                     cypher: C`
-                        MATCH (alice:${Person} {shortId: "alice"})
-                        MATCH (charli:${Person} {shortId: "charli"})
+                        MATCH (alice:${Person} {slugId: "alice"})
+                        MATCH (charli:${Person} {slugId: "charli"})
                         CREATE (alice)-[:${Person.rel.HAS_SPOUSE} {marriedOn: "2010-01-01"}]->(charli)
                     `,
-                    modifiedNodes: [aliceUuid, charliUuid],
+                    modifiedNodes: [aliceId, charliId],
                 })),
                 "To-one relationship type HAS_SPOUSE is pointing to more than one node."
             );
@@ -159,28 +159,28 @@ suite(__filename, () => {
         
         test("ToManyUnique cardinality prohibits multiple relationships between the same pair of nodes", async () => {
             // Create alice, bob, and charli:
-            const aliceUuid = await createPerson("alice");
-            const bobUuid = await createPerson("bob");
-            const charliUuid = await createPerson("charli");
+            const aliceId = await createPerson("alice");
+            const bobId = await createPerson("bob");
+            const charliId = await createPerson("charli");
 
-            const addFriendship = async (person1uuid: UUID, person2uuid: UUID): Promise<void> => {
+            const addFriendship = async (person1Id: VNID, person2Id: VNID): Promise<void> => {
                 await testGraph.runAsSystem(GenericCypherAction({
                     cypher: C`
-                        MATCH (p1:${Person}), p1 HAS KEY ${person1uuid}
-                        MATCH (p2:${Person}), p2 HAS KEY ${person2uuid}
+                        MATCH (p1:${Person}), p1 HAS KEY ${person1Id}
+                        MATCH (p2:${Person}), p2 HAS KEY ${person2Id}
                         CREATE (p1)-[:${Person.rel.HAS_FRIEND} {friendsSince: "2010-01-01"}]->(p2)
                     `,
-                    modifiedNodes: [person1uuid, person2uuid],
+                    modifiedNodes: [person1Id, person2Id],
                 }));
             };
 
             // Mark Alice and Bob as being friends
-            await addFriendship(aliceUuid, bobUuid);
+            await addFriendship(aliceId, bobId);
             // Mark Alice and Charli as being friends:
-            await addFriendship(aliceUuid, charliUuid);
+            await addFriendship(aliceId, charliId);
             // Try adding an additional friendship between Alice and Bob, who are already friends:
             await assertRejects(
-                addFriendship(aliceUuid, bobUuid),
+                addFriendship(aliceId, bobId),
                 "Creating multiple HAS_FRIEND relationships between the same pair of nodes is not allowed."
             );
         });

@@ -1,4 +1,4 @@
-import { UUID } from "../lib/uuid";
+import { VNID } from "../lib/vnid";
 import { CypherQuery } from "../layer2/cypher-sugar";
 import { defineAction } from "./action";
 
@@ -11,8 +11,8 @@ export const GenericCypherAction = defineAction({
     type: `GenericCypherAction`,
     parameters: {} as {
         cypher: CypherQuery,
-        produceResult?: (dbResult: any) => {resultData: any, modifiedNodes: UUID[]},
-        modifiedNodes?: UUID[],
+        produceResult?: (dbResult: any) => {resultData: any, modifiedNodes: VNID[]},
+        modifiedNodes?: VNID[],
     },
     apply: async (tx, data) => {
         const dbResult = await tx.query(data.cypher);

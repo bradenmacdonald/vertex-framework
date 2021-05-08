@@ -2,7 +2,7 @@ import Joi from "@hapi/joi";
 import {
     C,
     VNodeType,
-    ShortIdProperty,
+    SlugIdProperty,
     VirtualPropType,
     defaultUpdateActionFor,
     defaultCreateFor,
@@ -17,7 +17,7 @@ export class MovieFranchise extends VNodeType {
     static label = "TestMovieFranchise";
     static properties = {
         ...VNodeType.properties,
-        shortId: ShortIdProperty,
+        slugId: SlugIdProperty,
         name: Joi.string().required(),
     };
     static defaultOrderBy = "@this.name";
@@ -31,4 +31,4 @@ export class MovieFranchise extends VNodeType {
 }
 
 // Note: for MovieFranchise, we test having only a Create action; no update.
-export const CreateMovieFranchise = defaultCreateFor(MovieFranchise, f => f.shortId.name);
+export const CreateMovieFranchise = defaultCreateFor(MovieFranchise, f => f.slugId.name);

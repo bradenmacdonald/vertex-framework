@@ -2,12 +2,14 @@ import neo4j, { Driver, Transaction } from "neo4j-driver";
 import { Action, ActionData, ActionResult, getActionImplementation } from "./layer3/action";
 import { runAction } from "./layer3/action-runner";
 import { log } from "./lib/log";
-import { UUID } from "./lib/uuid";
+import { looksLikeVNID, VNID } from "./lib/vnid";
 import { PullNoTx, PullOneNoTx } from "./layer4/pull";
 import { migrations as coreMigrations } from "./layer2/schema";
-import { migrations as actionMigrations, SYSTEM_UUID } from "./layer3/schema";
+import { migrations as actionMigrations, SYSTEM_VNID } from "./layer3/schema";
 import { WrappedTransaction } from "./transaction";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
+import { VNodeKey } from "./lib/key";
+import { C } from "./layer2/cypher-sugar";
 
 
 export interface InitArgs {
@@ -64,14 +66,14 @@ export class Vertex implements VertexCore {
     /**
      * Run an action (or multiple actions) as the specified user.
      * Returns the result of the first action specified.
-     * @param userUuid The UUID of the user running the action
+     * @param userId The VNID of the user running the action
      * @param action The action to run
      * @param otherActions Additional actions to run, if desired.
      */
-    public async runAs<T extends ActionData>(userUuid: UUID, action: T, ...otherActions: ActionData[]): Promise<ActionResult<T>> {
-        const result: ActionResult<T> = await runAction(this, action, userUuid);
+    public async runAs<T extends ActionData>(userId: VNID, action: T, ...otherActions: ActionData[]): Promise<ActionResult<T>> {
+        const result: ActionResult<T> = await runAction(this, action, userId);
         for (const action of otherActions) {
-            await runAction(this, action, userUuid);
+            await runAction(this, action, userId);
         }
         return result;
     }
@@ -83,12 +85,12 @@ export class Vertex implements VertexCore {
      * @param otherActions Additional actions to run, if desired.
      */
     public async runAsSystem<T extends ActionData>(action: T, ...otherActions: ActionData[]): Promise<ActionResult<T>> {
-        return this.runAs(SYSTEM_UUID, action, ...otherActions);
+        return this.runAs(SYSTEM_VNID, action, ...otherActions);
     }
 
-    public async undoAction(args: {actionUuid: UUID, asUserId: UUID|undefined}): Promise<ActionResult<any>> {
+    public async undoAction(args: {actionId: VNID, asUserId: VNID|undefined}): Promise<ActionResult<any>> {
         // Get the result and data from the previous action that we want to undo:
-        const prevAction = await this.pullOne(Action, a => a.type.data, {key: args.actionUuid});
+        const prevAction = await this.pullOne(Action, a => a.type.data, {key: args.actionId});
         const prevActionImpl = getActionImplementation(prevAction.type);
         if (prevActionImpl === undefined) {
             throw new Error(`Action type ${prevAction.type} is no longer defined.`);
@@ -100,7 +102,17 @@ export class Vertex implements VertexCore {
             throw new Error(`That action cannot be undone.`);
         }
         // Now apply the undo action:
-        return await runAction(this, undoAction, args.asUserId, args.actionUuid);
+        return await runAction(this, undoAction, args.asUserId, args.actionId);
+    }
+
+    /**
+     * Given a VNode Key (either a VNID or a SlugId), convert it to a VNID.
+     */
+    public async vnidForKey(key: VNodeKey): Promise<VNID> {
+        if (looksLikeVNID(key)) {
+            return key;
+        }
+        return this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": "vnid"}))).then(result => result["vn.id"]);
     }
 
     /**
@@ -178,9 +190,9 @@ export class Vertex implements VertexCore {
      */
     public async resetDBToSnapshot(snapshot: VertexTestDataSnapshot): Promise<void> {
         await await this._restrictedAllowWritesWithoutAction(async () => {
-            // Disable the shortId auto-creation trigger since it'll conflict with the ShortId nodes already in the data snapshot
+            // Disable the slugId auto-creation trigger since it'll conflict with the SlugId nodes already in the data snapshot
             await this._restrictedWrite(async tx => {
-                await tx.run(`CALL apoc.trigger.pause("createShortIdRelation")`);
+                await tx.run(`CALL apoc.trigger.pause("createSlugIdRelation")`);
             });
             try {
                 await this._restrictedWrite(async tx => {
@@ -198,7 +210,7 @@ export class Vertex implements VertexCore {
                 });
             } finally {
                 await this._restrictedWrite(async tx => {
-                    await tx.run(`CALL apoc.trigger.resume("createShortIdRelation")`);
+                    await tx.run(`CALL apoc.trigger.resume("createSlugIdRelation")`);
                 });
             }
         });

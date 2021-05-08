@@ -7,7 +7,7 @@ import {
     Action,
     C,
     DerivedProperty,
-    ShortIdProperty,
+    SlugIdProperty,
     VirtualPropType,
     VNodeType,
 } from "..";
@@ -18,7 +18,7 @@ class Employee extends VNodeType {
     static label = "EmployeeDPT";  // DPT = Derived Props Test
     static readonly properties = {
         ...VNodeType.properties,
-        shortId: ShortIdProperty,
+        slugId: SlugIdProperty,
     };
 
     static virtualProperties = VNodeType.hasVirtualProperties({

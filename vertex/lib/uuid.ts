@@ -43,13 +43,13 @@ export class UUIDv4 {
     /**
      * Get the UUID as a string (e.g. "d2b92497-d35f-44ff-aa5d-33412ba5c95b")
      */
-    public toString(): string {
+    public toString(): UUID {
         return this._value.reduce(
             (str, byte, idx) => {
                 const includeHyphen: boolean = (!(idx&1) && idx > 3 && idx < 11);
                 return str + (includeHyphen ? "-" : "") + byte.toString(16).padStart(2, "0");
             }, ""
-        );
+        ) as UUID;
     }
 
     /**
@@ -62,6 +62,25 @@ export class UUIDv4 {
      * Except note that equality checking won't work.
      */
     public valueOf(): string { return this.toString(); }
+
+    /** 
+     * Get this UUID as a BigInt
+     */
+    public toBigInt(): bigint {
+        return BigInt(this._value.reduce((str, byte) => str + byte.toString(16).padStart(2, "0"), "0x"));
+        /* This is possibly slightly more efficient, but more complex:
+        return (
+            (BigInt(this._value[15] + (this._value[14] << 8))) + 
+            (BigInt(this._value[13] + (this._value[12] << 8)) << 16n) +
+            (BigInt(this._value[11] + (this._value[10] << 8)) << 32n) +
+            (BigInt(this._value[ 9] + (this._value[ 8] << 8)) << 48n) +
+            (BigInt(this._value[ 7] + (this._value[ 6] << 8)) << 64n) +
+            (BigInt(this._value[ 5] + (this._value[ 4] << 8)) << 80n) +
+            (BigInt(this._value[ 3] + (this._value[ 2] << 8)) << 96n) +
+            (BigInt(this._value[ 1] + (this._value[ 0] << 8)) << 112n)
+        );
+        */
+    }
 
     /* istanbul ignore next */
     /** Customize display of UUIDs in NodeJS REPL */
@@ -78,5 +97,5 @@ export type UUID = NominalType<string, "UUID">;
  * with hyphens) as a UUID-string. Throw an error if a string is given that is not a valid UUID.
  */
 export function UUID(uuidStr?: string): UUID {
-    return new UUIDv4(uuidStr).toString() as UUID;
+    return new UUIDv4(uuidStr).toString();
 }

@@ -9,10 +9,8 @@ services:
     environment:
       # Set default password to "vertex"
       NEO4J_AUTH: neo4j/vertex
-      # We need APOC functionality like triggers:
+      # We need trigger functionality, which is part of "APOC" and must be enabled:
       NEO4JLABS_PLUGINS: '["apoc"]'
-      # Enable automatic UUID creation on nodes:
-      NEO4J_apoc_uuid_enabled: "true"
       NEO4J_apoc_trigger_enabled: "true"
     ports:
       - 7774:7474  # Browse on your host at http://localhost:7774/browser/?connectURL=neo4j://localhost:7777

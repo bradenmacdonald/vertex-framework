@@ -6,25 +6,15 @@ Vertex Framework is a tool for working with data stored in a Neo4j graph databas
 
 All data is represented as either a node in the graph or a relationship between nodes.
 
-This application uses only strongly typed nodes, which are called "VNodes" (not to be confused with Neo4j's [`vNode`](https://neo4j.com/labs/apoc/4.1/overview/apoc.create/apoc.create.vNode/)). Each type of node (each VNode type) has a label (e.g. `User`), a schema (set of allowed/required properties and relationships), and validation (arbitrary code to check constraints).
+This application uses only strongly typed nodes, which are called "VNodes" (not to be confused with Neo4j's [`vNode`](https://neo4j.com/labs/apoc/4.1/overview/apoc.create/apoc.create.vNode/)). Each type of node (each VNode type) has a label (e.g. `User`), a schema (set of allowed/required properties and relationships), and validation (arbitrary code to check constraints). Every VNode also has the `VNode` label.
 
-Every VNode is identified by a UUID.
-
-* Neo4j node IDs are meant for internal use only and are not suitable for this purpose (they can be recycled etc.)
-* UUIDs allow the client to generate its own ID in advance of writing to the database, which can be handy for e.g. offline edits
-
-Some VNodes are also identified by a `shortId`, which is a short slug-like string such as `bob` or `boeing-747`. The "current" `shortId` of a VNode may be changed (e.g. a user changing their username, or an article changing its URL slug), but previously used `shortId`s will continue to work and point to the same VNode.
-
-In order to prevent any ambiguity between UUIDs and `shortId`s, `shortId`s are required to be shorter than UUID strings. A UUID string like `00000000-0000-0000-0000-000000000000` is 36 characters long, so shortIds are limited to 32. In addition, `shortId`s are restricted to basic English alphanumeric characters as well as hyphens and periods. Underscores are not allowed as they can be hard to see when text is underlined. `^[A-Za-z0-9.-]{1,32}$` is the regular expression for validating `shortId`s.
-
-* This allows a nice mix of friendly, changeable, human-readable identifiers that are also permanent - an external system that points to a URL containing a shortId will never result in a broken link because the shortId was changed, since every shortId works forever.
-* There is no ambiguity between a `shortId` (≤32 characters) and a UUID (36 characters), so APIs can be made to accept either.
+Every VNode has a unique permanent identifier string ("VNID", VNode ID - see "003-identifiers").
 
 Schema field/property definitions and basic validation are done using [Joi](https://joi.dev/). Additional validation rules for each VNode type consist of arbitrary code and checks, and can include additional graph queries as needed.
 
 * Joi validation rules can be written once and then used at the graph database level, the REST API request/response shape level, and on the frontend.
 
-When a VNode is "deleted", its label is changed, e.g. from `User` to `DeletedUser`. This preserves data and relationships and makes code for un-deleting/restoring nodes simpler.
+When a VNode is "deleted", its `VNode` label is changed to `DeletedVNode`. This preserves data and relationships and makes code for un-deleting/restoring nodes simpler.
 
 ## Reading Data
 

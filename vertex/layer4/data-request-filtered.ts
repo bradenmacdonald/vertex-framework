@@ -1,4 +1,5 @@
 import { log } from "../lib/log";
+import { VNodeKey } from "../lib/key";
 import { BaseVNodeType, } from "../layer2/vnode-base";
 import {
     VirtualPropertyDefinition,
@@ -22,8 +23,8 @@ import {
  * (WHERE ...), pagination, and which conditionally included (flagged) properties to include.
  */
 export interface DataRequestFilter {
-    /** Key: If specified, the main node must have a UUID or shortId that is equal to this. */
-    key?: string;
+    /** Key: If specified, the main node must have a VNID or slugId that is equal to this. */
+    key?: VNodeKey;
     /**
      * Filter the main node(s) of this data request to only those that match this predicate.
      * 

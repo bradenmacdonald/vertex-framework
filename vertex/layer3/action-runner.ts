@@ -1,6 +1,6 @@
 import { ActionData, getActionImplementation, ActionResult, Action } from "./action";
-import { UUID } from "../lib/uuid";
-import { SYSTEM_UUID } from "./schema";
+import { VNID } from "../lib/vnid";
+import { SYSTEM_VNID } from "./schema";
 import { log } from "../lib/log";
 import { getVNodeType } from "../layer2/vnode-base";
 import { VertexCore } from "../vertex-interface";
@@ -12,51 +12,51 @@ import { C } from "../layer2/cypher-sugar";
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
  * @param actionData Structure representing the action and its parameters
  */
-export async function runAction<T extends ActionData>(graph: VertexCore, actionData: T, userUuid?: UUID, isRevertOfAction?: UUID): Promise<ActionResult<T>> {
-    const actionUuid = UUID();
+export async function runAction<T extends ActionData>(graph: VertexCore, actionData: T, userId?: VNID, isRevertOfAction?: VNID): Promise<ActionResult<T>> {
+    const actionId = VNID();
     const startTime = new Date();
     const {type, ...otherData} = actionData;
     const actionImplementation = getActionImplementation(type);
     if (actionImplementation === undefined) {
         throw new Error(`Unknown Action type: "${type}"`);
     }
-    if (userUuid === undefined) {
-        userUuid = SYSTEM_UUID;
+    if (userId === undefined) {
+        userId = SYSTEM_VNID;
     }
 
     const [result, tookMs] = await graph._restrictedWrite(async (tx) => {
         if (isRevertOfAction) {
             // We're reverting a previously applied action. Make sure it exists and isn't already reverted:
             const prevAction = await tx.queryOne(C`
-                MATCH (prevAction:${Action} {uuid: ${isRevertOfAction}})
+                MATCH (prevAction:${Action} {id: ${isRevertOfAction}})
                 OPTIONAL MATCH (prevAction)<-[:${Action.rel.REVERTED}]-(existingRevert:${Action})
-                WITH prevAction.uuid AS prevUuid, collect(existingRevert {.uuid}) AS existingRevert
-            `.RETURN({"prevUuid" : "uuid", existingRevert: {list: {map: {uuid: "string"}}}}));
-            //const prevAction = await tx.pullOne(Action, a => a.revertedBy(x => x.uuid), {key: isRevertOfAction});
+                WITH prevAction.id AS prevId, collect(existingRevert {.id}) AS existingRevert
+            `.RETURN({"prevId" : "vnid", existingRevert: {list: {map: {id: "string"}}}}));
+            //const prevAction = await tx.pullOne(Action, a => a.revertedBy(x => x.id), {key: isRevertOfAction});
             if (prevAction.existingRevert.length > 0) {
-                throw new Error(`Action ${isRevertOfAction} has already been reverted, by Action ${prevAction.existingRevert[0].uuid}`);
+                throw new Error(`Action ${isRevertOfAction} has already been reverted, by Action ${prevAction.existingRevert[0].id}`);
             }
         }
 
         // First, apply the action:
-        let modifiedNodeUUIDs: UUID[];
+        let modifiedNodeIds: VNID[];
         let resultData: any;
         try {
             const x = await actionImplementation.apply(tx, actionData/*, context */);
-            modifiedNodeUUIDs = x.modifiedNodes;
+            modifiedNodeIds = x.modifiedNodes;
             resultData = x.resultData;
         } catch (err) {
             log.error(`${type} action failed during apply() method.`);
             throw err;
         }
 
-        if (modifiedNodeUUIDs.length > 0) {
+        if (modifiedNodeIds.length > 0) {
             // Mark the Action as having :MODIFIED any affects nodes, and also retrieve the current version of them.
             // (If a node was deleted, this will ignore it.)
             const result = await tx.query(C`
-                MERGE (a:${Action} {uuid: ${actionUuid}})
+                MERGE (a:${Action} {id: ${actionId}})
                 WITH a
-                MATCH (n:VNode) WHERE n.uuid IN ${modifiedNodeUUIDs}
+                MATCH (n:VNode) WHERE n.id IN ${modifiedNodeIds}
                 MERGE (a)-[:${Action.rel.MODIFIED}]->(n)
             `.RETURN({n: "any"}));
             // Then, validate all nodes that had changes:
@@ -92,24 +92,24 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
         const tookMs = (new Date()).getTime() - startTime.getTime();
 
         const actionUpdate = await tx.run(`
-            MERGE (a:Action:VNode {uuid: $actionUuid})
+            MERGE (a:Action:VNode {id: $actionId})
             SET a += {type: $type, timestamp: datetime(), tookMs: $tookMs, data: $dataJson}
 
             ${isRevertOfAction ? `
                 WITH a
-                MATCH (oldAction:Action:VNode {uuid: $isRevertOfAction})
+                MATCH (oldAction:Action:VNode {id: $isRevertOfAction})
                 MERGE (a)-[:REVERTED]->(oldAction)
             `: ""}
 
             WITH a
-            MATCH (u:User:VNode {uuid: $userUuid})
+            MATCH (u:User:VNode {id: $userId})
             CREATE (u)-[:PERFORMED]->(a)
 
             RETURN u
         `, {
             type: type,
-            actionUuid,
-            userUuid,
+            actionId,
+            userId,
             tookMs,
             dataJson: JSON.stringify({...otherData, result: resultData}),
             isRevertOfAction,
@@ -124,9 +124,9 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
     });
 
     log(`${type} (${tookMs} ms)`); // TODO: a way for actions to describe themselves verbosely
-    log.debug(`${type}: ${JSON.stringify({...otherData, result, actionUuid})}`);
+    log.debug(`${type}: ${JSON.stringify({...otherData, result, actionId})}`);
 
-    result.actionUuid = actionUuid;
+    result.actionId = actionId;
 
     return result;
 }

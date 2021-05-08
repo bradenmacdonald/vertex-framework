@@ -7,11 +7,11 @@
  * Data requests are usually constructed using arrow functions.
  * 
  * For example, a data request for a Person might be:
- *     p => p.uuid.name.dateOfBirth
- * That means "I want the UUID, name, and dateOfBirth fields"
+ *     p => p.id.name.dateOfBirth
+ * That means "I want the id, name, and dateOfBirth fields"
  * The "Data Response Shape" for this request would be:
  *     {
- *         uuid: UUID,
+ *         id: VNID,
  *         name: string,
  *         dateOfBirth: date,
  *     }
@@ -66,8 +66,8 @@ export type UpdateMixin<VNT extends BaseVNodeType, ThisRequest, CurrentMixin, Ne
 
 ///////////////// Inner implementation of DataRequest //////////////////////////////////////////////////////////////////
 
-// Data Requests have a simple TypeScript API (e.g. p => p.name.uuid) which is achieved by wrapping a "DataRequestState"
-// immutable object in a Proxy, which intercepts calls to non-existent properties like ".name" or ".uuid" and uses them
+// Data Requests have a simple TypeScript API (e.g. p => p.name.id) which is achieved by wrapping a "DataRequestState"
+// immutable object in a Proxy, which intercepts calls to non-existent properties like ".name" or ".id" and uses them
 // to update the state and then return the an updated DataRequestState object.
 
 
@@ -104,7 +104,7 @@ export class DataRequestState {
      * 
      * Returns a new DataRequestState object, wrapped in a Proxy so that it implements the BaseDataRequest interface.
      * 
-     * On the returned object, you can call properties like .uuid.name.dateOfBirth to add those properties to the
+     * On the returned object, you can call properties like .id.name.dateOfBirth to add those properties to the
      * underlying request.
      */
     static newRequest<VNT extends BaseVNodeType, Mixins extends RequiredMixin>(vnodeType: VNT, mixins: MixinImplementation[]): BaseDataRequest<VNT, never, Mixins> {

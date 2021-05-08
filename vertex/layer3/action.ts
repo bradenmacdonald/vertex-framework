@@ -5,7 +5,7 @@
  */
 import Joi from "@hapi/joi";
 
-import { UUID } from "../lib/uuid";
+import { VNID } from "../lib/vnid";
 import { BaseVNodeType, RawVNode, ValidationError } from "../layer2/vnode-base";
 import { WrappedTransaction } from "../transaction";
 import { C } from "../layer2/cypher-sugar";
@@ -28,7 +28,7 @@ export type ActionData<Parameters extends Record<string, any> = {}, ResultData e
 
 /**
  * The data returned by an action implementation's apply() method.
- * For example, when creating a new user, this returns the user's UUID.
+ * For example, when creating a new user, this returns the user's VNID.
  */
 interface ApplyResult<ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
     /**
@@ -38,16 +38,16 @@ interface ApplyResult<ResultData extends Record<string, any> = {}> {  // eslint-
      */
     resultData: ResultData;
     /**
-     * A list of node UUIDs for any nodes that were modified by this action, so that the nodes can be validated, and
+     * A list of node VNIDs for any nodes that were modified by this action, so that the nodes can be validated, and
      * the (:Action)-[:MODIFIED]-> relationship can be created, giving us a change history for every node in the graph.
      */
-    modifiedNodes: UUID[];
+    modifiedNodes: VNID[];
 }
 
 /** TypeScript helper: given an ActionData type, this gets the action's apply() return value, if known */
 export type ActionResult<T extends ActionData> = (
     T extends ActionData<infer Parameters, infer ResultData> ? ResultData : any
-)&{actionUuid: UUID};
+)&{actionId: VNID};
 
 
 /** Base class for an Action, defining the interface that all actions must adhere to. */

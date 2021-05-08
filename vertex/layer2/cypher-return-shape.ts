@@ -1,5 +1,6 @@
 import { Node, Record as Neo4jRecord } from "neo4j-driver";
 import { UUID } from "../lib/uuid";
+import { VNID } from "../lib/vnid";
 import { BaseVNodeType, isBaseVNodeType, RawVNode } from "./vnode-base";
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -17,6 +18,7 @@ export type FieldType = (
     | ListReturnShape
     | NullableField
     | "uuid"
+    | "vnid"
     | "string"
     | "number"
     | "boolean"
@@ -55,6 +57,7 @@ export type ReturnTypeFor<DT extends FieldType> = (
     // A nullable field is a little complex because we need to avoid an infinite type lookup in the case of {nullOr: {nullOr: ...}}
     DT extends NullableFieldFull<infer NullableValueType> ? null|(NullableValueType extends NullableField ? never : ReturnTypeFor<NullableValueType>) :
     DT extends "uuid" ? UUID :
+    DT extends "vnid" ? VNID :
     DT extends "string" ? string :
     DT extends "number" ? number :
     DT extends "boolean" ? boolean :

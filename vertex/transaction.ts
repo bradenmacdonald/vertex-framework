@@ -1,6 +1,6 @@
 import type { Result, Transaction } from "neo4j-driver";
 import QueryRunner from "neo4j-driver/types/query-runner";
-import { UUID, RelationshipDeclaration } from ".";
+import { VNID, RelationshipDeclaration } from ".";
 
 import type { CypherQuery, QueryResponse } from "./layer2/cypher-sugar";
 import { query, queryOne } from "./layer2/query";
@@ -33,18 +33,18 @@ export class WrappedTransaction implements QueryRunner {
     public pullOne: PullOneNoTx = ((a: any, b: any, c: any) => pullOne(this, a, b, c)) as any;
 
     public updateToOneRelationship<VNR extends RelationshipDeclaration>(args: {
-        from: [vnt: VNodeType, uuid: UUID],
+        from: [vnt: VNodeType, id: VNID],
         rel: VNR,
         to: string|null|OneRelationshipSpec<VNR>,
-    }): Promise<{prevTo: OneRelationshipSpec<VNR, UUID>}> {
+    }): Promise<{prevTo: OneRelationshipSpec<VNR, VNID>}> {
         return updateToOneRelationship(this, args);
     }
 
     public updateToManyRelationship<VNR extends RelationshipDeclaration>(args: {
-        from: [vnt: VNodeType, uuid: UUID],
+        from: [vnt: VNodeType, id: VNID],
         rel: VNR,
         to: RelationshipSpec<VNR>[],
-    }): Promise<{prevTo: RelationshipSpec<VNR, UUID>[]}> {
+    }): Promise<{prevTo: RelationshipSpec<VNR, VNID>[]}> {
         return updateToManyRelationship(this, args);
     }
 }

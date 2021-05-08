@@ -1,4 +1,5 @@
 import { log } from "../lib/log";
+import { looksLikeVNID } from "../lib/vnid";
 import { BaseVNodeType, } from "../layer2/vnode-base";
 import {
     VirtualManyRelationshipProperty,
@@ -80,18 +81,16 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
         query = `MATCH (_node:${label}:VNode)\n`;
     } else {
         const key = rootFilter.key;
-        if (key.length === 36) {
-            // Look up by UUID.
-            query = `MATCH (_node:${label}:VNode {uuid: $_nodeUuid})\n`;
-            params._nodeUuid = key;
-        } else if (key.length < 36) {
-            if (rootNodeType.properties.shortId === undefined) {
-                throw new Error(`The requested ${rootNodeType.name} VNode type doesn't use shortId.`);
-            }
-            query = `MATCH (_node:${label}:VNode)<-[:IDENTIFIES]-(:ShortId {shortId: $_nodeShortid})\n`;
-            params._nodeShortid = key;
+        if (looksLikeVNID(key)) {
+            // Look up by VNID.
+            query = `MATCH (_node:${label}:VNode {id: $_nodeVNID})\n`;
+            params._nodeVNID = key;
         } else {
-            throw new Error("shortId must be shorter than 36 characters; UUID must be exactly 36 characters.");
+            if (rootNodeType.properties.slugId === undefined) {
+                throw new Error(`The requested ${rootNodeType.name} VNode type doesn't use slugId.`);
+            }
+            query = `MATCH (_node:${label}:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})\n`;
+            params._nodeSlugId = key;
         }
     }
     if (rootFilter.where) {
@@ -299,7 +298,7 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
     return result.records.map(record => {
         // The top-level entries in the result (but only the top level entries) need to be converted from 'Record' type to plain JS objects:
         const obj = Object.fromEntries(record.entries());
-        log.debug(`Raw result: ${JSON.stringify(obj)}\n`);
+        //log.debug(`Raw result: ${JSON.stringify(obj)}\n`);
         return postProcessResult(obj, filteredRequest)
     });
 }
