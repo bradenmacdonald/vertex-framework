@@ -4,7 +4,7 @@ import { SYSTEM_VNID } from "./schema";
 import { log } from "../lib/log";
 import { getVNodeType } from "../layer2/vnode-base";
 import { VertexCore } from "../vertex-interface";
-import { Node } from "neo4j-driver";
+import { Node } from "neo4j-driver-lite";
 import { neoNodeToRawVNode } from "../layer2/cypher-return-shape";
 import { C } from "../layer2/cypher-sugar";
 

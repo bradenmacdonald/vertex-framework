@@ -1,4 +1,4 @@
-import { Node, Record as Neo4jRecord } from "neo4j-driver";
+import { Node, Record as Neo4jRecord } from "neo4j-driver-lite";
 import { UUID } from "../lib/uuid";
 import { VNID } from "../lib/vnid";
 import { BaseVNodeType, isBaseVNodeType, RawVNode } from "./vnode-base";

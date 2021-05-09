@@ -1,10 +1,13 @@
 import { suite, test, assert, configureTestData } from "../lib/intern-tests";
 import { C, CypherQuery, VNID } from "..";
 import { testGraph, Person } from "../test-project";
-import { ProfiledPlan } from "neo4j-driver";
+import { ProfiledPlan } from "neo4j-driver-lite";
 
 /** Helper function to calculate the dbHits cost of a profiled cypher query */
-const sumDbHits = (profile: ProfiledPlan): number => {
+const sumDbHits = (profile: ProfiledPlan|false): number => {
+    if (profile === false) {
+        throw new Error("Profile is missing");
+    }
     return profile.dbHits + profile.children.reduce((acc, childProfile) => acc + sumDbHits(childProfile), 0);
 }
 

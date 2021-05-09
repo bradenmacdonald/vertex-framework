@@ -1,4 +1,4 @@
-import neo4j, { Driver, Transaction } from "neo4j-driver";
+import neo4j, { Driver, Transaction } from "neo4j-driver-lite";
 import { Action, ActionData, ActionResult, getActionImplementation } from "./layer3/action";
 import { runAction } from "./layer3/action-runner";
 import { log } from "./lib/log";

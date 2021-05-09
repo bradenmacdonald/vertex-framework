@@ -290,7 +290,7 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
     const filteredRequestWithDependencies = new FilteredRequest(request, {...filter, flags: [...filter.flags ?? [], includeDependenciesFlag]})
     
     const query = buildCypherQuery(filteredRequestWithDependencies);
-    log.debug(query.query);
+    //log.debug(query.query);
     
     const result = await tx.run(query.query, query.params);
 
@@ -329,7 +329,7 @@ function postProcessResult(origResult: Readonly<Record<string, any>>, request: F
         } else {
             newResult[propName] = origResult[propName];
         }
-        log.debug(` -> newresult[${propName}] = ${JSON.stringify(newResult[propName])} from ${JSON.stringify(origResult[propName])}`);
+        //log.debug(` -> newresult[${propName}] = ${JSON.stringify(newResult[propName])} from ${JSON.stringify(origResult[propName])}`);
     });
 
     // Then add derived properties to the result. They have access to all the data in the original result, which may
