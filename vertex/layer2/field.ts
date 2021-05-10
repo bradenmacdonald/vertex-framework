@@ -1,12 +1,19 @@
 import Joi from "@hapi/joi";
-import { VNID } from "../lib/vnid";
+import { isVNID, VNID } from "../lib/vnid";
 import { VDate, isNeo4jDate} from "../lib/vdate";
 
 import type { BaseVNodeType } from "./vnode-base";
 
 /* Validation helpers for specific types */
 
-const vnidRegex = /^_[0-9A-Za-z]{1,22}$/;
+/** Custom VNID Validator for Joi */
+const vnidValidator: Joi.CustomValidator = (value, helpers) => {
+    // An alternative is to use this regex: /^_[0-9A-Za-z]{1,22}$/
+    if (!isVNID(value)) {
+        throw new Error("Invalid VNID");
+    }
+    return value;
+};
 /** Custom Joi validator to add BigInt support. Won't work with other number-related validators like min() though. */
 const validateBigInt: Joi.CustomValidator = (value, helpers) => {
     if (typeof value === "bigint") {
@@ -28,6 +35,8 @@ const validateDate: Joi.CustomValidator = (value, helpers) => {
         throw new Error("Not a date value.");
     }
 };
+/** Validation regex for Unicode-aware slugs */
+const slugRegex = /^[-\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]+$/u;
 
 /**
  * Field data types which can be used as VNode/Neo4j property types and also returned from Cypher queries.
@@ -39,6 +48,8 @@ export const enum FieldType {
     BigInt,
     Float,
     String,
+    /** A unicode-aware slug (cannot contain spaces/punctuation). Valid: "the-thing". Invalid: "foo_bar" or "foo bar" */
+    Slug,
     Boolean,
     /** A date without any time format. */
     Date,
@@ -141,11 +152,12 @@ interface ListFieldOrNull<Spec extends ResponseFieldSpec> extends ListField<Spec
  */
 export const Field = Object.freeze({
     Any: makeField(FieldType.Any, false, Joi.any()),
-    VNID: makeFieldWithOrNull(FieldType.VNID, Joi.string().regex(vnidRegex)),
+    VNID: makeFieldWithOrNull(FieldType.VNID, Joi.string().custom(vnidValidator)),
     Int: makeFieldWithOrNull(FieldType.Int, Joi.number().integer()),
     BigInt: makeFieldWithOrNull(FieldType.BigInt, Joi.any().custom(validateBigInt)),
     Float: makeFieldWithOrNull(FieldType.Float, Joi.number()),
     String: makeFieldWithOrNull(FieldType.String, Joi.string()),
+    Slug: makeFieldWithOrNull(FieldType.Slug, Joi.string().regex(slugRegex)),
     Boolean: makeFieldWithOrNull(FieldType.Boolean, Joi.boolean()),
     /** A calendar date, i.e. a date without time information */
     Date: makeFieldWithOrNull(FieldType.Date, Joi.any().custom(validateDate)),
@@ -179,6 +191,7 @@ type GetDataType<FieldSpec extends ResponseFieldSpec> = (
             FieldSpec extends FieldData<FieldType.BigInt, any, any> ? bigint :
             FieldSpec extends FieldData<FieldType.Float, any, any> ? number :
             FieldSpec extends FieldData<FieldType.String, any, any> ? string :
+            FieldSpec extends FieldData<FieldType.Slug, any, any> ? string :
             FieldSpec extends FieldData<FieldType.Boolean, any, any> ? boolean :
             FieldSpec extends FieldData<FieldType.Date, any, any> ? VDate :
             FieldSpec extends FieldData<FieldType.DateTime, any, any> ? Date :

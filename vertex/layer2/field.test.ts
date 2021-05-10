@@ -253,6 +253,53 @@ suite(__filename, () => {
             });
         });
 
+        suite("Slug", () => {
+
+            test("Basic field", () => {
+                const fieldDeclaration = Field.Slug;
+                assert.equal(fieldDeclaration.type, FieldType.Slug);
+                assert.equal(fieldDeclaration.nullable, false);
+    
+                const value1 = validateValue(fieldDeclaration, "a-slug");
+                checkType<AssertEqual<typeof value1, string>>();
+                assert.typeOf(value1, "string");
+                assert.strictEqual(value1, "a-slug");  // Ensure that validation has preserved the value.
+                // These should all be valid:
+                const check = (str: string): void => assert.strictEqual(validateValue(fieldDeclaration, str), str);
+                check("CAPITALS");
+                check("many-long-words");
+                check("Solární-panel");
+                check("ソーラーパネル");
+                check("солнечная-панель")
+                check("لوحة-شمسية");
+
+                assert.throws(() => { validateValue(fieldDeclaration, "spaces between words"); });
+                assert.throws(() => { validateValue(fieldDeclaration, "under_score"); });
+                assert.throws(() => { validateValue(fieldDeclaration, null); });
+            });
+    
+            test(".OrNull", () => {
+                const fieldDeclaration = Field.Slug.OrNull;
+                assert.equal(fieldDeclaration.type, FieldType.Slug);
+                assert.equal(fieldDeclaration.nullable, true);
+    
+                const value1 = validateValue(fieldDeclaration, "a-slug");
+                checkType<AssertEqual<typeof value1, string|null>>();
+                const value2 = validateValue(fieldDeclaration, null);
+                assert.strictEqual(value2, null);
+                assert.throws(() => { validateValue(fieldDeclaration, "under_score"); });
+                assert.throws(() => { validateValue(fieldDeclaration, {}); });
+                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+            });
+    
+            test(".Check(...)", () => {
+                // Add a custom check, in this case that the slug must be lowercase:
+                const fieldDeclaration = Field.Slug.Check(v => v.lowercase());
+                validateValue(fieldDeclaration, "lowercase-slug");
+                assert.throws(() => { validateValue(fieldDeclaration, "Capital-Slug"); });
+            });
+        });
+
         suite("Boolean", () => {
 
             test("Basic field", () => {
