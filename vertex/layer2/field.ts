@@ -14,9 +14,16 @@ const vnidValidator: Joi.CustomValidator = (value, helpers) => {
     }
     return value;
 };
+const max64bitInt = 2n**63n - 1n;
+const min64bitInt = -(2n**64n - 1n);
 /** Custom Joi validator to add BigInt support. Won't work with other number-related validators like min() though. */
 const validateBigInt: Joi.CustomValidator = (value, helpers) => {
     if (typeof value === "bigint") {
+        // "The Neo4j type system uses 64-bit signed integer values. The range of values is between -(2**64- 1) and
+        // (2**63- 1)." So we reject BigInts outside of that range.
+        if (value > max64bitInt || value < min64bitInt) {
+            throw new Error("BigInt value is outside of Neo4j's supported 64 bit range.");
+        }
         return value;  // It's already a BigInt, return it unchanged.
     } else {
         // Note that we don't automatically convert strings or any other data type.
@@ -154,6 +161,7 @@ export const Field = Object.freeze({
     Any: makeField(FieldType.Any, false, Joi.any()),
     VNID: makeFieldWithOrNull(FieldType.VNID, Joi.string().custom(vnidValidator)),
     Int: makeFieldWithOrNull(FieldType.Int, Joi.number().integer()),
+    /** A signed integer up to 64 bits. For larger than 64 bits, use a string type as Neo4j doesn't support it. */
     BigInt: makeFieldWithOrNull(FieldType.BigInt, Joi.any().custom(validateBigInt)),
     Float: makeFieldWithOrNull(FieldType.Float, Joi.number()),
     String: makeFieldWithOrNull(FieldType.String, Joi.string()),

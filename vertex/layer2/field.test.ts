@@ -136,7 +136,7 @@ suite(__filename, () => {
         suite("BigInt", () => {
 
             // For testing bigints, here is a number that cannot be represented using the normal JavaScript Number type:
-            const aHugeNumber = 9_876_543_210_000_000n;
+            const aHugeNumber = 9_444_333_222_111_000n;
             assert(aHugeNumber > BigInt(Number.MAX_SAFE_INTEGER));
 
             test("Basic field", () => {
@@ -167,6 +167,13 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, "50"); });
                 assert.throws(() => { validateValue(fieldDeclaration, {}); });
                 assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+            });
+
+            test("64-bit range", () => {
+                // This number is too big to be represented as a 64-bit integer in Neo4j:
+                assert.throws(() => { validateValue(Field.BigInt, 666_555_444_333_222_111_000n); })
+                // And this one is too small:
+                assert.throws(() => { validateValue(Field.BigInt, -666_555_444_333_222_111_000n); })
             });
     
             test(".Check(...)", () => {
