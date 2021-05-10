@@ -1,5 +1,5 @@
 import { suite, test, assert } from "../lib/intern-tests";
-import { VDate, Neo4jDate } from "./vdate";
+import { VDate, VD, Neo4jDate } from "./vdate";
 
 suite(__filename, () => {
 
@@ -12,6 +12,20 @@ suite(__filename, () => {
             const check = (dateString: string): void => assert.strictEqual(VDate.fromString(dateString).toString(), dateString);
             check("1920-01-02");
             check("2015-10-05");
+        });
+
+        test("VD tagged string template", () => {
+            const vd = VD`2020-05-10`;
+            assert.instanceOf(vd, VDate);
+            assert.strictEqual(vd.toString(), "2020-05-10");
+        });
+
+        test("VD tagged string template with inerpolation", () => {
+            const month = "05";
+            const day = 10;
+            const vd = VD`2020-${month}-${day}`;
+            assert.instanceOf(vd, VDate);
+            assert.strictEqual(vd.toString(), "2020-05-10");
         });
 
         test("Rejects invalid dates and understands leap years", () => {

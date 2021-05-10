@@ -63,4 +63,13 @@ export class VDate extends Neo4jDate<number> {
     static fromStandardDate(standardDate: Date): VDate { return this.fromNeo4jDate(Neo4jDate.fromStandardDate(standardDate)); }
 
     public toJSON(): string { return this.toString(); }
+
+    /**
+     * Parse a template string literal, e.g. const VD = VDate.parseTemplateLiteral; const date1 = VD`2016-01-01`;
+     */
+    public static parseTemplateLiteral(strings: TemplateStringsArray, ...keys: any[]): VDate {
+        return VDate.fromString(String.raw(strings, ...keys));
+    }
 }
+
+export const VD = VDate.parseTemplateLiteral;
