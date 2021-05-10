@@ -1,8 +1,9 @@
+import Joi from "@hapi/joi";
 import { suite, test, assert } from "../lib/intern-tests";
 import { AssertEqual, checkType } from "../lib/ts-utils";
 import { VNID } from "../lib/vnid";
 import { VDate, Neo4jDate } from "../lib/vdate";
-import { Field, FieldType, validateValue } from "./field";
+import { Field, FieldType, PropSchema, validatePropSchema, validateValue } from "./field";
 
 suite(__filename, () => {
 
@@ -373,5 +374,40 @@ suite(__filename, () => {
             });
         });
 
+        suite("validatePropSchema", () => {
+            const buildingSchema: PropSchema = {
+                name: Field.String,
+                numHomes: Field.Int.Check(n => n.min(1)),  // How many homes/apartments are in this building
+                numOccupiedHomes: Field.Int.Check(n => n.min(0).max(Joi.ref("numHomes"))),
+            };
+
+            test("Accepts a valid value", () => {
+                validatePropSchema(buildingSchema, {
+                    name: "Hogwarts Dorm A",
+                    numHomes: 100,
+                    numOccupiedHomes: 50,
+                });
+            });
+
+            test("Rejects an invalid value", () => {
+                assert.throws(() => {
+                    validatePropSchema(buildingSchema, {
+                        name: "Imaginary Building",
+                        numHomes: 0,
+                        numOccupiedHomes: -50,
+                    });
+                }, `"numHomes" must be larger than or equal to 1`);
+            });
+
+            test("Rejects an invalid value using Joi reference", () => {
+                assert.throws(() => {
+                    validatePropSchema(buildingSchema, {
+                        name: "SuperOccupied Terrace",
+                        numHomes: 40,
+                        numOccupiedHomes: 50,  // Invalid since it's larger than homes
+                    });
+                }, `"numOccupiedHomes" must be less than or equal to ref:numHomes`);
+            });
+        });
     });
 });

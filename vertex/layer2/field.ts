@@ -84,6 +84,15 @@ const makeFieldWithOrNull = <FT extends FieldType, SchemaType extends Joi.AnySch
 });
 
 /**
+ * Properties Schema (usually for a VNodeType, but also can be used to define properties on a relationship)
+ * 
+ * This represents a generic schema, used to define the properties allowed/expected on a graph node, relationship, etc.
+ */
+export interface PropSchema {
+    [K: string]: FieldData<any, any, any>;
+}
+
+/**
  * Response fields are data types that can be returned from queries, but not used as VNode properties
  */
 interface ResponseField {
@@ -91,6 +100,9 @@ interface ResponseField {
     readonly nullable: boolean;
 }
 type ResponseFieldSpec = FieldData<any, any, any>|ResponseField|BaseVNodeType;
+export interface ResponseSchema {
+    [K: string]: ResponseFieldSpec;
+}
 
 // Map field type - only used for specifying the return shape of custom/complex cypher queries
 interface MapFieldSpec { [k: string]: ResponseFieldSpec; }
@@ -175,6 +187,10 @@ type GetDataType<FieldSpec extends ResponseFieldSpec> = (
     : never
 );
 
+type GetDataShape<Schema extends ResponseSchema> = {
+    [K in keyof Schema]: GetDataType<Schema[K]>;
+}
+
 /**
  * Validate that a value matches the given field definition. Throw an exception if not.
  *
@@ -187,6 +203,26 @@ type GetDataType<FieldSpec extends ResponseFieldSpec> = (
  */
 export function validateValue<FD extends FieldData<any, any, any>>(fieldType: FD, value: any): GetDataType<FD> {
     const result = fieldType[schema].validate(value, {convert: false});
+    if (result.error) {
+        throw result.error;
+    }
+    return result.value;
+}
+
+
+/**
+ * Validate that a collection of values matches the given schema. Throw an exception if not.
+ *
+ * @param propSchema The PropSchema definition
+ * @param value The object with keys and values to validate
+ * @returns The validated object
+ */
+export function validatePropSchema<PS extends PropSchema>(propSchema: PS, value: any): GetDataShape<PS> {
+    // Build a Joi.object() schema, using the "schema" property of every FieldData in the propSchema:
+    const joiSchemaObj = Joi.object(Object.fromEntries(
+        Object.entries(propSchema).map(([key, fieldData]) => [key, fieldData[schema]])
+    ));
+    const result = joiSchemaObj.validate(value, {convert: false});
     if (result.error) {
         throw result.error;
     }
