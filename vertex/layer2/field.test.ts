@@ -251,6 +251,14 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, {}); });
                 assert.throws(() => { validateValue(fieldDeclaration, undefined); });
             });
+
+            test("Length limit defaults to 1,000 but can be changed", () => {
+                validateValue(Field.String, "a".repeat(1_000));
+                assert.throws(() => { validateValue(Field.String, "a".repeat(1_001)); });
+                const customLengthField = Field.String.Check(s => s.max(10_000));
+                validateValue(customLengthField, "a".repeat(2_000));
+                assert.throws(() => { validateValue(customLengthField, "a".repeat(20_000)); });
+            });
     
             test(".Check(...)", () => {
                 // Add a custom check, in this case an email address validator:
@@ -297,6 +305,14 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, "under_score"); });
                 assert.throws(() => { validateValue(fieldDeclaration, {}); });
                 assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+            });
+
+            test("Length limit defaults to 60 but can be increased", () => {
+                validateValue(Field.Slug, "a".repeat(60));
+                assert.throws(() => { validateValue(Field.Slug, "a".repeat(61)); });
+                const customLengthField = Field.Slug.Check(s => s.max(100));
+                validateValue(customLengthField, "a".repeat(100));
+                assert.throws(() => { validateValue(customLengthField, "a".repeat(200)); });
             });
     
             test(".Check(...)", () => {

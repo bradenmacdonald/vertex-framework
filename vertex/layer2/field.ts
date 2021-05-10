@@ -164,8 +164,10 @@ export const Field = Object.freeze({
     /** A signed integer up to 64 bits. For larger than 64 bits, use a string type as Neo4j doesn't support it. */
     BigInt: makeFieldWithOrNull(FieldType.BigInt, Joi.any().custom(validateBigInt)),
     Float: makeFieldWithOrNull(FieldType.Float, Joi.number()),
-    String: makeFieldWithOrNull(FieldType.String, Joi.string()),
-    Slug: makeFieldWithOrNull(FieldType.Slug, Joi.string().regex(slugRegex)),
+    /** A String. Default max length is 1,000, so use .Check(s => s.max(...)) if you need to change the limit. */
+    String: makeFieldWithOrNull(FieldType.String, Joi.string().max(1_000)),
+    /** A unicode-aware slug (cannot contain spaces/punctuation). Valid: "the-thing". Invalid: "foo_bar" or "foo bar" */
+    Slug: makeFieldWithOrNull(FieldType.Slug, Joi.string().regex(slugRegex).max(60)),
     Boolean: makeFieldWithOrNull(FieldType.Boolean, Joi.boolean()),
     /** A calendar date, i.e. a date without time information */
     Date: makeFieldWithOrNull(FieldType.Date, Joi.any().custom(validateDate)),
