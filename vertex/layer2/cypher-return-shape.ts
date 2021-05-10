@@ -1,5 +1,6 @@
 import { Node, Record as Neo4jRecord } from "neo4j-driver-lite";
 import { UUID } from "../lib/uuid";
+import { VDate } from "../lib/vdate";
 import { VNID } from "../lib/vnid";
 import { BaseVNodeType, isBaseVNodeType, RawVNode } from "./vnode-base";
 
@@ -21,6 +22,7 @@ export type FieldType = (
     | "vnid"
     | "string"
     | "number"
+    | "vdate"
     | "boolean"
     | "any"
 );
@@ -60,6 +62,7 @@ export type ReturnTypeFor<DT extends FieldType> = (
     DT extends "vnid" ? VNID :
     DT extends "string" ? string :
     DT extends "number" ? number :
+    DT extends "vdate" ? VDate :
     DT extends "boolean" ? boolean :
     DT extends "any" ? any :
     never

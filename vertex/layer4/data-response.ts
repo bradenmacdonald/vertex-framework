@@ -1,5 +1,6 @@
 import { ReturnTypeFor } from "../layer2/cypher-return-shape";
-import { PropertyDataType, BaseVNodeType } from "../layer2/vnode-base";
+import { GetDataType } from "../layer2/field";
+import { BaseVNodeType } from "../layer2/vnode-base";
 import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer3/data-request";
 import {
     ConditionalPropsMixin,
@@ -31,7 +32,7 @@ type UnWindConditionalPropsArray<conditionallyRequestedProperties extends AnyDat
 export type DataResponse<Request extends AnyDataRequest<BaseVNodeType>> = (
     Request extends BaseDataRequest<infer VNT, infer includedProperties, RequiredMixin & infer Mixins> ? (
         // Raw properties that are definitely included:
-        {[rawProp in includedProperties]: PropertyDataType<VNT["properties"], rawProp>} &
+        {[rawProp in includedProperties]: GetDataType<VNT["properties"][rawProp]>} &
         // Any properties that are conditionally included, depending on whether a certain flag is set or not:
         (
             Mixins extends ConditionalPropsMixin<VNT, infer conditionallyRequestedProperties> & infer Other ?

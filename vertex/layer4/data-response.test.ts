@@ -1,7 +1,7 @@
 import { suite, test } from "../lib/intern-tests";
 
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils";
-import type { BaseDataRequest, VNID } from "..";
+import type { BaseDataRequest, VNID, VDate } from "..";
 import { Person } from "../test-project";
 import type { DataResponse } from "./data-response";
 import { VNodeTypeWithVirtualProps } from "./vnode";
@@ -41,7 +41,7 @@ suite("DataResponse", () => {
             checkType<AssertEqual<typeof response.name, string>>();
             checkType<AssertPropertyPresent<typeof response, "name", string>>();
             checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
-            checkType<AssertPropertyPresent<typeof response, "dateOfBirth", string>>();
+            checkType<AssertPropertyPresent<typeof response, "dateOfBirth", VDate>>();
             checkType<AssertPropertyPresent<typeof response, "slugId", string>>();
             checkType<AssertPropertyAbsent<typeof response, "other">>();
         });
@@ -84,7 +84,7 @@ suite("DataResponse", () => {
             checkType<AssertEqual<typeof response.name, string>>();
             checkType<AssertPropertyPresent<typeof response, "name", string>>();
             checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
-            checkType<AssertPropertyPresent<typeof response, "dateOfBirth", string>>();
+            checkType<AssertPropertyPresent<typeof response, "dateOfBirth", VDate>>();
             checkType<AssertPropertyPresent<typeof response, "slugId", string>>();
             checkType<AssertPropertyAbsent<typeof response, "other">>();
         });
@@ -116,7 +116,7 @@ suite("DataResponse", () => {
             checkType<AssertPropertyPresent<typeof response, "age", number>>();
             checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
             checkType<AssertPropertyOptional<typeof response, "slugId", string>>();
-            checkType<AssertPropertyOptional<typeof response, "dateOfBirth", string>>();
+            checkType<AssertPropertyOptional<typeof response, "dateOfBirth", VDate>>();
             checkType<AssertPropertyAbsent<typeof response, "other">>();
         });
 
@@ -135,7 +135,7 @@ suite("DataResponse", () => {
             const response: DataResponse<typeof request> = undefined as any;
             checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
             checkType<AssertPropertyPresent<typeof response.friends[0], "name", string>>();
-            checkType<AssertPropertyOptional<typeof response.friends[0], "dateOfBirth", string>>();
+            checkType<AssertPropertyOptional<typeof response.friends[0], "dateOfBirth", VDate>>();
             checkType<AssertPropertyOptional<typeof response.friends[0], "age", number>>();
             const costar = response?.friends[0].costars[0];  // The ? is just to make this work at runtime since we're using a mock.
             checkType<AssertPropertyPresent<typeof costar, "name", string>>();

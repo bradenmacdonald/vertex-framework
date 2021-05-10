@@ -33,6 +33,18 @@ export {
 //// Layer 2 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
+    Field,
+    FieldData,
+    FieldType,
+    ResponseFieldType,
+    PropSchema,
+    ResponseSchema,
+    GetDataType,
+    validateValue,
+    validatePropSchema,
+} from "./layer2/field";
+
+export {
     C,
     CypherQuery,
 } from "./layer2/cypher-sugar";
@@ -41,15 +53,11 @@ export {
     ReturnShape,
     TypedResult
 } from "./layer2/cypher-return-shape";
- 
+
 export {
-    PropSchema,
-    PropertyDataType,
     InvalidNodeLabel,
     PublicValidationError,
     RawVNode,
-    SlugIdProperty,
-    VNIDProperty,
     // BaseVNodeType - internal use only: we use VNodeType (from layer 4) in its place
     RelationshipDeclaration,
     ValidationError,

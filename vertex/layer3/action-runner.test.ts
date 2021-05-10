@@ -1,4 +1,3 @@
-import Joi from "@hapi/joi";
 import { suite, test, assertRejects, assert, log, before, after, configureTestData } from "../lib/intern-tests";
 import { testGraph, } from "../test-project";
 import {
@@ -8,6 +7,7 @@ import {
     defineAction,
     SYSTEM_VNID,
     GenericCypherAction,
+    Field,
 } from "..";
 
 @VNodeType.declare
@@ -15,8 +15,8 @@ class AstronomicalBody extends VNodeType {
     static label = "AstroBody";
     static readonly properties = {
         ...VNodeType.properties,
-        name: Joi.string().required(),
-        mass: Joi.number().required(),
+        name: Field.String,
+        mass: Field.Float,
     };
 }
 
@@ -25,7 +25,7 @@ class Planet extends AstronomicalBody {
     static label = "Planet";
     static readonly properties = {
         ...AstronomicalBody.properties,
-        numberOfMoons: Joi.number(),
+        numberOfMoons: Field.Int,
     };
 }
 

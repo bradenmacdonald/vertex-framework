@@ -1,26 +1,15 @@
-import * as Joi from "@hapi/joi";
-import { UUID } from "../lib/uuid";
-import { VNID, isVNID } from "../lib/vnid";
 import { WrappedTransaction } from "../transaction";
+import { Field, FieldData, FieldType, GetDataType, PropSchema, validatePropSchema } from "./field";
 import { C } from "./cypher-sugar";
 
-/** Strict VNID Validator for Joi */
-const vnidValidator: Joi.CustomValidator = (stringValue, helpers) => {
-    if (!isVNID(stringValue)) {
-        throw new Error("Invalid VNID");
-    }
-    return stringValue;
-};
-
-// Every VNode is uniquely and permanently identified by a VNID
-export const VNIDProperty = Joi.string().custom(vnidValidator);
-// Some VNodeTypes also use a "slug ID", which can be changed
-export const SlugIdProperty = Joi.string().regex(/^[-\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]+$/u).required();
 // An empty object that can be used as a default value for read-only properties
 export const emptyObj = Object.freeze({});
 // A private key used to store relationship types (labels) on their declarations
 const relTypeKey = Symbol("relTypeKey");
 
+export interface PropSchemaWithId extends PropSchema {
+    id: FieldData<FieldType.VNID, false, any>;
+}
 
 export interface RelationshipsSchema {
     [RelName: string]: RelationshipDeclaration;
@@ -71,7 +60,9 @@ export class _BaseVNodeType {
     static label = "VNode";
     /** If this type has a slugId property, this is the prefix that all of its slugIds must have (e.g. "user-") */
     static readonly slugIdPrefix: string = "";
-    static readonly properties: PropSchemaWithVNID = {id: VNIDProperty};
+    static readonly properties: PropSchemaWithId = {
+        id: Field.VNID,
+    };
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     static readonly rel: RelationshipsSchema = emptyObj;
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
@@ -91,13 +82,10 @@ export class _BaseVNodeType {
         }
 
         // Validate properties:
-        const validation = await Joi.object(this.properties).keys({
-            _identity: Joi.number(),
-            _labels: Joi.any(),
-        }).validateAsync(dbObject, {abortEarly: false, allowUnknown: true});  // We must allow unknown so that parent classes can validate, without knowledge of their child class schemas
-        if (validation.error) {
-            throw validation.error;
-        }
+        validatePropSchema(this.properties, dbObject, {
+            abortEarly: false,
+            allowUnknown: true,  // We must allow unknown so that parent classes can validate, without knowledge of their child class schemas
+        });
 
         // Validate relationships:
         const relTypes = Object.keys(this.rel);
@@ -148,10 +136,7 @@ export class _BaseVNodeType {
                 // Check the properties, if their schema is specified:
                 if (Object.keys(spec.properties ?? emptyObj).length) {
                     rels.forEach(r => {
-                        const valResult = Joi.object(spec.properties).validate(r.relProps);
-                        if (valResult.error) {
-                            throw valResult.error;
-                        }
+                        validatePropSchema(spec.properties || {}, r.relProps);
                     });
                 }
             }
@@ -168,12 +153,12 @@ export class _BaseVNodeType {
      */
     protected static declare(vnt: BaseVNodeType): void {
 
-        if (vnt.properties.id !== VNIDProperty) {
+        if (vnt.properties.id !== Field.VNID) {
             throw new Error(`${vnt.name} VNodeType does not inherit the required id property from the base class.`);
         }
 
-        if ("slugId" in vnt.properties && vnt.properties.slugId !== SlugIdProperty) {
-            throw new Error(`If a VNode declares a slugId property, it must use the global SlugIdProperty definition.`);
+        if ("slugId" in vnt.properties && vnt.properties.slugId.type !== FieldType.Slug) {
+            throw new Error(`If a VNode declares a slugId property, it must be of type Field.Slug.`);
         }
 
         // Check for annoying circular references that TypeScript can't catch:
@@ -220,7 +205,7 @@ export const BaseVNodeType = _BaseVNodeType;
 export interface BaseVNodeType {
     new(): _BaseVNodeType;
     readonly label: string;
-    readonly properties: PropSchemaWithVNID;
+    readonly properties: PropSchemaWithId;
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     readonly rel: RelationshipsSchema;
     readonly defaultOrderBy: string|undefined;
@@ -251,39 +236,13 @@ export function isRelationshipDeclaration(relDeclaration: RelationshipDeclaratio
     return typeof relDeclaration === "object" && relDeclaration !== null && relDeclaration[relTypeKey] !== undefined;
 }
 
-/**
- * Properties Schema, defined using Joi validators.
- * 
- * This represents a generic schema, used to define the properties allowed/expected on a graph node, relationship, etc.
- */
-export interface PropSchema {
-    [K: string]: Joi.AnySchema
-}
-
-/**
- * A property schema that includes a VNID. All VNodes in the graph have a VNID so comply with this schema.
- */
-interface PropSchemaWithVNID {
-    id: Joi.StringSchema;
-    [K: string]: Joi.AnySchema;
-}
-
-export type PropertyDataType<Props extends PropSchema, propName extends keyof Props> = (
-    propName extends "id" ? VNID :
-    propName extends "uuid" ? UUID :
-    Props[propName] extends Joi.StringSchema ? string :
-    Props[propName] extends Joi.NumberSchema ? number :
-    Props[propName] extends Joi.BooleanSchema ? boolean :
-    Props[propName] extends Joi.DateSchema ? string :
-    any
-);
 
 /**
  * If a single VNode is loaded from the database (without relationships or virtual properties), this is the shape
  * of the resulting data.
  */
 export type RawVNode<T extends BaseVNodeType> = {
-    [K in keyof T["properties"]]: PropertyDataType<T["properties"], K>;
+    [K in keyof T["properties"]]: GetDataType<T["properties"][K]>
 } & { _identity: number; _labels: string[]; };
 
 

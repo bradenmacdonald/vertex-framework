@@ -1,13 +1,12 @@
-import Joi from "@hapi/joi";
 import {
     C,
     defaultUpdateActionFor,
     defaultCreateFor,
     VNodeType,
     VNodeTypeRef,
-    SlugIdProperty,
     VirtualPropType,
 } from "../";
+import { Field } from "../layer2/field";
 
 // When necessary to avoid circular references, this pattern can be used to create a "Forward Reference" to a VNodeType:
 export const MovieRef: typeof Movie = VNodeTypeRef("TestMovie");
@@ -22,9 +21,9 @@ export class Movie extends VNodeType {
     static label = "TestMovie";
     static properties = {
         ...VNodeType.properties,
-        slugId: SlugIdProperty,
-        title: Joi.string().required(),
-        year: Joi.number().integer().min(1888).max(2200).required(),
+        slugId: Field.Slug,
+        title: Field.String,
+        year: Field.Int.Check(y => y.min(1888).max(2200)),
     };
     static defaultOrderBy = "@this.year DESC";
     static rel = VNodeType.hasRelationshipsFromThisTo({

@@ -1,14 +1,15 @@
 import { C } from "../layer2/cypher-sugar";
 import { WrappedTransaction } from "../transaction";
-import { RelationshipDeclaration, BaseVNodeType, PropertyDataType, getRelationshipType, PropSchema } from "../layer2/vnode-base";
+import { RelationshipDeclaration, BaseVNodeType, getRelationshipType } from "../layer2/vnode-base";
 import { log } from "../lib/log";
 import { VNodeKey, VNID } from "../lib/key";
+import { GetDataType, PropSchema } from "../layer2/field";
 
 export type OneRelationshipSpec<VNR extends RelationshipDeclaration, KeyType = VNodeKey> = {
     key: KeyType|null;
 } & (
     VNR["properties"] extends PropSchema ?
-        {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
+        {[propName in keyof VNR["properties"]]?: GetDataType<VNR["properties"][propName]>}
     :
         {/* empty object */}
     )
@@ -89,7 +90,7 @@ export type RelationshipSpec<VNR extends RelationshipDeclaration, KeyType = VNod
     key: KeyType;
 } & (
     VNR["properties"] extends PropSchema ?
-        {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
+        {[propName in keyof VNR["properties"]]?: GetDataType<VNR["properties"][propName]>}
     :
         {/* empty object */}
 )

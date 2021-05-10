@@ -2,15 +2,16 @@ import { ActionImplementation, defineAction, ActionData, Action } from "./action
 import { C } from "../layer2/cypher-sugar";
 import { VNID, VNodeKey } from "../lib/key";
 import { WrappedTransaction } from "../transaction";
-import { PropertyDataType, RawVNode, BaseVNodeType, getAllLabels } from "../layer2/vnode-base";
+import { RawVNode, BaseVNodeType, getAllLabels } from "../layer2/vnode-base";
 import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "./data-request";
+import { GetDataType } from "../layer2/field";
 
 
 // Useful action generators to reduce boilerplate
 
 /** Helper to type the parameters in an auto-generated Update action */
 type PropertyValuesForUpdate<VNT extends BaseVNodeType, keys extends keyof VNT["properties"]> = {
-    [K in keys]?: PropertyDataType<VNT["properties"], K>
+    [K in keys]?: GetDataType<VNT["properties"][K]>
 }
 
 type UpdateImplementationDetails<VNT extends BaseVNodeType, MutableProps extends keyof VNT["properties"], OtherArgs extends Record<string, any> = {}> = {  // eslint-disable-line @typescript-eslint/ban-types
@@ -137,7 +138,7 @@ export function defaultUpdateActionFor<VNT extends BaseVNodeType, MutableProps e
 
 /** Helper to type the parameters in an auto-generated Create action */
 type RequiredArgsForCreate<VNT extends BaseVNodeType, keys extends keyof VNT["properties"]> = {
-    [K in keys]: PropertyDataType<VNT["properties"], K>
+    [K in keys]: GetDataType<VNT["properties"][K]>
 }
 
 /** Helper to get the (optional) arguments that can be used for an Update action */

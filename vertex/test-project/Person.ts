@@ -1,10 +1,9 @@
-import Joi from "@hapi/joi";
 import {
     C,
     defaultCreateFor,
     defaultUpdateActionFor,
     defineAction,
-    SlugIdProperty,
+    Field,
     VirtualPropType,
     VNodeType,
 } from "../";
@@ -19,16 +18,16 @@ export class Person extends VNodeType {
     static label = "TestPerson" as const;
     static properties = {
         ...VNodeType.properties,
-        slugId: SlugIdProperty,
-        name: Joi.string(),
-        dateOfBirth: Joi.date().iso(),//.options({convert: false}),
+        slugId: Field.Slug,
+        name: Field.String,
+        dateOfBirth: Field.Date,
     };
     static readonly rel = VNodeType.hasRelationshipsFromThisTo({
         /** This Person acted in a given movie */
         ACTED_IN: {
             to: [Movie],
             properties: {
-                role: Joi.string(),
+                role: Field.String,
             },
         },
         /** This Person is a friend of the given person (non-directed relationship) */
@@ -65,8 +64,7 @@ export class Person extends VNodeType {
         },
         age: {
             type: VirtualPropType.CypherExpression,
-            // Note: currently, "dateOfBirth" is stored as a string - TODO: Add proper date support
-            cypherExpression: C`duration.between(date(@this.dateOfBirth), date()).years`,
+            cypherExpression: C`duration.between(@this.dateOfBirth, date()).years`,
             valueType: "number" as const,
         }
     });
@@ -86,9 +84,9 @@ function ageJS(): DerivedProperty<{ageJS: number, ageNeo: number}> { return Deri
     Person,
     p => p.dateOfBirth.age(),
     data => {
-        const today = new Date(), dob = new Date(data.dateOfBirth);
-        const m = today.getMonth() - dob.getMonth();
-        const age = (today.getFullYear() - dob.getFullYear()) - (m < 0 || (m === 0 && today.getDate() < dob.getDate()) ? 1 : 0);
+        const today = new Date(), dob = data.dateOfBirth;
+        const m = today.getMonth() - (dob.month - 1);
+        const age = (today.getFullYear() - dob.year) - (m < 0 || (m === 0 && today.getDate() < dob.day) ? 1 : 0);
         // Return a complex object and test that we can return/access data from virtual props too:
         return {ageJS: age, ageNeo: data.age};
     }

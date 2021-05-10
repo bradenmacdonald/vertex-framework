@@ -76,27 +76,24 @@ export const enum ResponseFieldType {
 }
 
 /* Our internal field data type */
-const schema = Symbol("schema");
-interface FieldData<FT extends FieldType, Nullable extends boolean, SchemaType extends Joi.AnySchema> {
+export interface FieldData<FT extends FieldType, Nullable extends boolean, SchemaType extends Joi.AnySchema> {
     readonly type: FT,
     readonly nullable: Nullable,
-    [schema]: SchemaType,
-    Check: (validationFunction: (baseSchema: SchemaType) => SchemaType) => FieldData<FT, Nullable, SchemaType>
-}
-
-interface FieldDataRequired<FT extends FieldType, SchemaType extends Joi.AnySchema> extends FieldData<FT, false, SchemaType> {
-    OrNull: FieldData<FT, true, SchemaType>,
+    readonly schema: SchemaType,
+    // Check: (validationFunction: (baseSchema: SchemaType) => SchemaType) => FieldData<FT, Nullable, SchemaType>
 }
 
 /** Helper function used below to build the global "Field" constant object, which holds FieldData instances */
-const makeField = <FT extends FieldType, Nullable extends boolean, SchemaType extends Joi.AnySchema>(type: FT, nullable: Nullable, baseSchema: SchemaType): FieldData<FT, Nullable, SchemaType> => ({
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const makeField = <FT extends FieldType, Nullable extends boolean, SchemaType extends Joi.AnySchema>(type: FT, nullable: Nullable, baseSchema: SchemaType) => ({
     type,
     nullable,
-    [schema]: baseSchema,
+    schema: baseSchema,
     Check: (validationFunction: (baseSchema: SchemaType) => SchemaType) => makeField(type, nullable, validationFunction(baseSchema)),
 });
 
-const makeFieldWithOrNull = <FT extends FieldType, SchemaType extends Joi.AnySchema>(type: FT, baseSchema: SchemaType): FieldDataRequired<FT, SchemaType> => ({
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const makeFieldWithOrNull = <FT extends FieldType, SchemaType extends Joi.AnySchema>(type: FT, baseSchema: SchemaType) => ({
     ...makeField(type, false, baseSchema.required()),
     OrNull: makeField(type, true, baseSchema.required().allow(null)),
 });
@@ -186,13 +183,17 @@ export const Field = Object.freeze({
     Node: {type: ResponseFieldType.Node, nullable: false, OrNull: {type: ResponseFieldType.Node, nullable: true}},
     Relationship: {type: ResponseFieldType.Relationship, nullable: false, OrNull: {type: ResponseFieldType.Relationship, nullable: true}},
     Path: {type: ResponseFieldType.Path, nullable: false, OrNull: {type: ResponseFieldType.Path, nullable: true}},
+
+    // Convenience definition to get Joi via Field.Check
+    // e.g. to use things like Field.Int.Check(n=>n.min(Field.Check.Ref("otherField")))
+    Check: Joi,
 });
 
 
 /**
  * TypeScript helper type to get the underlying TypeScript/Javascript data type for a given field declaration.
  */
-type GetDataType<FieldSpec extends ResponseFieldSpec> = (
+export type GetDataType<FieldSpec extends ResponseFieldSpec> = (
     FieldSpec extends FieldData<any, any, any> ?
         (FieldSpec extends FieldData<any, true, any> ? null : never) | (
             FieldSpec extends FieldData<FieldType.Any, any, any> ? any :
@@ -225,7 +226,7 @@ type GetDataShape<Schema extends ResponseSchema> = {
  * @returns The validated value
  */
 export function validateValue<FD extends FieldData<any, any, any>>(fieldType: FD, value: any): GetDataType<FD> {
-    const result = fieldType[schema].validate(value, {convert: false});
+    const result = fieldType.schema.validate(value, {convert: false});
     if (result.error) {
         throw result.error;
     }
@@ -240,12 +241,12 @@ export function validateValue<FD extends FieldData<any, any, any>>(fieldType: FD
  * @param value The object with keys and values to validate
  * @returns The validated object
  */
-export function validatePropSchema<PS extends PropSchema>(propSchema: PS, value: any): GetDataShape<PS> {
+export function validatePropSchema<PS extends PropSchema>(propSchema: PS, value: any, options?: Joi.ValidationOptions): GetDataShape<PS> {
     // Build a Joi.object() schema, using the "schema" property of every FieldData in the propSchema:
     const joiSchemaObj = Joi.object(Object.fromEntries(
-        Object.entries(propSchema).map(([key, fieldData]) => [key, fieldData[schema]])
+        Object.entries(propSchema).map(([key, fieldData]) => [key, fieldData.schema])
     ));
-    const result = joiSchemaObj.validate(value, {convert: false});
+    const result = joiSchemaObj.validate(value, {convert: false, ...options});
     if (result.error) {
         throw result.error;
     }

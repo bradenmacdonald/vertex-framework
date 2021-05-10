@@ -1,4 +1,3 @@
-import Joi from "@hapi/joi";
 import { suite, test, assert } from "../lib/intern-tests";
 import { AssertEqual, checkType } from "../lib/ts-utils";
 import { VNID } from "../lib/vnid";
@@ -448,7 +447,7 @@ suite(__filename, () => {
             const buildingSchema: PropSchema = {
                 name: Field.String,
                 numHomes: Field.Int.Check(n => n.min(1)),  // How many homes/apartments are in this building
-                numOccupiedHomes: Field.Int.Check(n => n.min(0).max(Joi.ref("numHomes"))),
+                numOccupiedHomes: Field.Int.Check(n => n.min(0).max(Field.Check.ref("numHomes"))),
             };
 
             test("Accepts a valid value", () => {

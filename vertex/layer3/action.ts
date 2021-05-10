@@ -3,14 +3,13 @@
  * (other than data/schema migrations) are described as "actions" (a.k.a. mutations) that take the current state and
  * transform it to another state. Many actions are invertable, making it easy to revert edits, undo changes, etc.
  */
-import Joi from "@hapi/joi";
-
 import { VNID } from "../lib/vnid";
 import { BaseVNodeType, RawVNode, ValidationError } from "../layer2/vnode-base";
 import { WrappedTransaction } from "../transaction";
 import { C } from "../layer2/cypher-sugar";
 // Unfortunately we have to "cheat" a bit and use VNodeType from layer 4 here instead of BaseVNodeType:
 import { VNodeType } from "../layer4/vnode";
+import { Field } from "../layer2/field";
 
 
 /**
@@ -112,13 +111,13 @@ export class Action extends VNodeType {
     static readonly properties = {
         ...VNodeType.properties,
         // The action type, e.g. "Create Article", "Delete User", etc.
-        type: Joi.string().required(),
+        type: Field.String,
         // The JSON data that defines the action, and contains enough data to undo it.
-        data: Joi.string(),
+        data: Field.String.Check(d => d.max(100_000)),
         // The time at which the action was completed.
-        timestamp: Joi.date(),
+        timestamp: Field.DateTime,
         // How many milliseconds it took to run this action.
-        tookMs: Joi.number(),
+        tookMs: Field.Int,
     };
     static async validate(dbObject: RawVNode<typeof Action>, tx: WrappedTransaction): Promise<void> {
         await super.validate(dbObject, tx);

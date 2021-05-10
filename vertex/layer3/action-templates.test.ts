@@ -1,10 +1,9 @@
-import Joi from "@hapi/joi";
 import { suite, test, assertRejects, configureTestData, assert, log, before, after } from "../lib/intern-tests";
 import {
     C,
     VNID,
     VNodeType,
-    SlugIdProperty,
+    Field,
 } from "..";
 import { defaultCreateFor, defaultUpdateActionFor } from "./action-templates";
 import { testGraph } from "../test-project";
@@ -16,8 +15,8 @@ class AstronomicalBody extends VNodeType {
     static label = "AstroBodyAT";  // AT = Action Templates test
     static readonly properties = {
         ...VNodeType.properties,
-        slugId: SlugIdProperty,
-        mass: Joi.number().required(),
+        slugId: Field.Slug,
+        mass: Field.Float,
     };
 }
 
@@ -26,7 +25,7 @@ class Planet extends AstronomicalBody {
     static readonly label = "PlanetAT";  // AT = Action Templates test
     static readonly properties = {
         ...AstronomicalBody.properties,
-        numberOfMoons: Joi.number(),
+        numberOfMoons: Field.Int.OrNull,
     };
     static readonly rel = {
         /** This planet has moon(s) */

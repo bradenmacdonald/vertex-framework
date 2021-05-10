@@ -1,12 +1,13 @@
-import Joi from "@hapi/joi";
 import { suite, test, assertRejects, configureTestData, assert, log, before, after } from "../lib/intern-tests";
 import {
     C,
     VNodeType,
-    SlugIdProperty,
+    Field,
     defaultCreateFor,
     defaultUpdateActionFor,
     VNodeKey,
+    VDate,
+    VD,
 } from "..";
 import { testGraph } from "../test-project";
 
@@ -16,7 +17,7 @@ class Person extends VNodeType {
     static label = "PersonAHT";  // AHT: action-helpers.test
     static readonly properties = {
         ...VNodeType.properties,
-        slugId: SlugIdProperty,
+        slugId: Field.Slug,
     };
 }
 
@@ -26,7 +27,7 @@ class AstronomicalBody extends VNodeType {
     static label = "AstroBodyAHT";  // AHT: action-helpers.test
     static readonly properties = {
         ...VNodeType.properties,
-        slugId: SlugIdProperty,
+        slugId: Field.Slug,
     };
     static readonly rel = {
         // A -to-one relationship:
@@ -34,16 +35,16 @@ class AstronomicalBody extends VNodeType {
             to: [AstronomicalBody],
             cardinality: VNodeType.Rel.ToOneOrNone,
             // An optional "periodInSeconds" property:
-            properties: { periodInSeconds: Joi.number(), },
+            properties: { periodInSeconds: Field.Float.OrNull, },
         },
         // A -to-many relationship:
-        VISITED_BY: { to: [Person], properties: { when: Joi.date() } }
+        VISITED_BY: { to: [Person], properties: { when: Field.Date } }
     };
 }
 
 const CreatePerson = defaultCreateFor(Person, p => p.slugId);
 const UpdateAstronomicalBody = defaultUpdateActionFor(AstronomicalBody, ab => ab.slugId, {
-    otherUpdates: async (args: {orbits?: {key: string|null, periodInSeconds?: number}, visitedBy?: {key: string, when: string}[]}, tx, nodeSnapshot) => {
+    otherUpdates: async (args: {orbits?: {key: string|null, periodInSeconds?: number|null}, visitedBy?: {key: string, when: VDate}[]}, tx, nodeSnapshot) => {
         const previousValues: Partial<typeof args> = {};
         if (args.orbits !== undefined) {
             const {prevTo} = await tx.updateToOneRelationship({
@@ -88,12 +89,12 @@ const getOrbitAndPeriod = async (key: VNodeKey): Promise<{key: string, periodInS
     }
 };
 /** For test assertions, get the people that have visited the astronomical body */
-const getVisitors = async (key: VNodeKey): Promise<{key: string, when: string}[]> => {
+const getVisitors = async (key: VNodeKey): Promise<{key: string, when: VDate}[]> => {
     return await testGraph.read(tx => tx.query(C`
         MATCH (ab:${AstronomicalBody}), ab HAS KEY ${key}
         MATCH (ab)-[rel:${AstronomicalBody.rel.VISITED_BY}]->(p:${Person})
         RETURN p.slugId as key, rel.when as when ORDER BY rel.when ASC, p.slugId ASC
-    `.givesShape({"key": "string", "when": "string"})));
+    `.givesShape({"key": "string", "when": "vdate"})));
 };
 
 const earthOrbitsTheSun = {key: "sun", periodInSeconds: 3.1558149e7};
@@ -171,10 +172,10 @@ suite("action-helpers", () => {
 
     suite("updateToManyRelationship", () => {
 
-        const neilArmstrongApollo11 = Object.freeze({key: "neil-armstrong", when: "1969-07-20"});
-        const buzzAldrinApollo11 = Object.freeze({key: "buzz-aldrin", when: "1969-07-20"});
-        const jimLovellApollo8 = Object.freeze({key: "jim-lovell", when: "1968-12-24"});
-        const jimLovellApollo13 = Object.freeze({key: "jim-lovell", when: "1970-04-15"});
+        const neilArmstrongApollo11 = Object.freeze({key: "neil-armstrong", when: VD`1969-07-20`});
+        const buzzAldrinApollo11 = Object.freeze({key: "buzz-aldrin", when: VD`1969-07-20`});
+        const jimLovellApollo8 = Object.freeze({key: "jim-lovell", when: VD`1968-12-24`});
+        const jimLovellApollo13 = Object.freeze({key: "jim-lovell", when: VD`1970-04-15`});
 
         test("can set a -to-many relationship", async () => {
             await testGraph.runAsSystem(CreatePerson({slugId: "neil-armstrong"}), CreatePerson({slugId: "buzz-aldrin"}));
@@ -289,7 +290,7 @@ suite("action-helpers", () => {
         test("gives an error with an invalid ID", async () => {
             await testGraph.runAsSystem(CreateAstronomicalBody({slugId: "moon"}));
             await assertRejects(
-                testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon", visitedBy: [{key: "nobody", when: "1970-01-01"}]})),
+                testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon", visitedBy: [{key: "nobody", when: VD`1970-01-01`}]})),
                 `Cannot set VISITED_BY relationship to VNode with key "nobody" which doesn't exist or is the wrong type.`,
             );
         });
@@ -300,7 +301,7 @@ suite("action-helpers", () => {
             await testGraph.runAsSystem(CreateAstronomicalBody({slugId: "moon"}));
             await assertRejects(
                 testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon", visitedBy: [
-                    {key: notAPersonKey, when: "1970-01-01"}
+                    {key: notAPersonKey, when: VD`1970-01-01`}
                 ]})),
                 `Cannot set VISITED_BY relationship to VNode with key "${notAPersonKey}" which doesn't exist or is the wrong type.`,
             );
