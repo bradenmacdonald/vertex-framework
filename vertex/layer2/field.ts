@@ -1,45 +1,8 @@
-import Joi, { AnySchema } from "@hapi/joi";
-import {Date as Neo4jDate, isDate as isNeo4jDate} from "neo4j-driver-lite";
+import Joi from "@hapi/joi";
 import { VNID } from "../lib/vnid";
+import { VDate, isNeo4jDate} from "../lib/vdate";
 
-import { BaseVNodeType } from "./vnode-base";
-
-/**
- * A calendar date (a date without any time).
- *
- * This subclasses the Neo4j "Date" type and is compatible with it.
- * This mostly exists to add "toJSON" and "fromString".
- */
-export class VDate extends Neo4jDate<number> {
-    /**
-     * Construct a VDate from an ISO 8601 date string "YYYY-MM-DD" or "YYYYMMDD"
-     * @param {string} str - An ISO 8601 date string
-     * @returns {PDate}
-     */
-    public static fromString(str: string): VDate {
-        const year = parseInt(str.substr(0, 4), 10);
-        let month = NaN;
-        let day = NaN;
-        if (str.length === 10 && str.charAt(4) === "-" && str.charAt(7) === "-") {
-            // YYYY-MM-DD format, presumably:
-            month = parseInt(str.substr(5, 2), 10);
-            day = parseInt(str.substr(8, 2), 10);
-        } else if (str.length === 8 && String(parseInt(str, 10)) === str) {
-            // YYYYMMDD format, presumably.
-            // (Note we check 'String(parseInt(str, 10)) === str' to avoid matching things like '05/05/05')
-            month = parseInt(str.substr(4, 2), 10);
-            day = parseInt(str.substr(6, 2), 10);
-        }
-        if (isNaN(year) || isNaN(month) || isNaN(day)) {
-            throw new Error("Date string not in YYYY-MM-DD or YYYYMMDD format");
-        }
-        return new VDate(year, month, day);
-    }
-    static fromNeo4jDate(date: Neo4jDate<number>): VDate { return new VDate(date.year, date.month, date.day); }
-    static fromStandardDate(standardDate: Date): VDate { return this.fromNeo4jDate(Neo4jDate.fromStandardDate(standardDate)); }
-
-    public toJSON(): string { return this.toString(); }
-}
+import type { BaseVNodeType } from "./vnode-base";
 
 /* Validation helpers for specific types */
 
@@ -48,9 +11,6 @@ const vnidRegex = /^_[0-9A-Za-z]{1,22}$/;
 const validateBigInt: Joi.CustomValidator = (value, helpers) => {
     if (typeof value === "bigint") {
         return value;  // It's already a BigInt, return it unchanged.
-    } else if (typeof value === "number") {
-        // Try to coerce it to BigInt, throw an error if not possible
-        return BigInt(value);
     } else {
         // Note that we don't automatically convert strings or any other data type.
         throw new Error("Not a BigInt value.");
@@ -64,8 +24,6 @@ const validateDate: Joi.CustomValidator = (value, helpers) => {
         return VDate.fromNeo4jDate(value);
     } else if (value instanceof Date) {
         throw new Error("Don't use JavaScript Date objects for calendar dates - too many timezone problems. Try VDate.fromString(\"YYYY-MM-DD\") instead.");
-    } else if (typeof value === "string") {
-        return VDate.fromString(value);
     } else {
         throw new Error("Not a date value.");
     }
@@ -112,6 +70,7 @@ interface FieldDataRequired<FT extends FieldType, SchemaType extends Joi.AnySche
     OrNull: FieldData<FT, true, SchemaType>,
 }
 
+/** Helper function used below to build the global "Field" constant object, which holds FieldData instances */
 const makeField = <FT extends FieldType, Nullable extends boolean, SchemaType extends Joi.AnySchema>(type: FT, nullable: Nullable, baseSchema: SchemaType): FieldData<FT, Nullable, SchemaType> => ({
     type,
     nullable,
@@ -217,17 +176,19 @@ type GetDataType<FieldSpec extends ResponseFieldSpec> = (
 );
 
 /**
- * Validate that a value matches the given field definition.
- * For a few types this will also cast/coerce it to the correct type (e.g. number -> bigint), but generally the wrong
- * type will raise an exception.
- * @param fieldType The Field definition, e.g. Field.Float.OrNull
+ * Validate that a value matches the given field definition. Throw an exception if not.
+ *
+ * This will not attempt to cast/coerce values to the correct type, because doing so could mask the fact that
+ * inconsistently type values are stored in the database.
+ *
+ * @param fieldType The Field definition, e.g. Field.Float.OrNull or Field.Int.Check(i => i.min(0))
  * @param value The value to validate
  * @returns The validated value
  */
-export const validateValue = <FD extends FieldData<any, any, any>>(fieldType: FD, value: any): GetDataType<FD> => {
+export function validateValue<FD extends FieldData<any, any, any>>(fieldType: FD, value: any): GetDataType<FD> {
     const result = fieldType[schema].validate(value, {convert: false});
     if (result.error) {
         throw result.error;
     }
     return result.value;
-};
+}

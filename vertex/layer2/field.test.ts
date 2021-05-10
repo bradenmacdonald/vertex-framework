@@ -1,14 +1,10 @@
-import {Date as Neo4jDate} from "neo4j-driver-lite";
 import { suite, test, assert } from "../lib/intern-tests";
 import { AssertEqual, checkType } from "../lib/ts-utils";
 import { VNID } from "../lib/vnid";
-import { Field, VDate, FieldType, validateValue } from "./field";
+import { VDate, Neo4jDate } from "../lib/vdate";
+import { Field, FieldType, validateValue } from "./field";
 
 suite(__filename, () => {
-
-    suite("VDate", () => {
-        // TODO
-    });
 
     suite("Property Field type declarations", () => {
 
@@ -152,13 +148,10 @@ suite(__filename, () => {
                 assert.typeOf(value1, "bigint");
                 assert.strictEqual(value1, aHugeNumber);  // Ensure that validation has preserved the value.
 
-                // Note that for convenience, regular JavaScript numbers _will_ be auto-converted to BigInt
-                const value2 = validateValue(fieldDeclaration, 50);
-                checkType<AssertEqual<typeof value2, bigint>>();
-                assert.typeOf(value2, "bigint");
-
-                // But strings will not be auto-converted:
+                // Note that numbers and strings will not be auto-converted:
+                assert.throws(() => { validateValue(fieldDeclaration, 50); });
                 assert.throws(() => { validateValue(fieldDeclaration, "50"); });
+                // And confirm that null is invalid:
                 assert.throws(() => { validateValue(fieldDeclaration, null); });
             });
     
@@ -167,10 +160,9 @@ suite(__filename, () => {
                 assert.equal(fieldDeclaration.type, FieldType.BigInt);
                 assert.equal(fieldDeclaration.nullable, true);
     
-                const value1 = validateValue(fieldDeclaration, 1234);
-                checkType<AssertEqual<typeof value1, bigint|null>>();
-                const value2 = validateValue(fieldDeclaration, null);
-                assert.strictEqual(value2, null);
+                const value1 = validateValue(fieldDeclaration, null);
+                assert.strictEqual(value1, null);
+                assert.throws(() => { validateValue(fieldDeclaration, 50); });
                 assert.throws(() => { validateValue(fieldDeclaration, "50"); });
                 assert.throws(() => { validateValue(fieldDeclaration, {}); });
                 assert.throws(() => { validateValue(fieldDeclaration, undefined); });
@@ -306,11 +298,13 @@ suite(__filename, () => {
                 assert.typeOf(value1, "object");
                 assert.instanceOf(value1, VDate);
                 assert.strictEqual(value1.toString(), stringDate);
-                // Also, strict ISO 8601 date strings are allowed, as are Neo4j dates:
-                assert.equal(validateValue(fieldDeclaration, stringDate).toString(), stringDate);
+                // Also, Neo4j dates are allowed:
                 assert.equal(validateValue(fieldDeclaration, new Neo4jDate(2021, 6, 1)).toString(), "2021-06-01");
 
-                // But JavaScript Date objects are not allowed, due to timezone issues
+                // We do not auto-convert string values to VDate, because that could hide an issue where some date
+                // property values in the database are stored as strings while others are stored as dates.
+                assert.throws(() => { validateValue(fieldDeclaration, stringDate); });
+                // JavaScript Date objects are not allowed, due to timezone issues
                 // e.g. on my system, new Date("2021-03-01").toString() gives "Feb 28 2021..."
                 assert.throws(() => { validateValue(fieldDeclaration, new Date()); });
                 assert.throws(() => { validateValue(fieldDeclaration, "50"); });
@@ -322,11 +316,11 @@ suite(__filename, () => {
                 assert.equal(fieldDeclaration.type, FieldType.Date);
                 assert.equal(fieldDeclaration.nullable, true);
     
-                const value1 = validateValue(fieldDeclaration, stringDate);
+                const value1 = validateValue(fieldDeclaration, VDate.fromString(stringDate));
                 checkType<AssertEqual<typeof value1, VDate|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
                 assert.strictEqual(value2, null);
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
+                assert.throws(() => { validateValue(fieldDeclaration, stringDate); });
                 assert.throws(() => { validateValue(fieldDeclaration, {}); });
                 assert.throws(() => { validateValue(fieldDeclaration, undefined); });
             });
