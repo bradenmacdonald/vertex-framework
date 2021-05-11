@@ -136,7 +136,16 @@ export class _BaseVNodeType {
                 // Check the properties, if their schema is specified:
                 if (Object.keys(spec.properties ?? emptyObj).length) {
                     rels.forEach(r => {
-                        validatePropSchema(spec.properties || {}, r.relProps);
+                        if (spec.properties) {
+                            // For consistency, we make missing properties always appear as "null" instead of "undefined":
+                            const valuesFound = {...r.relProps};
+                            for (const propName in spec.properties) {
+                                if (!(propName in valuesFound)) {
+                                    valuesFound[propName] = null;
+                                }
+                            }
+                            validatePropSchema(spec.properties, valuesFound);
+                        }
                     });
                 }
             }

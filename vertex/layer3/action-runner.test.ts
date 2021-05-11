@@ -180,7 +180,7 @@ suite("action runner", () => {
             testGraph.runAsSystem(
                 GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: "foo"}})
             ),
-            `"mass" is required`,
+            `"mass" must be a number`,
         );
     });
 

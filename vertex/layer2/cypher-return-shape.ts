@@ -75,7 +75,7 @@ export type ReturnTypeFor<DT extends FieldType> = (
 // Convert a single field in a transaction response (from the native Neo4j driver) to a typed variable
 export function convertNeo4jFieldValue<FT extends FieldType>(fieldName: string, fieldValue: any, fieldType: FT): ReturnTypeFor<FT> {
     if (isBaseVNodeType(fieldType)) { // This is a node (VNode)
-        return neoNodeToRawVNode(fieldValue, fieldName) as any;
+        return neoNodeToRawVNode(fieldValue, fieldType, fieldName) as any;
     } else if (isMapType(fieldType)) {
         const map: any = {}
         for (const mapKey of Object.keys(fieldType.map)) {
@@ -104,7 +104,7 @@ export function convertNeo4jRecord<RS extends ReturnShape>(record: Neo4jRecord, 
     return newRecord;
 }
 
-export function neoNodeToRawVNode<VNT extends BaseVNodeType = any>(fieldValue: Node<any>, fieldName: string): RawVNode<VNT> {
+export function neoNodeToRawVNode<VNT extends BaseVNodeType = any>(fieldValue: Node<any>, vnodeType: VNT, fieldName: string): RawVNode<VNT> {
     if (!(fieldValue as any).__isNode__) { // would be nice if isNode() were exported from neo4j-driver
         throw new Error(`Field ${fieldName} is of type ${typeof fieldValue}, not a VNode.`);
     }
@@ -114,8 +114,26 @@ export function neoNodeToRawVNode<VNT extends BaseVNodeType = any>(fieldValue: N
     if (!fieldValue.labels.includes("VNode")) {
         throw new Error(`Field ${fieldName} is a node but is missing the VNode label`);
     }
+    
+    // "Clean" the properties.
+    // Here we have to resolve a discrepancy: when requesting a specific property via pul() or a raw query that lists
+    // specific properties to return, Neo4j will give them a NULL value when those specific named properties are absent.
+    // But when just returning a Node in general, Neo4j will only return defined properties and JavaScript will see any
+    // absent properties as having an 'undefined' value - not NULL.
+    // We resolve this by explicitly defaulting any expected properties to NULL if they are undefined at this point.
+    const properties: any = {};
+    for (const [propName, propSchema] of Object.entries(vnodeType.properties)) {
+        if (propName in fieldValue.properties) {
+            properties[propName] = fieldValue.properties[propName];
+        } else {
+            properties[propName] = null;
+            // We could verify that propSchema.nullable === true here, but this function gets used within Create/Update
+            // actions in a way that sometimes pulls in the Node before the object has been fully created, so that some
+            // values are temporarily null but will be non-null by the time the action finishes.
+        }
+    }
     return {
-        ...fieldValue.properties,
+        ...properties,
         _identity: fieldValue.identity,
         _labels: fieldValue.labels,
     } as RawVNode<VNT>;

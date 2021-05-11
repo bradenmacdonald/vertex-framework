@@ -79,7 +79,7 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
                     }
                     // Validate this VNodeType:
                     try {
-                        await nodeType.validate(neoNodeToRawVNode(node, "n"), tx);
+                        await nodeType.validate(neoNodeToRawVNode(node, nodeType, "n"), tx);
                     } catch (err) {
                         log.error(`${type} action failed during transaction validation: ${err}`);
                         throw err;

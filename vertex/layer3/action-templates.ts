@@ -80,7 +80,7 @@ export function defaultUpdateActionFor<VNT extends BaseVNodeType, MutableProps e
         type: `Update${type.label}` as `Update${VNT["label"]}`,
         parameters: {} as {key: string} & Args,
         resultData: {} as {prevValues: Args},
-        apply: async (tx, data) => {
+        apply: async function applyUpdateAction(tx, data) {
             // Load the current value of the VNode from the graph
             // TODO: why is "as RawVNode<VNT>" required on the next line here?
             const nodeSnapshot: RawVNode<VNT> = (await tx.queryOne(C`MATCH (node:${type}), node HAS KEY ${data.key}`.RETURN({node: type}))).node as RawVNode<VNT>;
@@ -176,7 +176,7 @@ export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extend
         type: `Create${type.label}` as `Create${VNT["label"]}`,
         parameters: {} as Args,
         resultData: {} as {id: VNID, updateResult: null|{prevValues: any}},
-        apply: async (tx, data) => {
+        apply: async function applyCreateAction(tx, data) {
             const id = VNID();
             // This Create Action also runs an Update at the same time (if configured that way).
             // If there is a linked Update Action, we want _it_ to set the props, so that its "clean" and "otherUpdates"

@@ -122,7 +122,7 @@ suite(__filename, () => {
             // required props missing:
             await assertRejects(testGraph.runAsSystem(
                 CreateAstroBody({} as any),
-            ), `"slugId" is required`);
+            ), `"slugId" must be a string. "mass" must be a number`);
         });
 
         test("sets all required labels for VNodeTypes with inherited labels", async () => {
