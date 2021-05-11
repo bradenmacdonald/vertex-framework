@@ -82,10 +82,10 @@ suite(__filename, () => {
                 assert.equal(p.mass, 15);
             };
             // By its slugId:
-            const r1 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody}), p HAS KEY ${"Ceres"}`.RETURN({p: AstronomicalBody})));
+            const r1 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody}), p HAS KEY ${"Ceres"}`.RETURN({p: Field.VNode(AstronomicalBody)})));
             checkCeres(r1.p);
             // By its VNID:
-            const r2 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody}), p HAS KEY ${result.id}`.RETURN({p: AstronomicalBody})));
+            const r2 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody}), p HAS KEY ${result.id}`.RETURN({p: Field.VNode(AstronomicalBody)})));
             checkCeres(r2.p);
             // Using pull()
             const p3 = await testGraph.pullOne(AstronomicalBody, p => p.allProps, {key: result.id});
@@ -129,7 +129,7 @@ suite(__filename, () => {
             const {id} = await testGraph.runAsSystem(
                 CreatePlanet({slugId: "Earth", mass: 9000})
             );
-            const result = await testGraph.read(tx => tx.query(C`MATCH (p:${Planet} {id: ${id}})`.RETURN({"labels(p)": {list: "string"} })));
+            const result = await testGraph.read(tx => tx.query(C`MATCH (p:${Planet} {id: ${id}})`.RETURN({"labels(p)": Field.List(Field.String) })));
             assert.sameMembers(result[0]["labels(p)"], ["PlanetAT", "AstroBodyAT", "VNode"]);
         })
 
@@ -144,7 +144,7 @@ suite(__filename, () => {
             const result = await testGraph.read(tx => tx.queryOne(C`
                 MATCH (j:${Planet}), j HAS KEY ${"Jupiter"}
                 MATCH (j)-[:${Planet.rel.HAS_MOON}]->(moon:${AstronomicalBody})
-            `.RETURN({moon: AstronomicalBody, j: Planet})));
+            `.RETURN({moon: Field.VNode(AstronomicalBody), j: Field.VNode(Planet)})));
             assert.equal(result.j.slugId, "Jupiter");
             assert.equal(result.j.numberOfMoons, 79);
             assert.equal(result.moon.slugId, "Io");
@@ -159,7 +159,7 @@ suite(__filename, () => {
                 CreatePlanet({slugId: "Jupiter", mass: 99999, numberOfMoons: 79, addMoon: "Io"}),
             );
             // Check that it was created:
-            const findJupiter = C`MATCH (j:${Planet}), j HAS KEY ${"Jupiter"}`.RETURN({j: Planet});
+            const findJupiter = C`MATCH (j:${Planet}), j HAS KEY ${"Jupiter"}`.RETURN({j: Field.VNode(Planet)});
             const orig = await testGraph.read(tx => tx.query(findJupiter));
             assert.equal(orig.length, 1);
             assert.equal(orig[0].j.slugId, "Jupiter");

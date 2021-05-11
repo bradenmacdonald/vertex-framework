@@ -74,14 +74,14 @@ const getOrbit = async (key: VNodeKey): Promise<string|null> => {
     const dbResult = await testGraph.read(tx => tx.query(C`
         MATCH (ab:${AstronomicalBody}), ab HAS KEY ${key}
         MATCH (ab)-[:${AstronomicalBody.rel.ORBITS}]->(x:${AstronomicalBody})
-    `.RETURN({"x": AstronomicalBody})));
+    `.RETURN({x: Field.VNode(AstronomicalBody)})));
     return dbResult.length === 1 ? dbResult[0].x.slugId : null;
 };
 const getOrbitAndPeriod = async (key: VNodeKey): Promise<{key: string, periodInSeconds: number|null}|null> => {
     const dbResult = await testGraph.read(tx => tx.query(C`
         MATCH (ab:${AstronomicalBody}), ab HAS KEY ${key}
         MATCH (ab)-[rel:${AstronomicalBody.rel.ORBITS}]->(x:${AstronomicalBody})
-    `.RETURN({x: AstronomicalBody, rel: "any"})));
+    `.RETURN({x: Field.VNode(AstronomicalBody), rel: Field.Relationship})));
     if (dbResult.length === 1) {
         return {key: dbResult[0].x.slugId, periodInSeconds: dbResult[0].rel.properties.periodInSeconds}
     } else {
@@ -94,7 +94,7 @@ const getVisitors = async (key: VNodeKey): Promise<{key: string, when: VDate}[]>
         MATCH (ab:${AstronomicalBody}), ab HAS KEY ${key}
         MATCH (ab)-[rel:${AstronomicalBody.rel.VISITED_BY}]->(p:${Person})
         RETURN p.slugId as key, rel.when as when ORDER BY rel.when ASC, p.slugId ASC
-    `.givesShape({"key": "string", "when": "vdate"})));
+    `.givesShape({"key": Field.Slug, "when": Field.Date})));
 };
 
 const earthOrbitsTheSun = {key: "sun", periodInSeconds: 3.1558149e7};

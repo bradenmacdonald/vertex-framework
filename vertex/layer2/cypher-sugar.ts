@@ -3,7 +3,7 @@
  */
 import { Record as Neo4jRecord, int as neo4jinteger } from "neo4j-driver-lite";
 import { looksLikeVNID } from "../lib/vnid";
-import { ReturnShape, TypedResult } from "./cypher-return-shape";
+import { GetDataShape, ResponseSchema } from "./field";
 import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from "./vnode-base";
 
 /**
@@ -161,7 +161,7 @@ export class CypherQuery {
      * shape.
      * @param returnShape The expected return shape for the query
      */
-    public givesShape<RS extends ReturnShape>(returnShape: RS): CypherQueryWithReturnShape<RS> {
+    public givesShape<RS extends ResponseSchema>(returnShape: RS): CypherQueryWithReturnShape<RS> {
         const copy = new CypherQueryWithReturnShape(this.#strings, this.#paramsArray, returnShape);
         copy.#paramsCompiled = {...this.#paramsCompiled};
         return copy;
@@ -172,7 +172,7 @@ export class CypherQuery {
      * in the query, and the expected return shape stored. The point of this is to avoid writing pretty much the same
      * information twice: once in the RETURN statement and a second time in the ReturnShape specification.
      */
-    public RETURN<RS extends ReturnShape>(returnShape: RS): CypherQueryWithReturnShape<RS> {
+    public RETURN<RS extends ResponseSchema>(returnShape: RS): CypherQueryWithReturnShape<RS> {
         const fieldNames = Object.keys(returnShape);
         const returnStatement = `\nRETURN ${fieldNames.length > 0 ? fieldNames.join(", ") : "null"}`;
         const newStrings = [...this.#strings];
@@ -186,7 +186,7 @@ export class CypherQuery {
 /**
  * A cypher query that has additional data about the shape of its return type.
  */
-export class CypherQueryWithReturnShape<RS extends ReturnShape> extends CypherQuery {
+export class CypherQueryWithReturnShape<RS extends ResponseSchema> extends CypherQuery {
     #shape: Readonly<RS>;
     constructor(strings: ReadonlyArray<string>, params: ReadonlyArray<any>, shape: RS) {
         super(strings, params);
@@ -199,7 +199,7 @@ export class CypherQueryWithReturnShape<RS extends ReturnShape> extends CypherQu
 
 // Get what the expected response shape of a query is, if known. Meant only for use with query() and queryOne()
 export type QueryResponse<CQ extends CypherQuery> = (
-    CQ extends CypherQueryWithReturnShape<infer RS> ? TypedResult<RS> :
+    CQ extends CypherQueryWithReturnShape<infer RS> ? GetDataShape<RS> :
     CQ extends CypherQuery ? Neo4jRecord :
     never
 );

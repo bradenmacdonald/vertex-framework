@@ -1,8 +1,14 @@
+import { Node as _Node, Relationship as _Relationship, Path as _Path } from "neo4j-driver-lite";
 import Joi from "@hapi/joi";
 import { isVNID, VNID } from "../lib/vnid";
-import { VDate, isNeo4jDate} from "../lib/vdate";
+import { VDate, isNeo4jDate } from "../lib/vdate";
 
-import type { BaseVNodeType } from "./vnode-base";
+import type { BaseVNodeType, RawVNode } from "./vnode-base";
+
+/* Export properly typed Neo4j data structures  */
+export type Node = _Node<bigint>;
+export type Relationship = _Relationship<bigint>;
+export type Path = _Path<bigint>;
 
 /* Validation helpers for specific types */
 
@@ -62,6 +68,7 @@ export const enum FieldType {
     Date,
     DateTime,
     // Future types (also supported by Neo4j): Point, Duration, Time
+    _max  // Unused, just to get the max value
 }
 
 /**
@@ -73,10 +80,12 @@ export const enum ResponseFieldType {
     Path,
     Map,
     List,
+    VNode,
+    _max  // Unused, just to get the max value
 }
 
 /* Our internal field data type */
-export interface FieldData<FT extends FieldType, Nullable extends boolean, SchemaType extends Joi.AnySchema> {
+export interface FieldData<FT extends FieldType = FieldType, Nullable extends boolean = boolean, SchemaType extends Joi.AnySchema = Joi.AnySchema> {
     readonly type: FT,
     readonly nullable: Nullable,
     readonly schema: SchemaType,
@@ -104,46 +113,35 @@ const makeFieldWithOrNull = <FT extends FieldType, SchemaType extends Joi.AnySch
  * This represents a generic schema, used to define the properties allowed/expected on a graph node, relationship, etc.
  */
 export interface PropSchema {
-    [K: string]: FieldData<any, any, any>;
+    [K: string]: FieldData;
 }
 
 /**
  * Response fields are data types that can be returned from queries, but not used as VNode properties
  */
-interface ResponseField {
-    readonly type: ResponseFieldType;
-    readonly nullable: boolean;
+export interface ResponseField<FT extends ResponseFieldType = ResponseFieldType, Nullable extends boolean = boolean> {
+    readonly type: FT;
+    readonly nullable: Nullable;
 }
-type ResponseFieldSpec = FieldData<any, any, any>|ResponseField|BaseVNodeType;
+export type ResponseFieldSpec = FieldData|ResponseField;
 export interface ResponseSchema {
     [K: string]: ResponseFieldSpec;
 }
+// This helper function is used to declare variables with appropriate typing as "RS extends ResponseSchema" and not just "ResponseSchema"
+export function ResponseSchema<RS extends ResponseSchema>(rs: RS): RS { return rs; }
 
 // Map field type - only used for specifying the return shape of custom/complex cypher queries
 interface MapFieldSpec { [k: string]: ResponseFieldSpec; }
-interface MapField<Spec extends MapFieldSpec> extends ResponseField {
-    readonly type: ResponseFieldType.Map,
+export interface MapField<Spec extends MapFieldSpec = MapFieldSpec, Nullable extends boolean = boolean> extends ResponseField<ResponseFieldType.Map, Nullable> {
     readonly spec: Spec,
 }
-interface MapFieldRequired<Spec extends MapFieldSpec> extends MapField<Spec> {
-    readonly nullable: false;
-    OrNull: MapFieldOrNull<Spec>;
-}
-interface MapFieldOrNull<Spec extends MapFieldSpec> extends MapField<Spec> {
-    readonly nullable: true;
-}
-
 // List field type - only used for specifying the return shape of custom/complex cypher queries
-interface ListField<Spec extends ResponseFieldSpec> extends ResponseField {
-    readonly type: ResponseFieldType.List,
+export interface ListField<Spec extends ResponseFieldSpec = ResponseFieldSpec, Nullable extends boolean = boolean> extends ResponseField<ResponseFieldType.List, Nullable> {
     readonly spec: Spec,
 }
-interface ListFieldRequired<Spec extends ResponseFieldSpec> extends ListField<Spec> {
-    readonly nullable: false;
-    OrNull: ListFieldOrNull<Spec>;
-}
-interface ListFieldOrNull<Spec extends ResponseFieldSpec> extends ListField<Spec> {
-    readonly nullable: true;
+// Raw VNode Type - a VNode with all of its properties (but no virtual properties or derived properties)
+export interface RawVNodeField<VNT extends BaseVNodeType = any, Nullable extends boolean = boolean> extends ResponseField<ResponseFieldType.VNode, Nullable> {
+    readonly vnodeType: VNT;
 }
 
 /**
@@ -171,24 +169,37 @@ export const Field = Object.freeze({
     DateTime: makeFieldWithOrNull(FieldType.DateTime, Joi.date().iso()),
 
     // Special field types that can be returned from Cypher queries, but not used as property types:
-    Map: <M extends MapFieldSpec>(m: M): MapFieldRequired<M> => ({
-        type: ResponseFieldType.Map, spec: m, nullable: false,
-        OrNull: {type: ResponseFieldType.Map, spec: m, nullable: true},
+    Map: <M extends MapFieldSpec>(m: M): MapField<M, false> & {OrNull: MapField<M, true>} => ({
+        type: ResponseFieldType.Map as const, spec: m, nullable: false as const,
+        OrNull: {type: ResponseFieldType.Map as const, spec: m, nullable: true as const},
     }),
-    List: <L extends ResponseFieldSpec>(valueType: L): ListFieldRequired<L> => ({
-        type: ResponseFieldType.List, spec: valueType, nullable: false,
-        OrNull: {type: ResponseFieldType.List, spec: valueType, nullable: true},
+    List: <L extends ResponseFieldSpec>(valueType: L): ListField<L, false> & {OrNull: ListField<L, true>} => ({
+        type: ResponseFieldType.List as const, spec: valueType, nullable: false as const,
+        OrNull: {type: ResponseFieldType.List as const, spec: valueType, nullable: true as const},
     }),
     // Pass through of the types used by the underlying Neo4j JavaScript driver:
-    Node: {type: ResponseFieldType.Node, nullable: false, OrNull: {type: ResponseFieldType.Node, nullable: true}},
-    Relationship: {type: ResponseFieldType.Relationship, nullable: false, OrNull: {type: ResponseFieldType.Relationship, nullable: true}},
-    Path: {type: ResponseFieldType.Path, nullable: false, OrNull: {type: ResponseFieldType.Path, nullable: true}},
+    Node: {
+        type: ResponseFieldType.Node as const, nullable: false as const,
+        OrNull: {type: ResponseFieldType.Node as const, nullable: true as const}
+    },
+    Relationship: {
+        type: ResponseFieldType.Relationship as const, nullable: false as const,
+        OrNull: {type: ResponseFieldType.Relationship as const, nullable: true as const}
+    },
+    Path: {
+        type: ResponseFieldType.Path as const, nullable: false as const,
+        OrNull: {type: ResponseFieldType.Path as const, nullable: true as const}
+    },
+    /** A Raw VNode: includes all of its properties but not virtual props or derived props */
+    VNode: <VNT extends BaseVNodeType>(vnodeType: VNT) => ({
+        type: ResponseFieldType.VNode as const, nullable: false as const, vnodeType,
+        OrNull: {type: ResponseFieldType.VNode as const, nullable: true as const, vnodeType,},
+    }),
 
     // Convenience definition to get Joi via Field.Check
     // e.g. to use things like Field.Int.Check(n=>n.min(Field.Check.Ref("otherField")))
     Check: Joi,
 });
-
 
 /**
  * TypeScript helper type to get the underlying TypeScript/Javascript data type for a given field declaration.
@@ -207,11 +218,23 @@ export type GetDataType<FieldSpec extends ResponseFieldSpec> = (
             FieldSpec extends FieldData<FieldType.Date, any, any> ? VDate :
             FieldSpec extends FieldData<FieldType.DateTime, any, any> ? Date :
             {error: "unknown FieldType"}
-        )
-    : never
+        ) :
+    FieldSpec extends ResponseField<any, any> ?
+        (FieldSpec extends ResponseField<any, true> ? null : never) | (
+            FieldSpec extends MapField<infer Spec> ? { [K in keyof Spec]: GetDataType<Spec[K]> } :
+            FieldSpec extends ListField<infer Spec> ? GetDataType<Spec>[] :
+            FieldSpec extends ResponseField<ResponseFieldType.Node, any> ? Node :
+            FieldSpec extends ResponseField<ResponseFieldType.Relationship, any> ? Relationship :
+            FieldSpec extends ResponseField<ResponseFieldType.Path, any> ? Path :
+            FieldSpec extends RawVNodeField<infer VNT, any> ? 
+                RawVNode<FieldSpec["vnodeType"]>
+            :
+            {error: "unknown Response FieldType"}
+        ) :
+    never
 );
 
-type GetDataShape<Schema extends ResponseSchema> = {
+export type GetDataShape<Schema extends ResponseSchema> = {
     [K in keyof Schema]: GetDataType<Schema[K]>;
 }
 

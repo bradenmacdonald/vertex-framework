@@ -2,7 +2,9 @@ import { suite, test, assert } from "../lib/intern-tests";
 import { AssertEqual, checkType } from "../lib/ts-utils";
 import { VNID } from "../lib/vnid";
 import { VDate, Neo4jDate } from "../lib/vdate";
-import { Field, FieldType, PropSchema, validatePropSchema, validateValue } from "./field";
+import { Field, FieldType, GetDataShape, PropSchema, ResponseSchema, validatePropSchema, validateValue, Node, Relationship, Path } from "./field";
+import { Person } from "../test-project";
+import { RawVNode } from "./vnode-base";
 
 suite(__filename, () => {
 
@@ -477,6 +479,127 @@ suite(__filename, () => {
                     });
                 }, `"numOccupiedHomes" must be less than or equal to ref:numHomes`);
             });
+        });
+    });
+
+    suite("ResponseSchema and GetDataShape", () => {
+
+        // Basic response field types:
+        test("Any", () => {
+            const shape = ResponseSchema({anyValue: Field.Any});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {anyValue: any}>>();
+        });
+        test("VNID", () => {
+            const shape = ResponseSchema({myVNID: Field.VNID, nullVNID: Field.VNID.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {myVNID: VNID, nullVNID: VNID|null}>>();
+        });
+        test("Int", () => {
+            const shape = ResponseSchema({myInt: Field.Int, nullInt: Field.Int.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {myInt: number, nullInt: number|null}>>();
+        });
+        test("BigInt", () => {
+            const shape = ResponseSchema({myBigInt: Field.BigInt, nullBigInt: Field.BigInt.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {myBigInt: bigint, nullBigInt: bigint|null}>>();
+        });
+        test("Float", () => {
+            const shape = ResponseSchema({myFloat: Field.Float, nullFloat: Field.Float.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {myFloat: number, nullFloat: number|null}>>();
+        });
+        test("String", () => {
+            const shape = ResponseSchema({myString: Field.String, nullString: Field.String.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {myString: string, nullString: string|null}>>();
+        });
+        test("Slug", () => {
+            const shape = ResponseSchema({mySlug: Field.Slug, nullSlug: Field.Slug.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {mySlug: string, nullSlug: string|null}>>();
+        });
+        test("Boolean", () => {
+            const shape = ResponseSchema({myBool: Field.Boolean, nullBool: Field.Boolean.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {myBool: boolean, nullBool: boolean|null}>>();
+        });
+        test("Date", () => {
+            const shape = ResponseSchema({myDate: Field.Date, nulDate: Field.Date.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {myDate: VDate, nulDate: VDate|null}>>();
+        });
+        test("DateTime", () => {
+            const shape = ResponseSchema({myDateTime: Field.DateTime, nullDateTime: Field.DateTime.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {myDateTime: Date, nullDateTime: Date|null}>>();
+        });
+        // Types unique to response fields:
+
+        test("Raw Neo4j Node", () => {
+            const shape = ResponseSchema({nodeField: Field.Node, nullNode: Field.Node.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {nodeField: Node, nullNode: Node|null}>>();
+        });
+        test("Raw Neo4j Path", () => {
+            const shape = ResponseSchema({pathField: Field.Path, nullPath: Field.Path.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {pathField: Path, nullPath: Path|null}>>();
+        });
+        test("Raw Neo4j Relationship", () => {
+            const shape = ResponseSchema({relField: Field.Relationship, nullRel: Field.Relationship.OrNull});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {relField: Relationship, nullRel: Relationship|null}>>();
+        });
+        test("Map", () => {
+            const shape = ResponseSchema({
+                mapField: Field.Map({
+                    subMap: Field.Map({ subKey1: Field.String.OrNull, subKey2: Field.BigInt }),
+                    otherKey: Field.String,
+                }),
+                nullMap: Field.Map({
+                    key1: Field.VNID,
+                }).OrNull,
+            });
+            checkType<AssertEqual<GetDataShape<typeof shape>, {
+                mapField: {
+                    subMap: { subKey1: string|null, subKey2: bigint },
+                    otherKey: string,
+                },
+                nullMap: null|{
+                    key1: VNID,
+                },
+            }>>();
+        });
+        test("List", () => {
+            const shape = ResponseSchema({
+                idList: Field.List(Field.VNID),
+                nullStringList: Field.List(Field.String).OrNull,
+            });
+            checkType<AssertEqual<GetDataShape<typeof shape>, {
+                idList: VNID[],
+                nullStringList: string[]|null,
+            }>>();
+        });
+        test("RawVNode", () => {
+            const shape = ResponseSchema({
+                person: Field.VNode(Person),
+                nullPerson: Field.VNode(Person).OrNull,
+            });
+            // First we check very specific types, to make it easier to diagnose typing bugs:
+            checkType<AssertEqual<GetDataShape<typeof shape>["person"]["id"], VNID>>();
+            checkType<AssertEqual<GetDataShape<typeof shape>["person"]["slugId"], string>>();
+            checkType<AssertEqual<GetDataShape<typeof shape>["person"]["name"], string>>();
+            checkType<AssertEqual<GetDataShape<typeof shape>["person"]["dateOfBirth"], VDate>>();
+            checkType<AssertEqual<GetDataShape<typeof shape>["person"]["_labels"], string[]>>();
+            checkType<AssertEqual<GetDataShape<typeof shape>["nullPerson"], null | RawVNode<typeof Person>>>();
+            // Then check the typing of the whole thing:
+            checkType<AssertEqual<GetDataShape<typeof shape>, {
+                person: {
+                    id: VNID,
+                    slugId: string,
+                    name: string,
+                    dateOfBirth: VDate,
+                } & {
+                    _labels: string[]
+                },
+                nullPerson: null|({
+                    id: VNID,
+                    slugId: string,
+                    name: string,
+                    dateOfBirth: VDate,
+                } & {
+                    _labels: string[]
+                }),
+            }>>();
         });
     });
 });

@@ -1,5 +1,5 @@
 import { WrappedTransaction } from "../transaction";
-import { Field, FieldData, FieldType, GetDataType, PropSchema, validatePropSchema } from "./field";
+import { Field, FieldData, FieldType, GetDataShape, PropSchema, validatePropSchema } from "./field";
 import { C } from "./cypher-sugar";
 
 // An empty object that can be used as a default value for read-only properties
@@ -93,10 +93,9 @@ export class _BaseVNodeType {
             // Storing large amounts of data on relationship properties is not recommended so it should be safe to pull
             // down all the relationships and their properties.
             const relData = await tx.query(C`
-                MATCH (node:VNode) WHERE id(node) = ${dbObject._identity}
-                MATCH (node)-[rel]->(target:VNode)
+                MATCH (node:VNode {uuid: ${dbObject.id}})-[rel]->(target:VNode)
                 RETURN type(rel) as relType, properties(rel) as relProps, labels(target) as targetLabels, id(target) as targetId
-            `.givesShape({relType: "string", relProps: "any", targetLabels: {list: "string"}, targetId: "number"}));
+            `.givesShape({relType: Field.String, relProps: Field.Any, targetLabels: Field.List(Field.String), targetId: Field.Int}));
             // Check each relationship type, one type at a time:
             for (const relType of relTypes) {
                 const spec = this.rel[relType];
@@ -250,9 +249,7 @@ export function isRelationshipDeclaration(relDeclaration: RelationshipDeclaratio
  * If a single VNode is loaded from the database (without relationships or virtual properties), this is the shape
  * of the resulting data.
  */
-export type RawVNode<T extends BaseVNodeType> = {
-    [K in keyof T["properties"]]: GetDataType<T["properties"][K]>
-} & { _identity: number; _labels: string[]; };
+export type RawVNode<T extends BaseVNodeType> = GetDataShape<T["properties"]> & { _labels: string[]; };
 
 
 const registeredNodeTypes: {[label: string]: BaseVNodeType} = {};

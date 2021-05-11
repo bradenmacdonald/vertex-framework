@@ -65,7 +65,7 @@ export class Person extends VNodeType {
         age: {
             type: VirtualPropType.CypherExpression,
             cypherExpression: C`duration.between(@this.dateOfBirth, date()).years`,
-            valueType: "number" as const,
+            valueType: Field.Int,
         }
     });
     static defaultOrderBy = "@this.name";
@@ -121,7 +121,7 @@ export const ActedIn = defineAction({
             MATCH (m:${Movie}), m HAS KEY ${data.movieId}
             MERGE (p)-[rel:${Person.rel.ACTED_IN}]->(m)
             SET rel.role = ${data.role}
-            `.RETURN({"p.id": "vnid"}));
+            `.RETURN({"p.id": Field.VNID}));
         return {
             modifiedNodes: [result["p.id"]],
             resultData: {},
@@ -142,7 +142,7 @@ export const RecordFriends = defineAction({
             MATCH (p1:${Person}), p1 HAS KEY ${data.personId}
             MATCH (p2:${Person}), p2 HAS KEY ${data.otherPersonId}
             MERGE (p1)-[:${Person.rel.FRIEND_OF}]->(p2)
-        `.RETURN({"p1.id": "vnid", "p2.id": "vnid"}));
+        `.RETURN({"p1.id": Field.VNID, "p2.id": Field.VNID}));
         return {
             modifiedNodes: [result["p1.id"], result["p2.id"]],
             resultData: {},

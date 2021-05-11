@@ -38,21 +38,25 @@ export {
     FieldType,
     ResponseFieldType,
     PropSchema,
+    ResponseField,
     ResponseSchema,
     GetDataType,
+    GetDataShape,
+    RawVNodeField,
+    MapField,
+    ListField,
     validateValue,
     validatePropSchema,
+    // Neo4j types:
+    Node,
+    Relationship,
+    Path,
 } from "./layer2/field";
 
 export {
     C,
     CypherQuery,
 } from "./layer2/cypher-sugar";
-
-export {
-    ReturnShape,
-    TypedResult
-} from "./layer2/cypher-return-shape";
 
 export {
     InvalidNodeLabel,

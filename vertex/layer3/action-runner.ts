@@ -4,9 +4,9 @@ import { SYSTEM_VNID } from "./schema";
 import { log } from "../lib/log";
 import { getVNodeType } from "../layer2/vnode-base";
 import { VertexCore } from "../vertex-interface";
-import { Node } from "neo4j-driver-lite";
 import { neoNodeToRawVNode } from "../layer2/cypher-return-shape";
 import { C } from "../layer2/cypher-sugar";
+import { Field, Node } from "../layer2/field";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
@@ -31,7 +31,7 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
                 MATCH (prevAction:${Action} {id: ${isRevertOfAction}})
                 OPTIONAL MATCH (prevAction)<-[:${Action.rel.REVERTED}]-(existingRevert:${Action})
                 WITH prevAction.id AS prevId, collect(existingRevert {.id}) AS existingRevert
-            `.RETURN({"prevId" : "vnid", existingRevert: {list: {map: {id: "string"}}}}));
+            `.RETURN({"prevId" : Field.VNID, existingRevert: Field.List(Field.Map({id: Field.String}))}));
             //const prevAction = await tx.pullOne(Action, a => a.revertedBy(x => x.id), {key: isRevertOfAction});
             if (prevAction.existingRevert.length > 0) {
                 throw new Error(`Action ${isRevertOfAction} has already been reverted, by Action ${prevAction.existingRevert[0].id}`);
@@ -58,10 +58,10 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
                 WITH a
                 MATCH (n:VNode) WHERE n.id IN ${modifiedNodeIds}
                 MERGE (a)-[:${Action.rel.MODIFIED}]->(n)
-            `.RETURN({n: "any"}));
+            `.RETURN({n: Field.Node}));
             // Then, validate all nodes that had changes:
             for (const resultRow of result) {
-                const node: Node<number> = resultRow.n;
+                const node: Node = resultRow.n;
                 if (node.labels.length < 2) {
                     // This is not a problem of bad data, it's a problem with the Action implementation
                     throw new Error(`Tried saving a VNode without additional labels. Every VNode must have the :VNode label and at least one other label.`);

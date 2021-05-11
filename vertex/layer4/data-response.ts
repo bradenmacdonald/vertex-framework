@@ -1,4 +1,3 @@
-import { ReturnTypeFor } from "../layer2/cypher-return-shape";
 import { GetDataType } from "../layer2/field";
 import { BaseVNodeType } from "../layer2/vnode-base";
 import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer3/data-request";
@@ -54,7 +53,7 @@ export type DataResponse<Request extends AnyDataRequest<BaseVNodeType>> = (
                             DataResponse<Spec> | null
                         // A cypher expression virtual property is included:
                         : includedVirtualProps[virtualProp] extends IncludedVirtualCypherExpressionProp<infer ValueType> ?
-                            ReturnTypeFor<ValueType>
+                            GetDataType<ValueType>
                         : never
                     )}
                 : unknown

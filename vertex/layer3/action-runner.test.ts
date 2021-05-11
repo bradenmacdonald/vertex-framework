@@ -78,7 +78,7 @@ suite("action runner", () => {
         );
         const readResult = await testGraph.read(tx => tx.queryOne(C`
             MATCH (u:User:VNode)-[:PERFORMED]->(a:Action:VNode {type: ${GenericCreateAction.type}})-[:MODIFIED]->(p:${AstronomicalBody} {id: ${result.id}})
-        `.RETURN({"u.slugId": "string", "u.id": "vnid"})));
+        `.RETURN({"u.slugId": Field.Slug, "u.id": Field.VNID})));
         assert.equal(readResult["u.slugId"], "user-system");
         assert.equal(readResult["u.id"], SYSTEM_VNID);
     });
@@ -199,7 +199,7 @@ suite("action runner", () => {
             GenericCreateAction({labels: ["Planet", "AstroBody", "VNode"], data: {name: "Test Planet 5", mass: 100, numberOfMoons: 0}})
         );
         const getPlanetName = async (): Promise<string> =>{
-            const p = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${Planet})`.RETURN({"p.name": "string"})));
+            const p = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${Planet})`.RETURN({"p.name": Field.String})));
             return p["p.name"];
         };
         assert.equal(await getPlanetName(), "Test Planet 5");

@@ -1,7 +1,7 @@
-import { suite, test, assert, configureTestData } from "../lib/intern-tests";
-import { C, CypherQuery, VNID } from "..";
-import { testGraph, Person } from "../test-project";
 import { ProfiledPlan } from "neo4j-driver-lite";
+import { suite, test, assert, configureTestData } from "../lib/intern-tests";
+import { C, CypherQuery, VNID, Field } from "..";
+import { testGraph, Person } from "../test-project";
 
 /** Helper function to calculate the dbHits cost of a profiled cypher query */
 const sumDbHits = (profile: ProfiledPlan|false): number => {
@@ -250,16 +250,16 @@ suite("Cypher syntactic sugar", () => {
         test(".givesShape() can store a return shape", () => {
             const baseQuery = C`MATCH (p:${Person}) RETURN p.id`;
 
-            const withReturnShape = baseQuery.givesShape({"p.id": "vnid"});
+            const withReturnShape = baseQuery.givesShape({"p.id": Field.VNID});
 
-            assert.deepStrictEqual(withReturnShape.returnShape, {"p.id": "vnid"});
+            assert.deepStrictEqual(withReturnShape.returnShape, {"p.id": Field.VNID});
         });
 
         test(".RETURN() can store a return shape and generate the RETURN clause", () => {
-            const query = C`MATCH (p:${Person})`.RETURN({"p.id": "vnid", "p.name": "string"});
+            const query = C`MATCH (p:${Person})`.RETURN({"p.id": Field.VNID, "p.name": Field.String});
 
             assert.equal(query.queryString, "MATCH (p:TestPerson:VNode)\nRETURN p.id, p.name");
-            assert.deepStrictEqual(query.returnShape, {"p.id": "vnid", "p.name": "string"});
+            assert.deepStrictEqual(query.returnShape, {"p.id": Field.VNID, "p.name": Field.String});
         });
 
         test(".RETURN({}) generates a RETURN null clause and an empty return shape", () => {

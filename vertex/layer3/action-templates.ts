@@ -4,7 +4,7 @@ import { VNID, VNodeKey } from "../lib/key";
 import { WrappedTransaction } from "../transaction";
 import { RawVNode, BaseVNodeType, getAllLabels } from "../layer2/vnode-base";
 import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "./data-request";
-import { GetDataType } from "../layer2/field";
+import { Field, GetDataType } from "../layer2/field";
 
 
 // Useful action generators to reduce boilerplate
@@ -82,8 +82,7 @@ export function defaultUpdateActionFor<VNT extends BaseVNodeType, MutableProps e
         resultData: {} as {prevValues: Args},
         apply: async function applyUpdateAction(tx, data) {
             // Load the current value of the VNode from the graph
-            // TODO: why is "as RawVNode<VNT>" required on the next line here?
-            const nodeSnapshot: RawVNode<VNT> = (await tx.queryOne(C`MATCH (node:${type}), node HAS KEY ${data.key}`.RETURN({node: type}))).node as RawVNode<VNT>;
+            const nodeSnapshot: RawVNode<VNT> = (await tx.queryOne(C`MATCH (node:${type}), node HAS KEY ${data.key}`.RETURN({node: Field.VNode(type)}))).node;
             // Prepare to store the previous values of any changed properties/relationships (so we can undo this update)
             let previousValues: PropertyArgs = {};
             // Store the new values (properties that are being changed):
@@ -272,7 +271,7 @@ export function defaultDeleteAndUnDeleteFor<VNT extends BaseVNodeType>(type: VNT
                 MATCH (node:${type}), node HAS KEY ${data.key}
                 SET node:DeletedVNode
                 REMOVE node:VNode
-            `.RETURN({"node.id": "vnid"}));
+            `.RETURN({"node.id": Field.VNID}));
             const modifiedNodes = [result["node.id"]];
             return {resultData: {id: result["node.id"]}, modifiedNodes};
         },

@@ -160,16 +160,11 @@ function virtualPropsForRelationship(virtualProp: VirtualManyRelationshipPropert
     if (virtualProp.relationship !== undefined) {
         // Add properties from the relationship to the target VNode data request, so they can be optionally selected for inclusion:
         for (const relationshipPropName in virtualProp.relationship.properties) {
-            const joiValidator = virtualProp.relationship.properties[relationshipPropName];
+            const propDeclaration = virtualProp.relationship.properties[relationshipPropName];
             extraProps[relationshipPropName] = {
                 type: VirtualPropType.CypherExpression,
                 cypherExpression: C("@rel." + relationshipPropName),
-                valueType: (
-                    joiValidator.type === "string" ? "string" :
-                    joiValidator.type === "boolean" ? "boolean" :
-                    joiValidator.type === "number" ? "number" :
-                    "any"
-                ),
+                valueType: propDeclaration,
             };
         }
     }

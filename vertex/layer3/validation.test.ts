@@ -76,7 +76,7 @@ suite(__filename, () => {
 
         test("Creating a VNode with a valid slugIdPrefix works fine", async () => {
             const {id} = await testGraph.runAsSystem(CreateNote({slugId: "note-test1"}));
-            const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note}), n HAS KEY ${id}`.RETURN({n: Note})));
+            const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note}), n HAS KEY ${id}`.RETURN({n: Field.VNode(Note)})));
             assert.equal(check.n.slugId, "note-test1");
         });
 

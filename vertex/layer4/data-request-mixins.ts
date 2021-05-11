@@ -8,13 +8,12 @@
  * developer experience and type checking in the IDE, but don't exactly match how things are implemented underneath.
  */
 
-import { FieldType as OldFieldType } from "../layer2/cypher-return-shape";
 import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
 import { BaseDataRequest, AnyDataRequest, UpdateMixin, RequiredMixin } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import type { DerivedProperty } from "./derived-props";
-import { FieldData, FieldType } from "../layer2/field";
+import { FieldData, FieldType, ResponseFieldSpec } from "../layer2/field";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
@@ -109,7 +108,7 @@ export interface IncludedVirtualOneProp<propType extends VirtualOneRelationshipP
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 }
 
-export interface IncludedVirtualCypherExpressionProp<FT extends OldFieldType> {
+export interface IncludedVirtualCypherExpressionProp<FT extends ResponseFieldSpec> {
     type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
     valueType: FT;  // This field also doesn't exist, but is required for type inference to work
 }
@@ -123,21 +122,14 @@ export interface IncludedVirtualCypherExpressionProp<FT extends OldFieldType> {
 type ProjectRelationshipProps<Rel extends RelationshipDeclaration|undefined> = (
     Rel extends RelationshipDeclaration ? {
         virtualProperties: {
-            [K in keyof Rel["properties"]]: VirtualCypherExpressionPropertyForRelationshipProp<Rel["properties"][K]>
+            [K in keyof Rel["properties"]]: (
+                Rel["properties"][K] extends FieldData ?
+                    VirtualCypherExpressionProperty<Rel["properties"][K]>
+                : never
+            )
         }
     } : unknown
 );
-interface VirtualCypherExpressionPropertyForRelationshipProp<Prop> extends Omit<VirtualCypherExpressionProperty, "valueType"> {
-    valueType: {nullOr: ( // TODO: fix this
-        // "Prop" is the property definition (Joi validator) defined in the VNode.relationshipsFrom section
-        Prop extends FieldData<FieldType.String, any, any> ? "string" :
-        Prop extends FieldData<FieldType.Int, any, any> ? "number" :
-        Prop extends FieldData<FieldType.Float, any, any> ? "number" :
-        Prop extends FieldData<FieldType.Boolean, any, any> ? "boolean" :
-        Prop extends FieldData<FieldType.Date, any, any> ? "string" :
-        "any"
-    )}
-}
 
 ///////////////// DerivedPropsMixin ////////////////////////////////////////////////////////////////////////////////////
 
