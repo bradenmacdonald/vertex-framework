@@ -59,7 +59,16 @@ export class VDate extends Neo4jDate<number> {
         }
         return new VDate(year, month, day);
     }
-    static fromNeo4jDate(date: Neo4jDate<number>): VDate { return new VDate(date.year, date.month, date.day); }
+    static fromNeo4jDate(date: Neo4jDate<bigint|number>): VDate {
+        const isUsingBigInt = (d: Neo4jDate<bigint|number>): d is Neo4jDate<bigint> => typeof d.year === "bigint";
+        const isUsingNumber = (d: Neo4jDate<bigint|number>): d is Neo4jDate<number> => typeof d.year === "number";
+        if (isUsingBigInt(date)) {
+            return new VDate(Number(date.year), Number(date.month), Number(date.day));
+        } else if (isUsingNumber(date)) {
+            return new VDate(date.year, date.month, date.day);
+        }
+        throw new Error(`Unknown Neo4j date type (${date}) or using unsupported integer type.`);
+    }
     static fromStandardDate(standardDate: Date): VDate { return this.fromNeo4jDate(Neo4jDate.fromStandardDate(standardDate)); }
 
     public toJSON(): string { return this.toString(); }

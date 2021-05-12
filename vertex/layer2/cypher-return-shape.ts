@@ -48,6 +48,10 @@ export function convertNeo4jFieldValue<FD extends ResponseFieldSpec>(fieldName: 
             case FieldType.BigInt: { return fieldValue; }  // Already a bigint, since we have Neo4j configured to use BigInt by default
             case FieldType.Float: { return Number(fieldValue) as any; }
             case FieldType.Date: { return VDate.fromNeo4jDate(fieldValue) as any; }
+            case FieldType.DateTime: {
+                // Convert from the Neo4j "DateTime" class to a standard JavaScript Date object:
+                return new Date(fieldValue.toString()) as any;
+            }
             default:
                 return fieldValue;
         }
@@ -57,7 +61,7 @@ export function convertNeo4jFieldValue<FD extends ResponseFieldSpec>(fieldName: 
                 const spec = (fieldDeclaration as any as MapField).spec;
                 const map: any = {}
                 for (const mapKey in spec) {
-                    map[mapKey] = convertNeo4jFieldValue(mapKey, fieldValue.get(mapKey), spec[mapKey]);
+                    map[mapKey] = convertNeo4jFieldValue(mapKey, fieldValue[mapKey] ?? null, spec[mapKey]);
                 }
                 return map;
             }

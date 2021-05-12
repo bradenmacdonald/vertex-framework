@@ -371,7 +371,7 @@ suite(__filename, () => {
                 assert.instanceOf(value1, VDate);
                 assert.strictEqual(value1.toString(), stringDate);
                 // Also, Neo4j dates are allowed:
-                assert.equal(validateValue(fieldDeclaration, new Neo4jDate(2021, 6, 1)).toString(), "2021-06-01");
+                assert.equal(validateValue(fieldDeclaration, new Neo4jDate<number>(2021, 6, 1)).toString(), "2021-06-01");
 
                 // We do not auto-convert string values to VDate, because that could hide an issue where some date
                 // property values in the database are stored as strings while others are stored as dates.

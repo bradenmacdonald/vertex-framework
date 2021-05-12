@@ -85,11 +85,18 @@ suite("Cypher return shape specification", () => {
         assert.instanceOf(results[0].value, VDate);
         assert.strictEqual(results[0].value.toString(), "2021-05-11");
     });
+    test("basic test - a typed record with a Date field, VDate object passed in to Neo4j", async () => {
+        // This is similar to the previous test but tests that we can pass IN a date parameter as a VDate
+        const shape = ResponseSchema({value: Field.Date});
+        const results = await runAndConvert(`RETURN $dateObj as value`, {dateObj: VDate.fromString("2021-05-11")}, shape);
+        assert.typeOf(results[0].value, "object");
+        assert.instanceOf(results[0].value, VDate);
+        assert.strictEqual(results[0].value.toString(), "2021-05-11");
+    });
     test("basic test - a typed record with a DateTime field.", async () => {
         const dateStr = "2019-06-01T18:40:32.000Z";  // A unicode timestamp in UTC
         const shape = ResponseSchema({value: Field.DateTime});
         const results = await runAndConvert(`RETURN datetime($dateStr) as value`, {dateStr, }, shape);
-        assert.typeOf(results[0].value, "object");
         assert.instanceOf(results[0].value, Date);
         assert.strictEqual(results[0].value.toISOString(), dateStr);
     });

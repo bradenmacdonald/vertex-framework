@@ -10,6 +10,7 @@ import { WrappedTransaction } from "./transaction";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
 import { VNodeKey } from "./lib/key";
 import { C } from "./layer2/cypher-sugar";
+import { Field } from "./layer2/field";
 
 
 export interface InitArgs {
@@ -28,7 +29,7 @@ export class Vertex implements VertexCore {
         this.driver = neo4j.driver(
             config.neo4jUrl,
             neo4j.auth.basic(config.neo4jUser, config.neo4jPassword),
-            { disableLosslessIntegers: true },
+            { useBigInt: true },
         );
         this.migrations = {...coreMigrations, ...actionMigrations, ...config.extraMigrations};
     }
@@ -112,7 +113,7 @@ export class Vertex implements VertexCore {
         if (looksLikeVNID(key)) {
             return key;
         }
-        return this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": "vnid"}))).then(result => result["vn.id"]);
+        return this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": Field.VNID}))).then(result => result["vn.id"]);
     }
 
     /**

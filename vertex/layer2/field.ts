@@ -217,7 +217,7 @@ export type GetDataType<FieldSpec extends ResponseFieldSpec> = (
             FieldSpec extends FieldData<FieldType.Boolean, any, any> ? boolean :
             FieldSpec extends FieldData<FieldType.Date, any, any> ? VDate :
             FieldSpec extends FieldData<FieldType.DateTime, any, any> ? Date :
-            {error: "unknown FieldType"}
+            {error: "unknown FieldType", got: FieldSpec}
         ) :
     FieldSpec extends ResponseField<any, any> ?
         (FieldSpec extends ResponseField<any, true> ? null : never) | (
@@ -229,7 +229,7 @@ export type GetDataType<FieldSpec extends ResponseFieldSpec> = (
             FieldSpec extends RawVNodeField<infer VNT, any> ? 
                 RawVNode<FieldSpec["vnodeType"]>
             :
-            {error: "unknown Response FieldType"}
+            {error: "unknown Response FieldType", got: FieldSpec}
         ) :
     never
 );
