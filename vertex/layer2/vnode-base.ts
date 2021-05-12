@@ -93,7 +93,7 @@ export class _BaseVNodeType {
             // Storing large amounts of data on relationship properties is not recommended so it should be safe to pull
             // down all the relationships and their properties.
             const relData = await tx.query(C`
-                MATCH (node:VNode {uuid: ${dbObject.id}})-[rel]->(target:VNode)
+                MATCH (node:VNode {id: ${dbObject.id}})-[rel]->(target:VNode)
                 RETURN type(rel) as relType, properties(rel) as relProps, labels(target) as targetLabels, id(target) as targetId
             `.givesShape({relType: Field.String, relProps: Field.Any, targetLabels: Field.List(Field.String), targetId: Field.Int}));
             // Check each relationship type, one type at a time:
