@@ -35,7 +35,7 @@ export function convertNeo4jFieldValue<FD extends ResponseFieldSpec>(fieldName: 
         return null as any;
     }
     if (fieldDeclaration.type === ResponseFieldType.VNode) { // This is a node (VNode)
-        return neoNodeToRawVNode(fieldValue, (fieldDeclaration as any as RawVNodeField).vnodeType, fieldName) as any;
+        return neoNodeToRawVNode(fieldValue, (fieldDeclaration as any).vnodeType, fieldName) as any;
     } else if (isPropertyField(fieldDeclaration)) {
         switch (fieldDeclaration.type) {
             case FieldType.Int: {

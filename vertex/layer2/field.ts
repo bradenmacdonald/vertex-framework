@@ -3,8 +3,6 @@ import Joi from "@hapi/joi";
 import { isVNID, VNID } from "../lib/vnid";
 import { VDate, isNeo4jDate } from "../lib/vdate";
 
-import type { BaseVNodeType, RawVNode } from "./vnode-base";
-
 /* Export properly typed Neo4j data structures  */
 export type Node = _Node<bigint>;
 export type Relationship = _Relationship<bigint>;
@@ -116,6 +114,11 @@ export interface PropSchema {
     [K: string]: FieldData;
 }
 
+/* A VNodeType definition for our purposes here */
+interface AnyVNodeType {
+    properties: PropSchema;
+}
+
 /**
  * Response fields are data types that can be returned from queries, but not used as VNode properties
  */
@@ -140,7 +143,7 @@ export interface ListField<Spec extends ResponseFieldSpec = ResponseFieldSpec, N
     readonly spec: Spec,
 }
 // Raw VNode Type - a VNode with all of its properties (but no virtual properties or derived properties)
-export interface RawVNodeField<VNT extends BaseVNodeType = any, Nullable extends boolean = boolean> extends ResponseField<ResponseFieldType.VNode, Nullable> {
+export interface RawVNodeField<VNT extends AnyVNodeType = AnyVNodeType, Nullable extends boolean = boolean> extends ResponseField<ResponseFieldType.VNode, Nullable> {
     readonly vnodeType: VNT;
 }
 
@@ -191,7 +194,7 @@ export const Field = Object.freeze({
         OrNull: {type: ResponseFieldType.Path as const, nullable: true as const}
     },
     /** A Raw VNode: includes all of its properties but not virtual props or derived props */
-    VNode: <VNT extends BaseVNodeType>(vnodeType: VNT) => ({
+    VNode: <VNT extends AnyVNodeType>(vnodeType: VNT) => ({
         type: ResponseFieldType.VNode as const, nullable: false as const, vnodeType,
         OrNull: {type: ResponseFieldType.VNode as const, nullable: true as const, vnodeType,},
     }),
@@ -227,7 +230,7 @@ export type GetDataType<FieldSpec extends ResponseFieldSpec> = (
             FieldSpec extends ResponseField<ResponseFieldType.Relationship, any> ? Relationship :
             FieldSpec extends ResponseField<ResponseFieldType.Path, any> ? Path :
             FieldSpec extends RawVNodeField<infer VNT, any> ? 
-                RawVNode<FieldSpec["vnodeType"]>
+                GetDataShape<VNT["properties"]> & {_labels: string[]}
             :
             {error: "unknown Response FieldType", got: FieldSpec}
         ) :
