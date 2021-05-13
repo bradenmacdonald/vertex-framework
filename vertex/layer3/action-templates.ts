@@ -108,7 +108,7 @@ export function defaultUpdateActionFor<VNT extends BaseVNodeType, MutableProps e
                 MATCH (t:${type}), t HAS KEY ${data.key}
                 SET t += ${changes}
             `.RETURN({}));
-            let modifiedNodes: VNID[] = [nodeSnapshot.id];
+            let modifiedNodes: VNID[] = [nodeSnapshot.id as any];  // TODO: why is this "as any" needed?
 
             if (otherUpdates) {
                 // Update relationships etc.

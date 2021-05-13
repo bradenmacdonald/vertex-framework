@@ -15,11 +15,6 @@ suite("Cypher return shape specification", () => {
         return result.records.map(record => convertNeo4jRecord(record, shape));
     }
 
-    test("basic test - a typed record with an Any field.", async () => {
-        const shape = ResponseSchema({value: Field.Any});
-        const results = await runAndConvert(`RETURN {foo: "bar"} as value`, {}, shape);
-        assert.deepStrictEqual(results, [{value: {foo: "bar"}}]);
-    });
     test("basic test - a typed record with a VNID field.", async () => {
         const shape = ResponseSchema({value: Field.String});
         const results = await runAndConvert(`RETURN "_12345678" as value`, {}, shape);
@@ -112,10 +107,10 @@ suite("Cypher return shape specification", () => {
 
     test("basic test - a nullable number and a map", async () => {
         const shape = ResponseSchema({
-            numberOrNull: Field.Int.OrNull,
-            mapField: Field.Map({
+            numberOrNull: Field.NullOr.Int,
+            mapField: Field.Record({
                 val1: Field.String,
-                val2: Field.Any,
+                val2: Field.NullOr.Boolean,
             }),
         });
 

@@ -34,17 +34,13 @@ export {
 
 export {
     Field,
-    FieldData,
+    TypedField,
     FieldType,
     ResponseFieldType,
     PropSchema,
-    ResponseField,
     ResponseSchema,
     GetDataType,
     GetDataShape,
-    RawVNodeField,
-    MapField,
-    ListField,
     validateValue,
     validatePropSchema,
     // Neo4j types:

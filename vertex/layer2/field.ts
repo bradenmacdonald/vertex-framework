@@ -53,7 +53,7 @@ const slugRegex = /^[-\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]+
  * Field data types which can be used as VNode/Neo4j property types and also returned from Cypher queries.
  */
 export const enum FieldType {
-    Any,
+    // Property / primitive data types:
     VNID,
     Int,
     BigInt,
@@ -65,86 +65,212 @@ export const enum FieldType {
     /** A date without any time format. */
     Date,
     DateTime,
-    // Future types (also supported by Neo4j): Point, Duration, Time
-    _max  // Unused, just to get the max value
-}
+    // Future primitive/property types (also supported by Neo4j):
+    // Point,
+    // Duration,
+    // Time,
 
-/**
- * Types which can be returned from Cypher queries but cannot be used for VNode properties:
- */
-export const enum ResponseFieldType {
-    Node = 100,
+    // Composite types - cannot be used as VNode properties but can be used for almost anything else
+    /** A Record is a map where the keys are known in advance */
+    Record,
+    // Map: A key-value structure with arbitrary string keys?
+    List,
+    // Union type? Unknown/Any type?
+
+    // Response types - these can _only_ be used when specifying the shape of a Cypher query response
+    VNode,
+    Node,
     Relationship,
     Path,
-    Map,
-    List,
-    VNode,
-    _max  // Unused, just to get the max value
+    Any,
 }
 
-/* Our internal field data type */
-export interface FieldData<FT extends FieldType = FieldType, Nullable extends boolean = boolean, SchemaType extends Joi.AnySchema = Joi.AnySchema> {
+/* Basic data structure that holds data about the type of a field. */
+export interface TypedField<FT extends FieldType = FieldType, Nullable extends boolean = boolean, SchemaType = any> {
     readonly type: FT,
     readonly nullable: Nullable,
+    /** Schema: A Joi schema (validator) for property types, but has different uses for other types. */
     readonly schema: SchemaType,
-    // Check: (validationFunction: (baseSchema: SchemaType) => SchemaType) => FieldData<FT, Nullable, SchemaType>
 }
 
-/** Helper function used below to build the global "Field" constant object, which holds FieldData instances */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const makeField = <FT extends FieldType, Nullable extends boolean, SchemaType extends Joi.AnySchema>(type: FT, nullable: Nullable, baseSchema: SchemaType) => ({
-    type,
-    nullable,
-    schema: baseSchema,
-    Check: (validationFunction: (baseSchema: SchemaType) => SchemaType) => makeField(type, nullable, validationFunction(baseSchema)),
-});
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Property types: 
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const makeFieldWithOrNull = <FT extends FieldType, SchemaType extends Joi.AnySchema>(type: FT, baseSchema: SchemaType) => ({
-    ...makeField(type, false, baseSchema.required()),
-    OrNull: makeField(type, true, baseSchema.required().allow(null)),
-});
+export type PropertyFieldType = (
+    | FieldType.VNID
+    | FieldType.Int
+    | FieldType.BigInt
+    | FieldType.Float
+    | FieldType.String
+    | FieldType.Slug
+    | FieldType.Boolean
+    | FieldType.Date
+    | FieldType.DateTime
+);
+
+
+export type PropertyTypedField<FT extends PropertyFieldType = PropertyFieldType, Nullable extends boolean = boolean, SchemaType extends Joi.AnySchema = Joi.AnySchema>
+    = TypedField<FT, Nullable, SchemaType>;
 
 /**
  * Properties Schema (usually for a VNodeType, but also can be used to define properties on a relationship)
- * 
- * This represents a generic schema, used to define the properties allowed/expected on a graph node, relationship, etc.
  */
 export interface PropSchema {
-    [K: string]: FieldData;
+    [K: string]: PropertyTypedField;
 }
 
-/* A VNodeType definition for our purposes here */
-interface AnyVNodeType {
-    properties: PropSchema;
-}
+// This helper function is used to declare variables with appropriate typing as "RS extends ResponseSchema" and not just "ResponseSchema"
+export function PropSchema<PS extends PropSchema>(ps: PS): PS { return ps; }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Composite types:
+
+export type CompositeFieldType = (
+    | FieldType.Record
+    | FieldType.List
+);
+
+// The record type comes in two flavors, depending on whether or not it allows response-typed values:
+export type RecordTypedField        <Nullable extends boolean = boolean, Schema extends GenericSchema  = GenericSchema>  = TypedField<FieldType.Record, Nullable, Schema> & {__generic: true};
+export type ResponseRecordTypedField<Nullable extends boolean = boolean, Schema extends ResponseSchema = ResponseSchema> = TypedField<FieldType.Record, Nullable, Schema>;
+
+// The list type comes in two flavors, depending on whether or not it allows response-typed values:
+export type ListTypedField        <Nullable extends boolean = boolean, Schema extends GenericSchema[any]  = any>  = TypedField<FieldType.List, Nullable, Schema> & {__generic: true};
+export type ResponseListTypedField<Nullable extends boolean = boolean, Schema extends ResponseSchema[any] = any> = TypedField<FieldType.List, Nullable, Schema>;
 
 /**
- * Response fields are data types that can be returned from queries, but not used as VNode properties
+ * A schema that allows property typed field and composite typed fields, but not response typed fields
+ * This is useful for e.g. action parameters
  */
-export interface ResponseField<FT extends ResponseFieldType = ResponseFieldType, Nullable extends boolean = boolean> {
-    readonly type: FT;
-    readonly nullable: Nullable;
+export interface GenericSchema {
+    [K: string]: PropertyTypedField|RecordTypedField|ListTypedField;
 }
-export type ResponseFieldSpec = FieldData|ResponseField;
+
+// This helper function is used to declare variables with appropriate typing as "RS extends ResponseSchema" and not just "ResponseSchema"
+export function GenericSchema<GS extends GenericSchema>(gs: GS): GS { return gs; }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Response types: (returned from Neo4j queries but not used for anything else)
+
+export type ResponseFieldType = (
+    | FieldType.VNode
+    | FieldType.Node
+    | FieldType.Relationship
+    | FieldType.Path
+    | FieldType.Any
+);
+
+/* A VNodeType definition for our purposes here; this file doesn't depend on any VNode-related code. */
+interface AnyVNodeType {
+    properties: PropSchemaWithId;
+}
+interface PropSchemaWithId extends PropSchema {
+    id: TypedField<FieldType.VNID, false, any>;
+}
+
+type ResponseTypedField = (
+    | TypedField<FieldType.VNode, boolean, AnyVNodeType>
+    | TypedField<FieldType.Node, boolean, undefined>
+    | TypedField<FieldType.Relationship, boolean, undefined>
+    | TypedField<FieldType.Path, boolean, undefined>
+    | TypedField<FieldType.Any, boolean, undefined>
+);
+
+
 export interface ResponseSchema {
-    [K: string]: ResponseFieldSpec;
+    [K: string]: PropertyTypedField|ResponseRecordTypedField|ResponseListTypedField|ResponseTypedField;
 }
+
 // This helper function is used to declare variables with appropriate typing as "RS extends ResponseSchema" and not just "ResponseSchema"
 export function ResponseSchema<RS extends ResponseSchema>(rs: RS): RS { return rs; }
 
-// Map field type - only used for specifying the return shape of custom/complex cypher queries
-interface MapFieldSpec { [k: string]: ResponseFieldSpec; }
-export interface MapField<Spec extends MapFieldSpec = MapFieldSpec, Nullable extends boolean = boolean> extends ResponseField<ResponseFieldType.Map, Nullable> {
-    readonly spec: Spec,
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Constrcut the "Field" object that contains all the basic field types and lets you construct complex types:
+
+
+interface PropertyTypedFieldConstructor<FT extends PropertyFieldType = PropertyFieldType, Nullable extends boolean = boolean, SchemaType extends Joi.AnySchema = Joi.AnySchema>
+    extends TypedField<FT, Nullable, SchemaType>
+{
+    Check: (validationFunction: (baseSchema: SchemaType) => SchemaType) => PropertyTypedField<FT, Nullable, SchemaType>
 }
-// List field type - only used for specifying the return shape of custom/complex cypher queries
-export interface ListField<Spec extends ResponseFieldSpec = ResponseFieldSpec, Nullable extends boolean = boolean> extends ResponseField<ResponseFieldType.List, Nullable> {
-    readonly spec: Spec,
+
+// Aliases that provide much nicer-looking types in the IDE (e.g. VS Code).
+type StringField = PropertyTypedFieldConstructor<FieldType.String, false, Joi.StringSchema>;
+type NullableStringField = PropertyTypedFieldConstructor<FieldType.String, true, Joi.StringSchema>;
+
+/** Helper function used below to build the global "Field" constant object, which holds TypedField instances */
+function makePropertyField<FT extends PropertyFieldType, Nullable extends boolean, SchemaType extends Joi.AnySchema>(
+    type: FT,
+    nullable: Nullable,
+    baseSchema: SchemaType
+): PropertyTypedFieldConstructor<FT, Nullable, SchemaType> {
+    return {
+        type,
+        nullable,
+        schema: nullable ? baseSchema.required().allow(null) : baseSchema.required(),
+        Check: (validationFunction: (baseSchema: SchemaType) => SchemaType) => makePropertyField(type, nullable, validationFunction(baseSchema)),
+    };
 }
-// Raw VNode Type - a VNode with all of its properties (but no virtual properties or derived properties)
-export interface RawVNodeField<VNT extends AnyVNodeType = AnyVNodeType, Nullable extends boolean = boolean> extends ResponseField<ResponseFieldType.VNode, Nullable> {
-    readonly vnodeType: VNT;
+
+/** Helper function used below to build the global "Field" constant object, which holds TypedField instances */
+function makePropertyField2<ST extends Joi.AnySchema, TF extends PropertyTypedFieldConstructor<PropertyFieldType, boolean, ST>>(
+    type: PropertyFieldType,
+    nullable: boolean,
+    baseSchema: ST
+): TF {
+    return {
+        type,
+        nullable,
+        schema: nullable ? baseSchema.required().allow(null) : baseSchema.required(),
+        Check: (validationFunction: (baseSchema: ST) => ST) => makePropertyField2<ST, TF>(type, nullable, validationFunction(baseSchema)),
+    } as any;
+}
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
+    return {
+        VNID: makePropertyField(FieldType.VNID, nullable, Joi.string().custom(vnidValidator)),
+        Int: makePropertyField(FieldType.Int, nullable, Joi.number().integer()),
+        /** A signed integer up to 64 bits. For larger than 64 bits, use a string type as Neo4j doesn't support it. */
+        BigInt: makePropertyField(FieldType.BigInt, nullable, Joi.any().custom(validateBigInt)),
+        Float: makePropertyField(FieldType.Float, nullable, Joi.number()),
+        /** A String. Default max length is 1,000, so use .Check(s => s.max(...)) if you need to change the limit. */
+        //String: makePropertyField(FieldType.String, nullable, Joi.string().max(1_000)),
+        String: makePropertyField2<Joi.StringSchema, Nullable extends true ? NullableStringField : StringField>(FieldType.String, nullable, Joi.string().max(1_000)),
+        /** A unicode-aware slug (cannot contain spaces/punctuation). Valid: "the-thing". Invalid: "foo_bar" or "foo bar" */
+        Slug: makePropertyField(FieldType.Slug, nullable, Joi.string().regex(slugRegex).max(60)),
+        Boolean: makePropertyField(FieldType.Boolean, nullable, Joi.boolean()),
+        /** A calendar date, i.e. a date without time information */
+        Date: makePropertyField(FieldType.Date, nullable, Joi.any().custom(validateDate)),
+        DateTime: makePropertyField(FieldType.DateTime, nullable, Joi.date().iso()),
+    
+        Record: <Schema extends GenericSchema|ResponseSchema>(schema: Schema): (
+            // Default to a "Generic" record/schema if possible, but if the schema includes some neo4j-response-specific
+            // types like Field.Node, then use a Response Record
+            Schema extends GenericSchema ? RecordTypedField<Nullable, Schema> :
+            Schema extends ResponseSchema ? ResponseRecordTypedField<Nullable, Schema> :
+            never) => ({
+            type: FieldType.Record as const, schema, nullable,
+        } as any),
+    
+        List: <Schema extends GenericSchema[any]|ResponseSchema[any]>(schema: Schema): (
+            // Default to a "Generic" record/schema if possible, but if the schema includes some neo4j-response-specific
+            // types like Field.Node, then use a Response Record
+            Schema extends GenericSchema[any] ? ListTypedField<Nullable, Schema> :
+            Schema extends ResponseSchema[any] ? ResponseListTypedField<Nullable, Schema> :
+            never) => ({
+            type: FieldType.List as const, schema, nullable,
+        } as any),
+        
+        // Pass through of the types used by the underlying Neo4j JavaScript driver:
+        Node: {type: FieldType.Node as const, nullable, schema: undefined},
+        Relationship: {type: FieldType.Relationship as const, nullable, schema: undefined},
+        Path: {type: FieldType.Path as const, nullable, schema: undefined},
+        /** A Raw VNode: includes all of its properties but not virtual props or derived props */
+        VNode: <VNT extends AnyVNodeType>(vnodeType: VNT): TypedField<FieldType.VNode, Nullable, VNT> => ({
+            type: FieldType.VNode as const, nullable, schema: vnodeType,
+        }),
+    };
 }
 
 /**
@@ -156,48 +282,12 @@ export interface RawVNodeField<VNT extends AnyVNodeType = AnyVNodeType, Nullable
  *  (2) for specifying the return shape of Cypher queries made to the Neo4j database.
  */
 export const Field = Object.freeze({
-    Any: makeField(FieldType.Any, false, Joi.any()),
-    VNID: makeFieldWithOrNull(FieldType.VNID, Joi.string().custom(vnidValidator)),
-    Int: makeFieldWithOrNull(FieldType.Int, Joi.number().integer()),
-    /** A signed integer up to 64 bits. For larger than 64 bits, use a string type as Neo4j doesn't support it. */
-    BigInt: makeFieldWithOrNull(FieldType.BigInt, Joi.any().custom(validateBigInt)),
-    Float: makeFieldWithOrNull(FieldType.Float, Joi.number()),
-    /** A String. Default max length is 1,000, so use .Check(s => s.max(...)) if you need to change the limit. */
-    String: makeFieldWithOrNull(FieldType.String, Joi.string().max(1_000)),
-    /** A unicode-aware slug (cannot contain spaces/punctuation). Valid: "the-thing". Invalid: "foo_bar" or "foo bar" */
-    Slug: makeFieldWithOrNull(FieldType.Slug, Joi.string().regex(slugRegex).max(60)),
-    Boolean: makeFieldWithOrNull(FieldType.Boolean, Joi.boolean()),
-    /** A calendar date, i.e. a date without time information */
-    Date: makeFieldWithOrNull(FieldType.Date, Joi.any().custom(validateDate)),
-    DateTime: makeFieldWithOrNull(FieldType.DateTime, Joi.date().iso()),
-
-    // Special field types that can be returned from Cypher queries, but not used as property types:
-    Map: <M extends MapFieldSpec>(m: M): MapField<M, false> & {OrNull: MapField<M, true>} => ({
-        type: ResponseFieldType.Map as const, spec: m, nullable: false as const,
-        OrNull: {type: ResponseFieldType.Map as const, spec: m, nullable: true as const},
-    }),
-    List: <L extends ResponseFieldSpec>(valueType: L): ListField<L, false> & {OrNull: ListField<L, true>} => ({
-        type: ResponseFieldType.List as const, spec: valueType, nullable: false as const,
-        OrNull: {type: ResponseFieldType.List as const, spec: valueType, nullable: true as const},
-    }),
-    // Pass through of the types used by the underlying Neo4j JavaScript driver:
-    Node: {
-        type: ResponseFieldType.Node as const, nullable: false as const,
-        OrNull: {type: ResponseFieldType.Node as const, nullable: true as const}
+    ..._getFieldTypes(false),
+    // The nullable versions of all of the above:
+    NullOr: {
+        ..._getFieldTypes(true),
     },
-    Relationship: {
-        type: ResponseFieldType.Relationship as const, nullable: false as const,
-        OrNull: {type: ResponseFieldType.Relationship as const, nullable: true as const}
-    },
-    Path: {
-        type: ResponseFieldType.Path as const, nullable: false as const,
-        OrNull: {type: ResponseFieldType.Path as const, nullable: true as const}
-    },
-    /** A Raw VNode: includes all of its properties but not virtual props or derived props */
-    VNode: <VNT extends AnyVNodeType>(vnodeType: VNT) => ({
-        type: ResponseFieldType.VNode as const, nullable: false as const, vnodeType,
-        OrNull: {type: ResponseFieldType.VNode as const, nullable: true as const, vnodeType,},
-    }),
+    Any: {type: FieldType.Any as const, nullable: false as const, schema: undefined},
 
     // Convenience definition to get Joi via Field.Check
     // e.g. to use things like Field.Int.Check(n=>n.min(Field.Check.Ref("otherField")))
@@ -207,34 +297,29 @@ export const Field = Object.freeze({
 /**
  * TypeScript helper type to get the underlying TypeScript/Javascript data type for a given field declaration.
  */
-export type GetDataType<FieldSpec extends ResponseFieldSpec> = (
-    FieldSpec extends FieldData<any, any, any> ?
-        (FieldSpec extends FieldData<any, true, any> ? null : never) | (
-            FieldSpec extends FieldData<FieldType.Any, any, any> ? any :
-            FieldSpec extends FieldData<FieldType.VNID, any, any> ? VNID :
-            FieldSpec extends FieldData<FieldType.Int, any, any> ? number :
-            FieldSpec extends FieldData<FieldType.BigInt, any, any> ? bigint :
-            FieldSpec extends FieldData<FieldType.Float, any, any> ? number :
-            FieldSpec extends FieldData<FieldType.String, any, any> ? string :
-            FieldSpec extends FieldData<FieldType.Slug, any, any> ? string :
-            FieldSpec extends FieldData<FieldType.Boolean, any, any> ? boolean :
-            FieldSpec extends FieldData<FieldType.Date, any, any> ? VDate :
-            FieldSpec extends FieldData<FieldType.DateTime, any, any> ? Date :
-            {error: "unknown FieldType", got: FieldSpec}
-        ) :
-    FieldSpec extends ResponseField<any, any> ?
-        (FieldSpec extends ResponseField<any, true> ? null : never) | (
-            FieldSpec extends MapField<infer Spec> ? { [K in keyof Spec]: GetDataType<Spec[K]> } :
-            FieldSpec extends ListField<infer Spec> ? GetDataType<Spec>[] :
-            FieldSpec extends ResponseField<ResponseFieldType.Node, any> ? Node :
-            FieldSpec extends ResponseField<ResponseFieldType.Relationship, any> ? Relationship :
-            FieldSpec extends ResponseField<ResponseFieldType.Path, any> ? Path :
-            FieldSpec extends RawVNodeField<infer VNT, any> ? 
-                GetDataShape<VNT["properties"]> & {_labels: string[]}
-            :
-            {error: "unknown Response FieldType", got: FieldSpec}
-        ) :
-    never
+export type GetDataType<FieldSpec extends TypedField> = (
+    (FieldSpec extends TypedField<any, true, any> ? null : never) | (
+        FieldSpec extends TypedField<FieldType.VNID, any, any> ? VNID :
+        FieldSpec extends TypedField<FieldType.Int, any, any> ? number :
+        FieldSpec extends TypedField<FieldType.BigInt, any, any> ? bigint :
+        FieldSpec extends TypedField<FieldType.Float, any, any> ? number :
+        FieldSpec extends TypedField<FieldType.String, any, any> ? string :
+        FieldSpec extends TypedField<FieldType.Slug, any, any> ? string :
+        FieldSpec extends TypedField<FieldType.Boolean, any, any> ? boolean :
+        FieldSpec extends TypedField<FieldType.Date, any, any> ? VDate :
+        FieldSpec extends TypedField<FieldType.DateTime, any, any> ? Date :
+
+        FieldSpec extends ResponseRecordTypedField<any, infer Schema> ? { [K in keyof Schema]: GetDataType<Schema[K]> } :  // Works for Generic record or response record
+        FieldSpec extends ResponseListTypedField<any, infer Schema> ? GetDataType<Schema>[] :  // Works for Generic list or response list
+
+        FieldSpec extends TypedField<FieldType.VNode, any, infer VNT> ?
+            (VNT extends AnyVNodeType ? GetDataShape<VNT["properties"]> & {_labels: string[]} : {error: "Invalid VNodeType"}) :
+        FieldSpec extends TypedField<FieldType.Node, any, any> ? Node :
+        FieldSpec extends TypedField<FieldType.Relationship, any, any> ? Relationship :
+        FieldSpec extends TypedField<FieldType.Path, any, any> ? Path :
+        FieldSpec extends TypedField<FieldType.Any, any, any> ? any :
+        {error: "unknown FieldType", got: FieldSpec}
+    )
 );
 
 export type GetDataShape<Schema extends ResponseSchema> = {
@@ -247,11 +332,11 @@ export type GetDataShape<Schema extends ResponseSchema> = {
  * This will not attempt to cast/coerce values to the correct type, because doing so could mask the fact that
  * inconsistently type values are stored in the database.
  *
- * @param fieldType The Field definition, e.g. Field.Float.OrNull or Field.Int.Check(i => i.min(0))
+ * @param fieldType The Field definition, e.g. Field.NullOr.Float or Field.Int.Check(i => i.min(0))
  * @param value The value to validate
  * @returns The validated value
  */
-export function validateValue<FD extends FieldData<any, any, any>>(fieldType: FD, value: any): GetDataType<FD> {
+export function validateValue<FD extends PropertyTypedField<any, any, any>>(fieldType: FD, value: any): GetDataType<FD> {
     const result = fieldType.schema.validate(value, {convert: false});
     if (result.error) {
         throw result.error;
@@ -268,9 +353,9 @@ export function validateValue<FD extends FieldData<any, any, any>>(fieldType: FD
  * @returns The validated object
  */
 export function validatePropSchema<PS extends PropSchema>(propSchema: PS, value: any, options?: Joi.ValidationOptions): GetDataShape<PS> {
-    // Build a Joi.object() schema, using the "schema" property of every FieldData in the propSchema:
+    // Build a Joi.object() schema, using the "schema" property of every TypedField in the propSchema:
     const joiSchemaObj = Joi.object(Object.fromEntries(
-        Object.entries(propSchema).map(([key, fieldData]) => [key, fieldData.schema])
+        Object.entries(propSchema).map(([key, fieldDeclaration]) => [key, fieldDeclaration.schema])
     ));
     const result = joiSchemaObj.validate(value, {convert: false, ...options});
     if (result.error) {

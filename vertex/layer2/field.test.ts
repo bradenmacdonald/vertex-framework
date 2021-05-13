@@ -2,41 +2,13 @@ import { suite, test, assert } from "../lib/intern-tests";
 import { AssertEqual, checkType } from "../lib/ts-utils";
 import { VNID } from "../lib/vnid";
 import { VDate, Neo4jDate } from "../lib/vdate";
-import { Field, FieldType, GetDataShape, PropSchema, ResponseSchema, validatePropSchema, validateValue, Node, Relationship, Path } from "./field";
+import { Field, FieldType, GetDataShape, PropSchema, GenericSchema, ResponseSchema, validatePropSchema, validateValue, Node, Relationship, Path } from "./field";
 import { Person } from "../test-project";
 import { RawVNode } from "./vnode-base";
 
 suite(__filename, () => {
 
     suite("Property Field type declarations", () => {
-
-        suite("Any", () => {
-
-            test("Basic field", () => {
-                const fieldDeclaration = Field.Any;
-                assert.equal(fieldDeclaration.type, FieldType.Any);
-                assert.equal(fieldDeclaration.nullable, false);
-    
-                // An Any field can hold any type of value whatsoever, including null:
-                const value1 = validateValue(fieldDeclaration, "string");
-                checkType<AssertEqual<typeof value1, any>>();
-                const value2 = validateValue(fieldDeclaration, {thisIs: "a complex object", num: 15});
-                checkType<AssertEqual<typeof value2, any>>();
-                const value3 = validateValue(fieldDeclaration, null);
-                checkType<AssertEqual<typeof value3, any>>();
-            });
-    
-            test(".Check(...)", () => {
-                // Add a custom check, in this case disallowing a specific value
-                const fieldDeclaration = Field.Any.Check(v => v.disallow("specific string"));
-                const value1 = validateValue(fieldDeclaration, "string");
-                checkType<AssertEqual<typeof value1, any>>();
-                const value2 = validateValue(fieldDeclaration, {thisIs: "a complex object", num: 15});
-                checkType<AssertEqual<typeof value2, any>>();
-                // But this will fail since the Check rejects it:
-                assert.throws(() => { validateValue(fieldDeclaration, "specific string"); });
-            });
-        });
 
         suite("VNID", () => {
 
@@ -52,8 +24,8 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, null); });
             });
     
-            test(".OrNull", () => {
-                const fieldDeclaration = Field.VNID.OrNull;
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.VNID;
                 assert.equal(fieldDeclaration.type, FieldType.VNID);
                 assert.equal(fieldDeclaration.nullable, true);
     
@@ -73,9 +45,9 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, "_not a vnid"); });
             });
     
-            test(".OrNull.Check(...)", () => {
+            test("NullOr. ... .Check(...)", () => {
                 // Add a custom check, in this case disallowing a specific value
-                const fieldDeclaration = Field.VNID.OrNull.Check(v => v.disallow("_0"));
+                const fieldDeclaration = Field.NullOr.VNID.Check(v => v.disallow("_0"));
                 const value1 = validateValue(fieldDeclaration, "_3DF8hceEobPFSS26FKl733");
                 checkType<AssertEqual<typeof value1, VNID|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
@@ -100,8 +72,8 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, null); });
             });
     
-            test(".OrNull", () => {
-                const fieldDeclaration = Field.Int.OrNull;
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.Int;
                 assert.equal(fieldDeclaration.type, FieldType.Int);
                 assert.equal(fieldDeclaration.nullable, true);
     
@@ -122,9 +94,9 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, 300); });
             });
     
-            test(".OrNull.Check(...)", () => {
+            test("NullOr. ... .Check(...)", () => {
                 // Add a custom check, in this case a range
-                const fieldDeclaration = Field.Int.OrNull.Check(v => v.min(10).max(100));
+                const fieldDeclaration = Field.NullOr.Int.Check(v => v.min(10).max(100));
                 const value1 = validateValue(fieldDeclaration, 50);
                 checkType<AssertEqual<typeof value1, number|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
@@ -157,8 +129,8 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, null); });
             });
     
-            test(".OrNull", () => {
-                const fieldDeclaration = Field.BigInt.OrNull;
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.BigInt;
                 assert.equal(fieldDeclaration.type, FieldType.BigInt);
                 assert.equal(fieldDeclaration.nullable, true);
     
@@ -201,8 +173,8 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, null); });
             });
     
-            test(".OrNull", () => {
-                const fieldDeclaration = Field.Float.OrNull;
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.Float;
                 assert.equal(fieldDeclaration.type, FieldType.Float);
                 assert.equal(fieldDeclaration.nullable, true);
     
@@ -239,8 +211,8 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, null); });
             });
     
-            test(".OrNull", () => {
-                const fieldDeclaration = Field.String.OrNull;
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.String;
                 assert.equal(fieldDeclaration.type, FieldType.String);
                 assert.equal(fieldDeclaration.nullable, true);
     
@@ -294,8 +266,8 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, null); });
             });
     
-            test(".OrNull", () => {
-                const fieldDeclaration = Field.Slug.OrNull;
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.Slug;
                 assert.equal(fieldDeclaration.type, FieldType.Slug);
                 assert.equal(fieldDeclaration.nullable, true);
     
@@ -340,8 +312,8 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, null); });
             });
     
-            test(".OrNull", () => {
-                const fieldDeclaration = Field.Boolean.OrNull;
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.Boolean;
                 assert.equal(fieldDeclaration.type, FieldType.Boolean);
                 assert.equal(fieldDeclaration.nullable, true);
     
@@ -383,8 +355,8 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, null); });
             });
     
-            test(".OrNull", () => {
-                const fieldDeclaration = Field.Date.OrNull;
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.Date;
                 assert.equal(fieldDeclaration.type, FieldType.Date);
                 assert.equal(fieldDeclaration.nullable, true);
     
@@ -422,8 +394,8 @@ suite(__filename, () => {
                 assert.throws(() => { validateValue(fieldDeclaration, null); });
             });
     
-            test(".OrNull", () => {
-                const fieldDeclaration = Field.DateTime.OrNull;
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.DateTime;
                 assert.equal(fieldDeclaration.type, FieldType.DateTime);
                 assert.equal(fieldDeclaration.nullable, true);
     
@@ -482,72 +454,133 @@ suite(__filename, () => {
         });
     });
 
+    suite("Property vs Generic vs Response Schemas", () => {
+
+        test("Property Schemas can hold only property typed values", () => {
+            const valid = PropSchema({
+                fieldId: Field.VNID,
+                fieldNullId: Field.NullOr.VNID,
+                fieldInt: Field.Int,
+                fieldNullInt: Field.NullOr.Int,
+                fieldBig: Field.BigInt,
+                fieldFloat: Field.Float,
+                fieldStr: Field.String,
+                fieldSlug: Field.Slug,
+                fieldBool: Field.Boolean,
+                fieldDate: Field.Date,
+                fieldDT: Field.DateTime,
+                // @ts-expect-error a Record is not allowed in a property schema
+                fieldRecord: Field.Record({key: Field.String}),
+                // @ts-expect-error a Record is not allowed in a property schema
+                fieldList: Field.List(Field.String),
+                // @ts-expect-error a Node is not allowed in a property schema
+                fieldNode: Field.Node,
+                // @ts-expect-error a VNode is not allowed in a property schema
+                fieldVNode: Field.VNode(Person),
+                // @ts-expect-error an "Any" result is not allowed in a property schema
+                fieldAny: Field.Any,
+            });
+        });
+
+        test("Generic Schemas can hold property typed values and composite types, but not response types", () => {
+            const valid = GenericSchema({
+                fieldId: Field.VNID,
+                fieldNullId: Field.NullOr.VNID,
+                fieldInt: Field.Int,
+                fieldNullInt: Field.NullOr.Int,
+                fieldBig: Field.BigInt,
+                fieldFloat: Field.Float,
+                fieldStr: Field.String,
+                fieldSlug: Field.Slug,
+                fieldBool: Field.Boolean,
+                fieldDate: Field.Date,
+                fieldDT: Field.DateTime,
+                fieldRecord: Field.Record({key: Field.String, key2: Field.List(Field.Boolean)}),
+                fieldList: Field.List(Field.NullOr.String),
+                // @ts-expect-error a Node is not allowed in a generic schema
+                fieldNode: Field.Node,
+                // @ts-expect-error a VNode is not allowed in a property schema
+                fieldVNode: Field.VNode(Person),
+                // @ts-expect-error They are also not allowed within composite types:
+                fieldListNode: Field.List(Field.Node),
+                // @ts-expect-error an "Any" result is not allowed in a generic schema
+                fieldAny: Field.Any,
+            });
+        });
+
+        test("Response Schemas can hold property typed values and composite types and response types", () => {
+            const valid = ResponseSchema({
+                fieldId: Field.VNID,
+                fieldNullId: Field.NullOr.VNID,
+                fieldInt: Field.Int,
+                fieldNullInt: Field.NullOr.Int,
+                fieldBig: Field.BigInt,
+                fieldFloat: Field.Float,
+                fieldStr: Field.String,
+                fieldSlug: Field.Slug,
+                fieldBool: Field.Boolean,
+                fieldDate: Field.Date,
+                fieldDT: Field.DateTime,
+                fieldRecord: Field.Record({key: Field.String, key2: Field.List(Field.Boolean)}),
+                fieldList: Field.List(Field.NullOr.String),
+                fieldNode: Field.Node,
+                fieldVNode: Field.VNode(Person),
+                fieldListNode: Field.List(Field.Node),
+                fieldAny: Field.Any,
+            });
+        });
+    });
+
     suite("ResponseSchema and GetDataShape", () => {
 
-        // Basic response field types:
-        test("Any", () => {
-            const shape = ResponseSchema({anyValue: Field.Any});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {anyValue: any}>>();
-        });
+        // Basic property field types:
         test("VNID", () => {
-            const shape = ResponseSchema({myVNID: Field.VNID, nullVNID: Field.VNID.OrNull});
+            const shape = ResponseSchema({myVNID: Field.VNID, nullVNID: Field.NullOr.VNID});
             checkType<AssertEqual<GetDataShape<typeof shape>, {myVNID: VNID, nullVNID: VNID|null}>>();
         });
         test("Int", () => {
-            const shape = ResponseSchema({myInt: Field.Int, nullInt: Field.Int.OrNull});
+            const shape = ResponseSchema({myInt: Field.Int, nullInt: Field.NullOr.Int});
             checkType<AssertEqual<GetDataShape<typeof shape>, {myInt: number, nullInt: number|null}>>();
         });
         test("BigInt", () => {
-            const shape = ResponseSchema({myBigInt: Field.BigInt, nullBigInt: Field.BigInt.OrNull});
+            const shape = ResponseSchema({myBigInt: Field.BigInt, nullBigInt: Field.NullOr.BigInt});
             checkType<AssertEqual<GetDataShape<typeof shape>, {myBigInt: bigint, nullBigInt: bigint|null}>>();
         });
         test("Float", () => {
-            const shape = ResponseSchema({myFloat: Field.Float, nullFloat: Field.Float.OrNull});
+            const shape = ResponseSchema({myFloat: Field.Float, nullFloat: Field.NullOr.Float});
             checkType<AssertEqual<GetDataShape<typeof shape>, {myFloat: number, nullFloat: number|null}>>();
         });
         test("String", () => {
-            const shape = ResponseSchema({myString: Field.String, nullString: Field.String.OrNull});
+            const shape = ResponseSchema({myString: Field.String, nullString: Field.NullOr.String});
             checkType<AssertEqual<GetDataShape<typeof shape>, {myString: string, nullString: string|null}>>();
         });
         test("Slug", () => {
-            const shape = ResponseSchema({mySlug: Field.Slug, nullSlug: Field.Slug.OrNull});
+            const shape = ResponseSchema({mySlug: Field.Slug, nullSlug: Field.NullOr.Slug});
             checkType<AssertEqual<GetDataShape<typeof shape>, {mySlug: string, nullSlug: string|null}>>();
         });
         test("Boolean", () => {
-            const shape = ResponseSchema({myBool: Field.Boolean, nullBool: Field.Boolean.OrNull});
+            const shape = ResponseSchema({myBool: Field.Boolean, nullBool: Field.NullOr.Boolean});
             checkType<AssertEqual<GetDataShape<typeof shape>, {myBool: boolean, nullBool: boolean|null}>>();
         });
         test("Date", () => {
-            const shape = ResponseSchema({myDate: Field.Date, nulDate: Field.Date.OrNull});
+            const shape = ResponseSchema({myDate: Field.Date, nulDate: Field.NullOr.Date});
             checkType<AssertEqual<GetDataShape<typeof shape>, {myDate: VDate, nulDate: VDate|null}>>();
         });
         test("DateTime", () => {
-            const shape = ResponseSchema({myDateTime: Field.DateTime, nullDateTime: Field.DateTime.OrNull});
+            const shape = ResponseSchema({myDateTime: Field.DateTime, nullDateTime: Field.NullOr.DateTime});
             checkType<AssertEqual<GetDataShape<typeof shape>, {myDateTime: Date, nullDateTime: Date|null}>>();
         });
-        // Types unique to response fields:
+        // Composite types:
 
-        test("Raw Neo4j Node", () => {
-            const shape = ResponseSchema({nodeField: Field.Node, nullNode: Field.Node.OrNull});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {nodeField: Node, nullNode: Node|null}>>();
-        });
-        test("Raw Neo4j Path", () => {
-            const shape = ResponseSchema({pathField: Field.Path, nullPath: Field.Path.OrNull});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {pathField: Path, nullPath: Path|null}>>();
-        });
-        test("Raw Neo4j Relationship", () => {
-            const shape = ResponseSchema({relField: Field.Relationship, nullRel: Field.Relationship.OrNull});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {relField: Relationship, nullRel: Relationship|null}>>();
-        });
-        test("Map", () => {
+        test("Record", () => {
             const shape = ResponseSchema({
-                mapField: Field.Map({
-                    subMap: Field.Map({ subKey1: Field.String.OrNull, subKey2: Field.BigInt }),
+                mapField: Field.Record({
+                    subMap: Field.Record({ subKey1: Field.NullOr.String, subKey2: Field.BigInt }),
                     otherKey: Field.String,
                 }),
-                nullMap: Field.Map({
+                nullMap: Field.NullOr.Record({
                     key1: Field.VNID,
-                }).OrNull,
+                }),
             });
             checkType<AssertEqual<GetDataShape<typeof shape>, {
                 mapField: {
@@ -562,17 +595,32 @@ suite(__filename, () => {
         test("List", () => {
             const shape = ResponseSchema({
                 idList: Field.List(Field.VNID),
-                nullStringList: Field.List(Field.String).OrNull,
+                nullStringList: Field.NullOr.List(Field.String),
             });
             checkType<AssertEqual<GetDataShape<typeof shape>, {
                 idList: VNID[],
                 nullStringList: string[]|null,
             }>>();
         });
+
+        // Types unique to response fields:
+
+        test("Raw Neo4j Node", () => {
+            const shape = ResponseSchema({nodeField: Field.Node, nullNode: Field.NullOr.Node});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {nodeField: Node, nullNode: Node|null}>>();
+        });
+        test("Raw Neo4j Path", () => {
+            const shape = ResponseSchema({pathField: Field.Path, nullPath: Field.NullOr.Path});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {pathField: Path, nullPath: Path|null}>>();
+        });
+        test("Raw Neo4j Relationship", () => {
+            const shape = ResponseSchema({relField: Field.Relationship, nullRel: Field.NullOr.Relationship});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {relField: Relationship, nullRel: Relationship|null}>>();
+        });
         test("RawVNode", () => {
             const shape = ResponseSchema({
                 person: Field.VNode(Person),
-                nullPerson: Field.VNode(Person).OrNull,
+                nullPerson: Field.NullOr.VNode(Person),
             });
             // First we check very specific types, to make it easier to diagnose typing bugs:
             checkType<AssertEqual<GetDataShape<typeof shape>["person"]["id"], VNID>>();
@@ -600,6 +648,10 @@ suite(__filename, () => {
                     _labels: string[]
                 }),
             }>>();
+        });
+        test("Any", () => {
+            const shape = ResponseSchema({someUnknownValue: Field.Any});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {someUnknownValue: any}>>();
         });
     });
 });

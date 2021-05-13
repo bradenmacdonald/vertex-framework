@@ -35,7 +35,7 @@ class AstronomicalBody extends VNodeType {
             to: [AstronomicalBody],
             cardinality: VNodeType.Rel.ToOneOrNone,
             // An optional "periodInSeconds" property:
-            properties: { periodInSeconds: Field.Float.OrNull, },
+            properties: { periodInSeconds: Field.NullOr.Float, },
         },
         // A -to-many relationship:
         VISITED_BY: { to: [Person], properties: { when: Field.Date } }

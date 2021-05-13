@@ -72,7 +72,7 @@ export async function updateToOneRelationship<VNR extends RelationshipDeclaratio
             DELETE oldRel
 
             WITH oldTargets, target
-        `.RETURN({"oldTargets": Field.List(Field.Map({id: Field.VNID, properties: Field.Any}))}));
+        `.RETURN({"oldTargets": Field.List(Field.Record({id: Field.VNID, properties: Field.Any}))}));
         if (mergeResult.length === 0) {
             // The above query should only fail if the MATCH clauses don't match anything.
             throw new Error(`Cannot change ${fromType.name} relationship ${relType} to "${toKey}" - target not found.`);

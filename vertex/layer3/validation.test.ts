@@ -62,7 +62,7 @@ const createPerson = async (name: string): Promise<VNID> => {
 class Note extends VNodeType {
     static label = "NoteVT";  // VT = validation tests
     static readonly slugIdPrefix = "note-";
-    static readonly properties = {...VNodeType.properties, slugId: Field.Slug, text: Field.String.OrNull};
+    static readonly properties = {...VNodeType.properties, slugId: Field.Slug, text: Field.NullOr.String};
 }
 
 const CreateNote = defaultCreateFor(Note, n => n.slugId);

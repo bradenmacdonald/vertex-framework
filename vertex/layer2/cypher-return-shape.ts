@@ -1,17 +1,11 @@
 import { Record as Neo4jRecord } from "neo4j-driver-lite";
 import {
-    FieldData,
     FieldType,
     GetDataType,
-    ResponseFieldType,
-    ResponseFieldSpec,
     ResponseSchema,
     GetDataShape,
-    ResponseField,
-    RawVNodeField,
-    MapField,
-    ListField,
     Node,
+    TypedField,
  } from "./field";
 import { VDate } from "../lib/vdate";
 import type { BaseVNodeType, RawVNode } from "./vnode-base";
@@ -20,63 +14,62 @@ import type { BaseVNodeType, RawVNode } from "./vnode-base";
 //// Conversion methods:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// We need these type checks to help TypeScript out, as it seems to have some trouble:
-function isPropertyField(declaration: ResponseFieldSpec): declaration is FieldData<any, any, any> {
-    return declaration.type >= 0 && declaration.type < FieldType._max;
-}
-function isResponseField(declaration: ResponseFieldSpec): declaration is ResponseField {
-    return declaration.type >= ResponseFieldType.Node && declaration.type < ResponseFieldType._max;
-}
-
-
 // Convert a single field in a transaction response (from the native Neo4j driver) to a typed variable
-export function convertNeo4jFieldValue<FD extends ResponseFieldSpec>(fieldName: string, fieldValue: any, fieldDeclaration: FD): GetDataType<FD> {
+export function convertNeo4jFieldValue<FD extends TypedField>(fieldName: string, fieldValue: any, fieldDeclaration: FD): GetDataType<FD> {
     if (fieldValue === null) {
         return null as any;
     }
-    if (fieldDeclaration.type === ResponseFieldType.VNode) { // This is a node (VNode)
-        return neoNodeToRawVNode(fieldValue, (fieldDeclaration as any).vnodeType, fieldName) as any;
-    } else if (isPropertyField(fieldDeclaration)) {
-        switch (fieldDeclaration.type) {
-            case FieldType.Int: {
-                // fieldValue is a BigInt but we're going to return it as a Number.
-                if (fieldValue > BigInt(Number.MAX_SAFE_INTEGER) || fieldValue < BigInt(Number.MIN_SAFE_INTEGER)) {
-                    throw new Error("Cannot load large number from Neo4j into Number type. Change field definition from Int to BigInt.");
-                }
-                return Number(fieldValue) as any;
+    switch (fieldDeclaration.type) {
+        ////////////////////////////////////////////////
+        // Basic property types
+        case FieldType.Int: {
+            // fieldValue is a BigInt but we're going to return it as a Number.
+            if (fieldValue > BigInt(Number.MAX_SAFE_INTEGER) || fieldValue < BigInt(Number.MIN_SAFE_INTEGER)) {
+                throw new Error("Cannot load large number from Neo4j into Number type. Change field definition from Int to BigInt.");
             }
-            case FieldType.BigInt: { return fieldValue; }  // Already a bigint, since we have Neo4j configured to use BigInt by default
-            case FieldType.Float: { return Number(fieldValue) as any; }
-            case FieldType.Date: { return VDate.fromNeo4jDate(fieldValue) as any; }
-            case FieldType.DateTime: {
-                // Convert from the Neo4j "DateTime" class to a standard JavaScript Date object:
-                return new Date(fieldValue.toString()) as any;
-            }
-            default:
-                return fieldValue;
+            return Number(fieldValue) as any;
         }
-    } else if (isResponseField(fieldDeclaration)) {
-        switch (fieldDeclaration.type) {
-            case ResponseFieldType.Map: {
-                const spec = (fieldDeclaration as any as MapField).spec;
-                const map: any = {}
-                for (const mapKey in spec) {
-                    map[mapKey] = convertNeo4jFieldValue(mapKey, fieldValue[mapKey] ?? null, spec[mapKey]);
-                }
-                return map;
-            }
-            case ResponseFieldType.List: {
-                const spec = (fieldDeclaration as any as ListField).spec;
-                return fieldValue.map((listValue: any) => convertNeo4jFieldValue(fieldName, listValue, spec));
-            }
-            case ResponseFieldType.Node:
-            case ResponseFieldType.Path:
-            case ResponseFieldType.Relationship:
-                return fieldValue;  // Return the raw result, completely unmodified
-            default: { throw new Error(`Unexpected Response Field Type: ${fieldDeclaration.type}`); }
+        case FieldType.BigInt: { return fieldValue; }  // Already a bigint, since we have Neo4j configured to use BigInt by default
+        case FieldType.Float: { return Number(fieldValue) as any; }
+        case FieldType.Date: { return VDate.fromNeo4jDate(fieldValue) as any; }
+        case FieldType.DateTime: {
+            // Convert from the Neo4j "DateTime" class to a standard JavaScript Date object:
+            return new Date(fieldValue.toString()) as any;
         }
-    } else {
-        throw new Error(`Unexpected field declaration type: ${fieldDeclaration}`);
+        case FieldType.Boolean:
+        case FieldType.String:
+        case FieldType.VNID:
+        case FieldType.Slug: {
+            return fieldValue;
+        }
+        ////////////////////////////////////////////////
+        // Composite field types
+        case FieldType.Record: {
+            const schema = fieldDeclaration.schema;
+            const map: any = {}
+            for (const mapKey in schema) {
+                map[mapKey] = convertNeo4jFieldValue(mapKey, fieldValue[mapKey] ?? null, schema[mapKey]);
+            }
+            return map;
+        }
+        case FieldType.List: {
+            const schema = fieldDeclaration.schema;
+            return fieldValue.map((listValue: any) => convertNeo4jFieldValue(fieldName, listValue, schema));
+        }
+        ////////////////////////////////////////////////
+        // Response field types
+        case FieldType.VNode: {
+            const vnodeType = fieldDeclaration.schema;
+            return neoNodeToRawVNode(fieldValue, vnodeType, fieldName) as any;
+        }
+        case FieldType.Node:
+        case FieldType.Path:
+        case FieldType.Relationship:
+        case FieldType.Any:
+            return fieldValue;  // Return the raw result, completely unmodified
+        default: {
+            throw new Error(`Unexpected field declaration type: ${fieldDeclaration.type}`);
+        }
     }
 }
 

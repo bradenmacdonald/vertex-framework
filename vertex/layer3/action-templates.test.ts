@@ -25,7 +25,7 @@ class Planet extends AstronomicalBody {
     static readonly label = "PlanetAT";  // AT = Action Templates test
     static readonly properties = {
         ...AstronomicalBody.properties,
-        numberOfMoons: Field.Int.OrNull,
+        numberOfMoons: Field.NullOr.Int,
     };
     static readonly rel = {
         /** This planet has moon(s) */

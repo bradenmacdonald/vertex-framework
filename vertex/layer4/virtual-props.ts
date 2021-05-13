@@ -1,5 +1,5 @@
 import type { CypherQuery } from "../layer2/cypher-sugar";
-import { ResponseFieldSpec } from "../layer2/field";
+import { TypedField } from "../layer2/field";
 import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
 /**
  * Every VNode can declare "virtual properties" which are computed properties
@@ -37,7 +37,7 @@ export interface VirtualOneRelationshipProperty {
     /** The VNodeType that this virtual relationship property is pointing to */
     target: {new(): BaseVNodeType; label: string};  // This type should be "target: VNodeType" but that prevents the use of the nice optional VNodeType.hasVirtualProperties() method.
 }
-export interface VirtualCypherExpressionProperty<ValueType extends ResponseFieldSpec = ResponseFieldSpec> {
+export interface VirtualCypherExpressionProperty<ValueType extends TypedField = TypedField> {
     type: typeof VirtualPropType.CypherExpression,
     cypherExpression: CypherQuery,
     valueType: ValueType,

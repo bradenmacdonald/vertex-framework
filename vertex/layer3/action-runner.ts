@@ -31,7 +31,7 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
                 MATCH (prevAction:${Action} {id: ${isRevertOfAction}})
                 OPTIONAL MATCH (prevAction)<-[:${Action.rel.REVERTED}]-(existingRevert:${Action})
                 WITH prevAction.id AS prevId, collect(existingRevert {.id}) AS existingRevert
-            `.RETURN({"prevId" : Field.VNID, existingRevert: Field.List(Field.Map({id: Field.String}))}));
+            `.RETURN({"prevId" : Field.VNID, existingRevert: Field.List(Field.Record({id: Field.String}))}));
             //const prevAction = await tx.pullOne(Action, a => a.revertedBy(x => x.id), {key: isRevertOfAction});
             if (prevAction.existingRevert.length > 0) {
                 throw new Error(`Action ${isRevertOfAction} has already been reverted, by Action ${prevAction.existingRevert[0].id}`);

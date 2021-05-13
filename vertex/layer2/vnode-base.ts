@@ -1,6 +1,7 @@
 import { WrappedTransaction } from "../transaction";
-import { Field, FieldData, FieldType, GetDataShape, PropSchema, validatePropSchema } from "./field";
+import { Field, TypedField, FieldType, GetDataShape, PropSchema, validatePropSchema } from "./field";
 import { C } from "./cypher-sugar";
+import { convertNeo4jFieldValue } from "./cypher-return-shape";
 
 // An empty object that can be used as a default value for read-only properties
 export const emptyObj = Object.freeze({});
@@ -8,7 +9,7 @@ export const emptyObj = Object.freeze({});
 const relTypeKey = Symbol("relTypeKey");
 
 export interface PropSchemaWithId extends PropSchema {
-    id: FieldData<FieldType.VNID, false, any>;
+    id: TypedField<FieldType.VNID, false, any>;
 }
 
 export interface RelationshipsSchema {
@@ -76,7 +77,7 @@ export class _BaseVNodeType {
             if (!this.properties.slugId) {
                 throw new Error("A VNodeType cannot specify a slugIdPrefix if it doesn't declare the slugId property");
             }
-            if (!dbObject.slugId.startsWith(this.slugIdPrefix)) {
+            if (typeof dbObject.slugId !== "string" || !dbObject.slugId.startsWith(this.slugIdPrefix)) {
                 throw new ValidationError(`${this.label} has an invalid slugId "${dbObject.slugId}". Expected it to start with "${this.slugIdPrefix}".`);
             }
         }
@@ -139,7 +140,9 @@ export class _BaseVNodeType {
                             // For consistency, we make missing properties always appear as "null" instead of "undefined":
                             const valuesFound = {...r.relProps};
                             for (const propName in spec.properties) {
-                                if (!(propName in valuesFound)) {
+                                if (propName in valuesFound) {
+                                    valuesFound[propName] = convertNeo4jFieldValue(propName, valuesFound[propName], spec.properties[propName]);
+                                } else {
                                     valuesFound[propName] = null;
                                 }
                             }

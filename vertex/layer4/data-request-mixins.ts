@@ -13,7 +13,7 @@ import { BaseDataRequest, AnyDataRequest, UpdateMixin, RequiredMixin } from "../
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import type { DerivedProperty } from "./derived-props";
-import { FieldData, FieldType, ResponseFieldSpec } from "../layer2/field";
+import { TypedField } from "../layer2/field";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
@@ -108,7 +108,7 @@ export interface IncludedVirtualOneProp<propType extends VirtualOneRelationshipP
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 }
 
-export interface IncludedVirtualCypherExpressionProp<FT extends ResponseFieldSpec> {
+export interface IncludedVirtualCypherExpressionProp<FT extends TypedField> {
     type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
     valueType: FT;  // This field also doesn't exist, but is required for type inference to work
 }
@@ -123,7 +123,7 @@ type ProjectRelationshipProps<Rel extends RelationshipDeclaration|undefined> = (
     Rel extends RelationshipDeclaration ? {
         virtualProperties: {
             [K in keyof Rel["properties"]]: (
-                Rel["properties"][K] extends FieldData ?
+                Rel["properties"][K] extends TypedField ?
                     VirtualCypherExpressionProperty<Rel["properties"][K]>
                 : never
             )
