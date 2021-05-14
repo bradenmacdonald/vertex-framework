@@ -188,22 +188,31 @@ export function ResponseSchema<RS extends ResponseSchema>(rs: RS): RS { return r
 // Constrcut the "Field" object that contains all the basic field types and lets you construct complex types:
 
 
-interface PropertyTypedFieldConstructor<FT extends PropertyFieldType = PropertyFieldType, Nullable extends boolean = boolean, SchemaType extends Joi.AnySchema = Joi.AnySchema>
+export interface _PropertyTypedFieldConstructor<FT extends PropertyFieldType = PropertyFieldType, Nullable extends boolean = boolean, SchemaType extends Joi.AnySchema = Joi.AnySchema>
     extends TypedField<FT, Nullable, SchemaType>
 {
     Check: (validationFunction: (baseSchema: SchemaType) => SchemaType) => PropertyTypedField<FT, Nullable, SchemaType>
 }
 
-// Aliases that provide much nicer-looking types in the IDE (e.g. VS Code).
-type StringField = PropertyTypedFieldConstructor<FieldType.String, false, Joi.StringSchema>;
-type NullableStringField = PropertyTypedFieldConstructor<FieldType.String, true, Joi.StringSchema>;
+// These aliases are only defined to provide much nicer-looking types in the IDE (e.g. VS Code).
+export type _VNIDField = _PropertyTypedFieldConstructor<FieldType.VNID, false, Joi.StringSchema>;
+export type _NullableVNIDField = _PropertyTypedFieldConstructor<FieldType.VNID, true, Joi.StringSchema>;
+export type _IntField = _PropertyTypedFieldConstructor<FieldType.Int, false, Joi.NumberSchema>;
+export type _NullableIntField = _PropertyTypedFieldConstructor<FieldType.Int, true, Joi.NumberSchema>;
+export type _StringField = _PropertyTypedFieldConstructor<FieldType.String, false, Joi.StringSchema>;
+export type _NullableStringField = _PropertyTypedFieldConstructor<FieldType.String, true, Joi.StringSchema>;
+export type _SlugField = _PropertyTypedFieldConstructor<FieldType.Slug, false, Joi.StringSchema>;
+export type _NullableSlugField = _PropertyTypedFieldConstructor<FieldType.Slug, true, Joi.StringSchema>;
+export type _BooleanField = _PropertyTypedFieldConstructor<FieldType.Boolean, false, Joi.StringSchema>;
+export type _NullableBooleanField = _PropertyTypedFieldConstructor<FieldType.Boolean, true, Joi.StringSchema>;
+
 
 /** Helper function used below to build the global "Field" constant object, which holds TypedField instances */
 function makePropertyField<FT extends PropertyFieldType, Nullable extends boolean, SchemaType extends Joi.AnySchema>(
     type: FT,
     nullable: Nullable,
     baseSchema: SchemaType
-): PropertyTypedFieldConstructor<FT, Nullable, SchemaType> {
+): _PropertyTypedFieldConstructor<FT, Nullable, SchemaType> {
     return {
         type,
         nullable,
@@ -212,34 +221,21 @@ function makePropertyField<FT extends PropertyFieldType, Nullable extends boolea
     };
 }
 
-/** Helper function used below to build the global "Field" constant object, which holds TypedField instances */
-function makePropertyField2<ST extends Joi.AnySchema, TF extends PropertyTypedFieldConstructor<PropertyFieldType, boolean, ST>>(
-    type: PropertyFieldType,
-    nullable: boolean,
-    baseSchema: ST
-): TF {
-    return {
-        type,
-        nullable,
-        schema: nullable ? baseSchema.required().allow(null) : baseSchema.required(),
-        Check: (validationFunction: (baseSchema: ST) => ST) => makePropertyField2<ST, TF>(type, nullable, validationFunction(baseSchema)),
-    } as any;
-}
-
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
     return {
-        VNID: makePropertyField(FieldType.VNID, nullable, Joi.string().custom(vnidValidator)),
-        Int: makePropertyField(FieldType.Int, nullable, Joi.number().integer()),
+        // Note: all of the code below should work just fine without th "as unknown as Nullable extends ?..." part.
+        // It is just used to give these types nicer names when field schemas are viewed in an IDE.
+        VNID: makePropertyField(FieldType.VNID, nullable, Joi.string().custom(vnidValidator)) as unknown as Nullable extends true ? _NullableVNIDField : _VNIDField,
+        Int: makePropertyField(FieldType.Int, nullable, Joi.number().integer()) as unknown as Nullable extends true ? _NullableIntField : _IntField,
         /** A signed integer up to 64 bits. For larger than 64 bits, use a string type as Neo4j doesn't support it. */
         BigInt: makePropertyField(FieldType.BigInt, nullable, Joi.any().custom(validateBigInt)),
         Float: makePropertyField(FieldType.Float, nullable, Joi.number()),
         /** A String. Default max length is 1,000, so use .Check(s => s.max(...)) if you need to change the limit. */
-        //String: makePropertyField(FieldType.String, nullable, Joi.string().max(1_000)),
-        String: makePropertyField2<Joi.StringSchema, Nullable extends true ? NullableStringField : StringField>(FieldType.String, nullable, Joi.string().max(1_000)),
+        String: makePropertyField(FieldType.String, nullable, Joi.string().max(1_000)) as unknown as Nullable extends true ? _NullableStringField : _StringField,
         /** A unicode-aware slug (cannot contain spaces/punctuation). Valid: "the-thing". Invalid: "foo_bar" or "foo bar" */
-        Slug: makePropertyField(FieldType.Slug, nullable, Joi.string().regex(slugRegex).max(60)),
-        Boolean: makePropertyField(FieldType.Boolean, nullable, Joi.boolean()),
+        Slug: makePropertyField(FieldType.Slug, nullable, Joi.string().regex(slugRegex).max(60)) as unknown as Nullable extends true ? _NullableSlugField : _SlugField,
+        Boolean: makePropertyField(FieldType.Boolean, nullable, Joi.boolean()) as unknown as Nullable extends true ? _NullableBooleanField : _BooleanField,
         /** A calendar date, i.e. a date without time information */
         Date: makePropertyField(FieldType.Date, nullable, Joi.any().custom(validateDate)),
         DateTime: makePropertyField(FieldType.DateTime, nullable, Joi.date().iso()),
