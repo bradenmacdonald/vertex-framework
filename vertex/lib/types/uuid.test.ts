@@ -1,4 +1,4 @@
-import { registerSuite, assert } from "./intern-tests";
+import { registerSuite, assert } from "../intern-tests";
 import { UUIDv4, UUID } from "./uuid";
 
 registerSuite("UUIDv4 Class", {

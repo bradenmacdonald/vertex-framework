@@ -2,8 +2,8 @@
  * Syntactic sugar for writing Cypher queries.
  */
 import { Record as Neo4jRecord, int as neo4jinteger } from "neo4j-driver-lite";
-import { looksLikeVNID } from "../lib/vnid";
-import { GetDataShape, ResponseSchema } from "./field";
+import { looksLikeVNID } from "../lib/types/vnid";
+import { GetDataShape, ResponseSchema } from "../lib/types/field";
 import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from "./vnode-base";
 
 /**

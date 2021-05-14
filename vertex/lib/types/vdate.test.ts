@@ -1,4 +1,4 @@
-import { suite, test, assert } from "../lib/intern-tests";
+import { suite, test, assert } from "../intern-tests";
 import { VDate, VD, Neo4jDate } from "./vdate";
 
 suite(__filename, () => {

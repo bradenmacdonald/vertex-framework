@@ -2,7 +2,7 @@ import { suite, test, assert, assertRejects, configureTestData } from "../lib/in
 import { convertNeo4jRecord } from "./cypher-return-shape";
 import { AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils";
 import { testGraph, Person } from "../test-project";
-import { Field, ResponseSchema, GetDataShape } from "./field";
+import { Field, ResponseSchema, GetDataShape } from "../lib/types/field";
 import { VDate, VNID } from "..";
 
 suite("Cypher return shape specification", () => {

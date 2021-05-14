@@ -1,4 +1,4 @@
-import { GetDataType } from "../layer2/field";
+import { GetDataType } from "../lib/types/field";
 import { BaseVNodeType } from "../layer2/vnode-base";
 import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer3/data-request";
 import {

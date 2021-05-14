@@ -6,8 +6,8 @@ import {
     GetDataShape,
     Node,
     TypedField,
- } from "./field";
-import { VDate } from "../lib/vdate";
+ } from "../lib/types/field";
+import { VDate } from "../lib/types/vdate";
 import type { BaseVNodeType, RawVNode } from "./vnode-base";
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

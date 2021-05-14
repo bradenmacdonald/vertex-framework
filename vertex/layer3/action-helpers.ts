@@ -3,7 +3,7 @@ import { WrappedTransaction } from "../transaction";
 import { RelationshipDeclaration, BaseVNodeType, getRelationshipType } from "../layer2/vnode-base";
 import { log } from "../lib/log";
 import { VNodeKey, VNID } from "../lib/key";
-import { Field, GetDataType, PropSchema } from "../layer2/field";
+import { Field, GetDataType, PropSchema } from "../lib/types/field";
 
 export type OneRelationshipSpec<VNR extends RelationshipDeclaration, KeyType = VNodeKey> = {
     key: KeyType|null;

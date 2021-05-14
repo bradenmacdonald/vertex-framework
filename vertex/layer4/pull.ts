@@ -1,5 +1,5 @@
 import { log } from "../lib/log";
-import { looksLikeVNID } from "../lib/vnid";
+import { looksLikeVNID } from "../lib/types/vnid";
 import { BaseVNodeType, } from "../layer2/vnode-base";
 import {
     VirtualManyRelationshipProperty,

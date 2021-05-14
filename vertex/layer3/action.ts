@@ -3,13 +3,13 @@
  * (other than data/schema migrations) are described as "actions" (a.k.a. mutations) that take the current state and
  * transform it to another state. Many actions are invertable, making it easy to revert edits, undo changes, etc.
  */
-import { VNID } from "../lib/vnid";
+import { VNID } from "../lib/types/vnid";
 import { BaseVNodeType, RawVNode, ValidationError } from "../layer2/vnode-base";
 import { WrappedTransaction } from "../transaction";
 import { C } from "../layer2/cypher-sugar";
 // Unfortunately we have to "cheat" a bit and use VNodeType from layer 4 here instead of BaseVNodeType:
 import { VNodeType } from "../layer4/vnode";
-import { Field } from "../layer2/field";
+import { Field } from "../lib/types/field";
 
 
 /**

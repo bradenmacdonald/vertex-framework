@@ -1,4 +1,4 @@
-import { VNID } from "../lib/vnid";
+import { VNID } from "../lib/types/vnid";
 import { CypherQuery } from "../layer2/cypher-sugar";
 import { defineAction } from "./action";
 

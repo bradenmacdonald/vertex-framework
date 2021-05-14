@@ -4,7 +4,7 @@ import { VNID, VNodeKey } from "../lib/key";
 import { WrappedTransaction } from "../transaction";
 import { RawVNode, BaseVNodeType, getAllLabels } from "../layer2/vnode-base";
 import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "./data-request";
-import { Field, GetDataType } from "../layer2/field";
+import { Field, GetDataType } from "../lib/types/field";
 
 
 // Useful action generators to reduce boilerplate

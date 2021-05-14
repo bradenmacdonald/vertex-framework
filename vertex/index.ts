@@ -9,21 +9,17 @@
 export {
     VDate,
     VD,
-} from "./lib/vdate";
+} from "./lib/types/vdate";
 
 export {
     VNID,
     isVNID,
-} from "./lib/vnid";
+} from "./lib/types/vnid";
 
 export {
     SlugId,
     VNodeKey,
 } from "./lib/key";
-
-export {
-    UUID,
-} from "./lib/uuid";
 
 //// Layer 1 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -47,7 +43,7 @@ export {
     Node,
     Relationship,
     Path,
-} from "./layer2/field";
+} from "./lib/types/field";
 
 export {
     C,

@@ -1,5 +1,5 @@
 import type { CypherQuery } from "../layer2/cypher-sugar";
-import { TypedField } from "../layer2/field";
+import { TypedField } from "../lib/types/field";
 import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
 /**
  * Every VNode can declare "virtual properties" which are computed properties

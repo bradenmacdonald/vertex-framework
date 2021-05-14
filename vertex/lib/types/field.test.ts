@@ -1,10 +1,10 @@
-import { suite, test, assert } from "../lib/intern-tests";
-import { AssertEqual, checkType } from "../lib/ts-utils";
-import { VNID } from "../lib/vnid";
-import { VDate, Neo4jDate } from "../lib/vdate";
+import { suite, test, assert } from "../intern-tests";
+import { AssertEqual, checkType } from "../ts-utils";
+import { VNID } from "./vnid";
+import { VDate, Neo4jDate } from "./vdate";
 import { Field, FieldType, GetDataShape, PropSchema, GenericSchema, ResponseSchema, validatePropSchema, validateValue, Node, Relationship, Path } from "./field";
-import { Person } from "../test-project";
-import { RawVNode } from "./vnode-base";
+import { Person } from "../../test-project";
+import { RawVNode } from "../../layer2/vnode-base";
 
 suite(__filename, () => {
 

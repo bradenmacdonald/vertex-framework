@@ -6,7 +6,7 @@ import {
     VNodeTypeRef,
     VirtualPropType,
 } from "../";
-import { Field } from "../layer2/field";
+import { Field } from "../lib/types/field";
 
 // When necessary to avoid circular references, this pattern can be used to create a "Forward Reference" to a VNodeType:
 export const MovieRef: typeof Movie = VNodeTypeRef("TestMovie");

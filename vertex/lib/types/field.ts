@@ -1,7 +1,7 @@
 import { Node as _Node, Relationship as _Relationship, Path as _Path } from "neo4j-driver-lite";
 import Joi from "@hapi/joi";
-import { isVNID, VNID } from "../lib/vnid";
-import { VDate, isNeo4jDate } from "../lib/vdate";
+import { isVNID, VNID } from "./vnid";
+import { VDate, isNeo4jDate } from "./vdate";
 
 /* Export properly typed Neo4j data structures  */
 export type Node = _Node<bigint>;

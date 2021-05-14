@@ -13,7 +13,7 @@ import { BaseDataRequest, AnyDataRequest, UpdateMixin, RequiredMixin } from "../
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import type { DerivedProperty } from "./derived-props";
-import { TypedField } from "../layer2/field";
+import { TypedField } from "../lib/types/field";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 

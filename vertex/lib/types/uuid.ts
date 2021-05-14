@@ -1,5 +1,5 @@
 import { randomFillSync } from "crypto";
-import { NominalType } from "./ts-utils";
+import { NominalType } from "../ts-utils";
 
 const inspect = Symbol.for("nodejs.util.inspect.custom");
 

@@ -1,5 +1,5 @@
 import { WrappedTransaction } from "../transaction";
-import { Field, TypedField, FieldType, GetDataShape, PropSchema, validatePropSchema } from "./field";
+import { Field, TypedField, FieldType, GetDataShape, PropSchema, validatePropSchema } from "../lib/types/field";
 import { C } from "./cypher-sugar";
 import { convertNeo4jFieldValue } from "./cypher-return-shape";
 

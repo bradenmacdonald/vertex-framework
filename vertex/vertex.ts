@@ -2,7 +2,7 @@ import neo4j, { Driver, Transaction } from "neo4j-driver-lite";
 import { Action, ActionData, ActionResult, getActionImplementation } from "./layer3/action";
 import { runAction } from "./layer3/action-runner";
 import { log } from "./lib/log";
-import { looksLikeVNID, VNID } from "./lib/vnid";
+import { looksLikeVNID, VNID } from "./lib/types/vnid";
 import { PullNoTx, PullOneNoTx } from "./layer4/pull";
 import { migrations as coreMigrations } from "./layer2/schema";
 import { migrations as actionMigrations, SYSTEM_VNID } from "./layer3/schema";
@@ -10,7 +10,7 @@ import { WrappedTransaction } from "./transaction";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
 import { VNodeKey } from "./lib/key";
 import { C } from "./layer2/cypher-sugar";
-import { Field } from "./layer2/field";
+import { Field } from "./lib/types/field";
 
 
 export interface InitArgs {

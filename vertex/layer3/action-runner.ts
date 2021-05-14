@@ -1,12 +1,12 @@
 import { ActionData, getActionImplementation, ActionResult, Action } from "./action";
-import { VNID } from "../lib/vnid";
+import { VNID } from "../lib/types/vnid";
 import { SYSTEM_VNID } from "./schema";
 import { log } from "../lib/log";
 import { getVNodeType } from "../layer2/vnode-base";
 import { VertexCore } from "../vertex-interface";
 import { neoNodeToRawVNode } from "../layer2/cypher-return-shape";
 import { C } from "../layer2/cypher-sugar";
-import { Field, Node } from "../layer2/field";
+import { Field, Node } from "../lib/types/field";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
