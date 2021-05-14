@@ -439,7 +439,7 @@ suite(__filename, () => {
                         numHomes: 0,
                         numOccupiedHomes: -50,
                     });
-                }, `"numHomes" must be larger than or equal to 1`);
+                }, `"numHomes" must be greater than or equal to 1`);
             });
 
             test("Rejects an invalid value using Joi reference", () => {

@@ -1,5 +1,5 @@
 import { Node as _Node, Relationship as _Relationship, Path as _Path } from "neo4j-driver-lite";
-import Joi from "@hapi/joi";
+import Joi from "joi";
 import { isVNID, VNID } from "./vnid";
 import { VDate, isNeo4jDate } from "./vdate";
 
