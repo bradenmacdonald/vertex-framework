@@ -1,4 +1,5 @@
 import { Vertex, VD, VertexTestDataSnapshot } from "..";
+import { log } from "../lib/intern-tests";
 import { CreateMovie } from "./Movie";
 import { CreateMovieFranchise } from "./MovieFranchise";
 import { CreatePerson, ActedIn, RecordFriends } from "./Person";
@@ -11,6 +12,7 @@ let dataSnapshot: VertexTestDataSnapshot;
  * @param graph 
  */
 export async function createTestData(graph: Vertex): Promise<void> {
+    try {
     if (dataSnapshot !== undefined) {
         await graph.resetDBToSnapshot(dataSnapshot);
         return;
@@ -71,4 +73,7 @@ export async function createTestData(graph: Vertex): Promise<void> {
     );
     // Save a snapshot to make this faster next time:
     dataSnapshot = await graph.snapshotDataForTesting();
+    } catch (err: unknown) {
+        log.error(`Error during createTestData: ${(err as any).stack ?? err}`);
+    }
 }
