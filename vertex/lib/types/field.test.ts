@@ -2,7 +2,21 @@ import { suite, test, assert } from "../intern-tests";
 import { AssertEqual, checkType } from "../ts-utils";
 import { VNID } from "./vnid";
 import { VDate, Neo4jDate } from "./vdate";
-import { Field, FieldType, GetDataShape, PropSchema, GenericSchema, ResponseSchema, validatePropSchema, validateValue, Node, Relationship, Path } from "./field";
+import {
+    Field,
+    FieldType,
+    GetDataShape,
+    PropSchema,
+    GenericSchema,
+    ResponseSchema,
+    validatePropSchema,
+    validateValue,
+    Node,
+    Relationship,
+    Path,
+    PrimitiveValue,
+    GenericValue,
+} from "./field";
 import { Person } from "../../test-project";
 import { RawVNode } from "../../layer2/vnode-base";
 
@@ -417,6 +431,43 @@ suite(__filename, () => {
             });
         });
 
+        suite("AnyPrimitive", () => {
+
+            test("Basic field", () => {
+                const fieldDeclaration = Field.AnyPrimitive;
+                assert.equal(fieldDeclaration.type, FieldType.AnyPrimitive);
+    
+                const value1 = validateValue(fieldDeclaration, 12345);
+                checkType<AssertEqual<typeof value1, PrimitiveValue>>();
+                assert.strictEqual(value1, 12345);
+                // That was a number, check that other primitive types are supported:
+                assert.strictEqual(validateValue(fieldDeclaration, null), null);
+                assert.strictEqual(validateValue(fieldDeclaration, 999_888_777_666_555_444_333n), 999_888_777_666_555_444_333n);
+                assert.strictEqual(validateValue(fieldDeclaration, "string"), "string");
+                assert.strictEqual(validateValue(fieldDeclaration, true), true);
+                assert.strictEqual(validateValue(fieldDeclaration, VDate.fromString("2021-05-14"))?.toString(), "2021-05-14");
+                const someDate = new Date();
+                const dateValueOut = validateValue(fieldDeclaration, someDate);
+                assert.instanceOf(dateValueOut, Date);
+                assert.strictEqual((dateValueOut as Date).toISOString(), someDate.toISOString());
+                
+                // And non-primitive values are of course not allowed:
+                assert.throws(() => { validateValue(fieldDeclaration, {foo: "bar"}); });
+                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+                assert.throws(() => { validateValue(fieldDeclaration, [1,2,3]); });
+                assert.throws(() => { validateValue(fieldDeclaration, Math); });
+            });
+
+            test(".Check(...)", () => {
+                // Add a custom check, in this case restricting it to a set of integers and null:
+                const fieldDeclaration = Field.AnyPrimitive.Check(v => v.valid(1,2,3,4,5,null));
+                validateValue(fieldDeclaration, 3);
+                validateValue(fieldDeclaration, null);
+                assert.throws(() => { validateValue(fieldDeclaration, "5"); });  // string, not allowed
+                assert.throws(() => { validateValue(fieldDeclaration, 10); });
+            });
+        });
+
         suite("validatePropSchema", () => {
             const buildingSchema: PropSchema = {
                 name: Field.String,
@@ -469,12 +520,15 @@ suite(__filename, () => {
                 fieldBool: Field.Boolean,
                 fieldDate: Field.Date,
                 fieldDT: Field.DateTime,
+                fieldAP: Field.AnyPrimitive,
                 // @ts-expect-error a Record is not allowed in a property schema
                 fieldRecord: Field.Record({key: Field.String}),
                 // @ts-expect-error a Map is not allowed in a property schema
                 fieldMap: Field.Map(Field.String),
                 // @ts-expect-error a List is not allowed in a property schema
                 fieldList: Field.List(Field.String),
+                // @ts-expect-error an AnyGeneric is not allowed in a property schema
+                fieldAnyGeneric: Field.AnyGeneric,
                 // @ts-expect-error a Node is not allowed in a property schema
                 fieldNode: Field.Node,
                 // @ts-expect-error a VNode is not allowed in a property schema
@@ -497,9 +551,11 @@ suite(__filename, () => {
                 fieldBool: Field.Boolean,
                 fieldDate: Field.Date,
                 fieldDT: Field.DateTime,
+                fieldAP: Field.AnyPrimitive,
                 fieldRecord: Field.Record({key: Field.String, key2: Field.List(Field.Boolean)}),
                 fieldMap: Field.Map(Field.String),
                 fieldList: Field.List(Field.NullOr.String),
+                fieldAnyGeneric: Field.AnyGeneric,
                 // @ts-expect-error a Node is not allowed in a generic schema
                 fieldNode: Field.Node,
                 // @ts-expect-error a VNode is not allowed in a property schema
@@ -524,9 +580,11 @@ suite(__filename, () => {
                 fieldBool: Field.Boolean,
                 fieldDate: Field.Date,
                 fieldDT: Field.DateTime,
+                fieldAP: Field.AnyPrimitive,
                 fieldRecord: Field.Record({key: Field.String, key2: Field.List(Field.Boolean)}),
                 fieldMap: Field.Map(Field.String),
                 fieldList: Field.List(Field.NullOr.String),
+                fieldAnyGeneric: Field.AnyGeneric,
                 fieldNode: Field.Node,
                 fieldVNode: Field.VNode(Person),
                 fieldListNode: Field.List(Field.Node),
@@ -574,6 +632,10 @@ suite(__filename, () => {
             const shape = ResponseSchema({myDateTime: Field.DateTime, nullDateTime: Field.NullOr.DateTime});
             checkType<AssertEqual<GetDataShape<typeof shape>, {myDateTime: Date, nullDateTime: Date|null}>>();
         });
+        test("AnyPrimitive", () => {
+            const shape = ResponseSchema({primValue: Field.AnyPrimitive});
+            checkType<AssertEqual<GetDataShape<typeof shape>, {primValue: PrimitiveValue}>>();
+        });
         // Composite types:
 
         test("Record", () => {
@@ -618,6 +680,16 @@ suite(__filename, () => {
             checkType<AssertEqual<GetDataShape<typeof shape>, {
                 idList: VNID[],
                 nullStringList: string[]|null,
+            }>>();
+        });
+        test("AnyGeneric", () => {
+            const shape = ResponseSchema({
+                generic: Field.AnyGeneric,
+                genericMap: Field.Map(Field.AnyGeneric),
+            });
+            checkType<AssertEqual<GetDataShape<typeof shape>, {
+                generic: GenericValue,
+                genericMap: {[key: string]: GenericValue},
             }>>();
         });
 

@@ -46,6 +46,22 @@ const validateDate: Joi.CustomValidator = (value, helpers) => {
         throw new Error("Not a date value.");
     }
 };
+/** Custom Joi validator for our AnyPrimitive type. */
+const validateAnyPrimitive: Joi.CustomValidator = (value, helpers) => {
+    if (
+        value === null
+        || typeof value === "boolean"
+        || typeof value === "number"
+        || typeof value === "bigint"
+        || typeof value === "string"
+        || value instanceof VDate
+        || value instanceof Date
+    ) {
+        return value;
+    }else {
+        throw new Error(`Value with type ${typeof value} is not a primitive value (not suitable for AnyPrimitive).`);
+    }
+};
 /** Validation regex for Unicode-aware slugs */
 const slugRegex = /^[-\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]+$/u;
 
@@ -69,6 +85,11 @@ export const enum FieldType {
     // Point,
     // Duration,
     // Time,
+    /**
+     * An AnyPrimitive property can be any of: Null, Int, BigInt, Float, String, Boolean, Date, or DateTime.
+     * (VNID and Slug are special cases of String that can't be distinguished from String by value, so are excluded.)
+     */
+    AnyPrimitive,
 
     // Composite types - cannot be used as VNode properties but can be used for almost anything else
     /** A Record is a map where the keys are known in advance */
@@ -76,7 +97,8 @@ export const enum FieldType {
     /** Map: A key-value structure with arbitrary string keys that aren't known in advance (unlike Record) */
     Map,
     List,
-    // Union type? Unknown/Any type?
+    /** An AnyGeneric field can be a Map, List, Record, or AnyPrimitive, or any combination of those */
+    AnyGeneric,
 
     // Response types - these can _only_ be used when specifying the shape of a Cypher query response
     VNode,
@@ -107,6 +129,7 @@ export type PropertyFieldType = (
     | FieldType.Boolean
     | FieldType.Date
     | FieldType.DateTime
+    | FieldType.AnyPrimitive
 );
 
 
@@ -130,6 +153,7 @@ export type CompositeFieldType = (
     | FieldType.Record
     | FieldType.Map
     | FieldType.List
+    | FieldType.AnyGeneric
 );
 
 // The record type comes in two flavors, depending on whether or not it allows response-typed values:
@@ -146,12 +170,14 @@ export type ResponseMapTypedField<Nullable extends boolean = boolean, Schema ext
 export type ListTypedField        <Nullable extends boolean = boolean, Schema extends GenericSchema[any]  = any>  = TypedField<FieldType.List, Nullable, Schema> & {__generic: true};
 export type ResponseListTypedField<Nullable extends boolean = boolean, Schema extends ResponseSchema[any] = any> = TypedField<FieldType.List, Nullable, Schema>;
 
+export type AnyGenericField = TypedField<FieldType.AnyGeneric, false, unknown>;
+
 /**
  * A schema that allows property typed field and composite typed fields, but not response typed fields
  * This is useful for e.g. action parameters
  */
 export interface GenericSchema {
-    [K: string]: PropertyTypedField|RecordTypedField|MapTypedField|ListTypedField;
+    [K: string]: PropertyTypedField|RecordTypedField|MapTypedField|ListTypedField|AnyGenericField;
 }
 
 // This helper function is used to declare variables with appropriate typing as "RS extends ResponseSchema" and not just "ResponseSchema"
@@ -186,7 +212,7 @@ type ResponseTypedField = (
 
 
 export interface ResponseSchema {
-    [K: string]: PropertyTypedField|ResponseRecordTypedField|ResponseMapTypedField|ResponseListTypedField|ResponseTypedField;
+    [K: string]: PropertyTypedField|ResponseRecordTypedField|ResponseMapTypedField|ResponseListTypedField|AnyGenericField|ResponseTypedField;
 }
 
 // This helper function is used to declare variables with appropriate typing as "RS extends ResponseSchema" and not just "ResponseSchema"
@@ -302,12 +328,18 @@ export const Field = Object.freeze({
     NullOr: {
         ..._getFieldTypes(true),
     },
+    AnyPrimitive: makePropertyField(FieldType.AnyPrimitive as const, false, Joi.custom(validateAnyPrimitive)),
+
     Any: {type: FieldType.Any as const, nullable: false as const, schema: undefined},
+    AnyGeneric: {type: FieldType.AnyGeneric as const, nullable: false as const, schema: undefined} as AnyGenericField,
 
     // Convenience definition to get Joi via Field.Check
     // e.g. to use things like Field.Int.Check(n=>n.min(Field.Check.Ref("otherField")))
     Check: Joi,
 });
+
+export type PrimitiveValue = null|number|bigint|string|boolean|VDate|Date;
+export type GenericValue = PrimitiveValue|{[key: string]: GenericValue}|GenericValue[];
 
 /**
  * TypeScript helper type to get the underlying TypeScript/Javascript data type for a given field declaration.
@@ -323,10 +355,12 @@ export type GetDataType<FieldSpec extends TypedField> = (
         FieldSpec extends TypedField<FieldType.Boolean, any, any> ? boolean :
         FieldSpec extends TypedField<FieldType.Date, any, any> ? VDate :
         FieldSpec extends TypedField<FieldType.DateTime, any, any> ? Date :
+        FieldSpec extends TypedField<FieldType.AnyPrimitive, any, any> ? PrimitiveValue :
 
         FieldSpec extends ResponseRecordTypedField<any, infer Schema> ? { [K in keyof Schema]: GetDataType<Schema[K]> } :  // Works for Generic record or response record
         FieldSpec extends ResponseMapTypedField<any, infer Schema> ? { [K: string]: GetDataType<Schema> } :  // Works for Generic map or response map
         FieldSpec extends ResponseListTypedField<any, infer Schema> ? GetDataType<Schema>[] :  // Works for Generic list or response list
+        FieldSpec extends TypedField<FieldType.AnyGeneric, any, any> ? GenericValue :
 
         FieldSpec extends TypedField<FieldType.VNode, any, infer VNT> ?
             (VNT extends AnyVNodeType ? GetDataShape<VNT["properties"]> & {_labels: string[]} : {error: "Invalid VNodeType"}) :
