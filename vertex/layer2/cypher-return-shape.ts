@@ -52,6 +52,14 @@ export function convertNeo4jFieldValue<FD extends TypedField>(fieldName: string,
             }
             return map;
         }
+        case FieldType.Map: {
+            const schema = fieldDeclaration.schema;
+            const map: any = {}
+            for (const mapKey in fieldValue) {
+                map[mapKey] = convertNeo4jFieldValue(mapKey, fieldValue[mapKey], schema);
+            }
+            return map;
+        }
         case FieldType.List: {
             const schema = fieldDeclaration.schema;
             return fieldValue.map((listValue: any) => convertNeo4jFieldValue(fieldName, listValue, schema));

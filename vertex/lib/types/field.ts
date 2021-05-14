@@ -73,7 +73,8 @@ export const enum FieldType {
     // Composite types - cannot be used as VNode properties but can be used for almost anything else
     /** A Record is a map where the keys are known in advance */
     Record,
-    // Map: A key-value structure with arbitrary string keys?
+    /** Map: A key-value structure with arbitrary string keys that aren't known in advance (unlike Record) */
+    Map,
     List,
     // Union type? Unknown/Any type?
 
@@ -127,12 +128,19 @@ export function PropSchema<PS extends PropSchema>(ps: PS): PS { return ps; }
 
 export type CompositeFieldType = (
     | FieldType.Record
+    | FieldType.Map
     | FieldType.List
 );
 
 // The record type comes in two flavors, depending on whether or not it allows response-typed values:
 export type RecordTypedField        <Nullable extends boolean = boolean, Schema extends GenericSchema  = GenericSchema>  = TypedField<FieldType.Record, Nullable, Schema> & {__generic: true};
 export type ResponseRecordTypedField<Nullable extends boolean = boolean, Schema extends ResponseSchema = ResponseSchema> = TypedField<FieldType.Record, Nullable, Schema>;
+// Note: the `& {__generic: true};` part of RecordTypedField is not actually part of the value, but is necessary for
+// TypeScript to be able to tell these types apart structurally.
+
+// The map type comes in two flavors, depending on whether or not it allows response-typed values:
+export type MapTypedField        <Nullable extends boolean = boolean, Schema extends GenericSchema[any]  = any>  = TypedField<FieldType.Map, Nullable, Schema> & {__generic: true};
+export type ResponseMapTypedField<Nullable extends boolean = boolean, Schema extends ResponseSchema[any] = any> = TypedField<FieldType.Map, Nullable, Schema>;
 
 // The list type comes in two flavors, depending on whether or not it allows response-typed values:
 export type ListTypedField        <Nullable extends boolean = boolean, Schema extends GenericSchema[any]  = any>  = TypedField<FieldType.List, Nullable, Schema> & {__generic: true};
@@ -143,7 +151,7 @@ export type ResponseListTypedField<Nullable extends boolean = boolean, Schema ex
  * This is useful for e.g. action parameters
  */
 export interface GenericSchema {
-    [K: string]: PropertyTypedField|RecordTypedField|ListTypedField;
+    [K: string]: PropertyTypedField|RecordTypedField|MapTypedField|ListTypedField;
 }
 
 // This helper function is used to declare variables with appropriate typing as "RS extends ResponseSchema" and not just "ResponseSchema"
@@ -178,7 +186,7 @@ type ResponseTypedField = (
 
 
 export interface ResponseSchema {
-    [K: string]: PropertyTypedField|ResponseRecordTypedField|ResponseListTypedField|ResponseTypedField;
+    [K: string]: PropertyTypedField|ResponseRecordTypedField|ResponseMapTypedField|ResponseListTypedField|ResponseTypedField;
 }
 
 // This helper function is used to declare variables with appropriate typing as "RS extends ResponseSchema" and not just "ResponseSchema"
@@ -239,7 +247,8 @@ function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
         /** A calendar date, i.e. a date without time information */
         Date: makePropertyField(FieldType.Date, nullable, Joi.any().custom(validateDate)),
         DateTime: makePropertyField(FieldType.DateTime, nullable, Joi.date().iso()),
-    
+
+        /** A Record is a map where the keys are known in advance. */
         Record: <Schema extends GenericSchema|ResponseSchema>(schema: Schema): (
             // Default to a "Generic" record/schema if possible, but if the schema includes some neo4j-response-specific
             // types like Field.Node, then use a Response Record
@@ -248,7 +257,17 @@ function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
             never) => ({
             type: FieldType.Record as const, schema, nullable,
         } as any),
-    
+
+        /** Map: A key-value structure with arbitrary string keys that aren't known in advance (unlike Record). */
+        Map: <Schema extends GenericSchema[any]|ResponseSchema[any]>(schema: Schema): (
+            // Default to a "Generic" record/schema if possible, but if the schema includes some neo4j-response-specific
+            // types like Field.Node, then use a Response Record
+            Schema extends GenericSchema[any] ? MapTypedField<Nullable, Schema> :
+            Schema extends ResponseSchema[any] ? ResponseMapTypedField<Nullable, Schema> :
+            never) => ({
+            type: FieldType.Map as const, schema, nullable,
+        } as any),
+
         List: <Schema extends GenericSchema[any]|ResponseSchema[any]>(schema: Schema): (
             // Default to a "Generic" record/schema if possible, but if the schema includes some neo4j-response-specific
             // types like Field.Node, then use a Response Record
@@ -257,7 +276,7 @@ function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
             never) => ({
             type: FieldType.List as const, schema, nullable,
         } as any),
-        
+
         // Pass through of the types used by the underlying Neo4j JavaScript driver:
         Node: {type: FieldType.Node as const, nullable, schema: undefined},
         Relationship: {type: FieldType.Relationship as const, nullable, schema: undefined},
@@ -306,6 +325,7 @@ export type GetDataType<FieldSpec extends TypedField> = (
         FieldSpec extends TypedField<FieldType.DateTime, any, any> ? Date :
 
         FieldSpec extends ResponseRecordTypedField<any, infer Schema> ? { [K in keyof Schema]: GetDataType<Schema[K]> } :  // Works for Generic record or response record
+        FieldSpec extends ResponseMapTypedField<any, infer Schema> ? { [K: string]: GetDataType<Schema> } :  // Works for Generic map or response map
         FieldSpec extends ResponseListTypedField<any, infer Schema> ? GetDataType<Schema>[] :  // Works for Generic list or response list
 
         FieldSpec extends TypedField<FieldType.VNode, any, infer VNT> ?

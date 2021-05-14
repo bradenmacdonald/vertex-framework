@@ -471,7 +471,9 @@ suite(__filename, () => {
                 fieldDT: Field.DateTime,
                 // @ts-expect-error a Record is not allowed in a property schema
                 fieldRecord: Field.Record({key: Field.String}),
-                // @ts-expect-error a Record is not allowed in a property schema
+                // @ts-expect-error a Map is not allowed in a property schema
+                fieldMap: Field.Map(Field.String),
+                // @ts-expect-error a List is not allowed in a property schema
                 fieldList: Field.List(Field.String),
                 // @ts-expect-error a Node is not allowed in a property schema
                 fieldNode: Field.Node,
@@ -496,6 +498,7 @@ suite(__filename, () => {
                 fieldDate: Field.Date,
                 fieldDT: Field.DateTime,
                 fieldRecord: Field.Record({key: Field.String, key2: Field.List(Field.Boolean)}),
+                fieldMap: Field.Map(Field.String),
                 fieldList: Field.List(Field.NullOr.String),
                 // @ts-expect-error a Node is not allowed in a generic schema
                 fieldNode: Field.Node,
@@ -522,6 +525,7 @@ suite(__filename, () => {
                 fieldDate: Field.Date,
                 fieldDT: Field.DateTime,
                 fieldRecord: Field.Record({key: Field.String, key2: Field.List(Field.Boolean)}),
+                fieldMap: Field.Map(Field.String),
                 fieldList: Field.List(Field.NullOr.String),
                 fieldNode: Field.Node,
                 fieldVNode: Field.VNode(Person),
@@ -574,7 +578,7 @@ suite(__filename, () => {
 
         test("Record", () => {
             const shape = ResponseSchema({
-                mapField: Field.Record({
+                recordField: Field.Record({
                     subMap: Field.Record({ subKey1: Field.NullOr.String, subKey2: Field.BigInt }),
                     otherKey: Field.String,
                 }),
@@ -583,12 +587,26 @@ suite(__filename, () => {
                 }),
             });
             checkType<AssertEqual<GetDataShape<typeof shape>, {
-                mapField: {
+                recordField: {
                     subMap: { subKey1: string|null, subKey2: bigint },
                     otherKey: string,
                 },
                 nullMap: null|{
                     key1: VNID,
+                },
+            }>>();
+        });
+        test("Map", () => {
+            const shape = ResponseSchema({
+                mapField: Field.Map(Field.Map(Field.List(Field.NullOr.BigInt))),
+                nullMap: Field.NullOr.Map(Field.VNID),
+            });
+            checkType<AssertEqual<GetDataShape<typeof shape>, {
+                mapField: {
+                    [K: string]: { [K: string]: Array<null|bigint> },
+                },
+                nullMap: null|{
+                    [K: string]: VNID,
                 },
             }>>();
         });

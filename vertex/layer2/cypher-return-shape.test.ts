@@ -105,10 +105,10 @@ suite("Cypher return shape specification", () => {
         }]);
     });
 
-    test("basic test - a nullable number and a map", async () => {
+    test("basic test - a nullable number and a record", async () => {
         const shape = ResponseSchema({
             numberOrNull: Field.NullOr.Int,
-            mapField: Field.Record({
+            recordField: Field.Record({
                 val1: Field.String,
                 val2: Field.NullOr.Boolean,
             }),
@@ -116,19 +116,41 @@ suite("Cypher return shape specification", () => {
 
         const results = await runAndConvert(`
             UNWIND [
-                {numberOrNull: 123, mapField: {val1: "one", val2: true}},
-                {numberOrNull: null, mapField: {val1: "two", val2: null}}
+                {numberOrNull: 123, recordField: {val1: "one", val2: true}},
+                {numberOrNull: null, recordField: {val1: "two", val2: null}}
             ] AS row
-            RETURN row.numberOrNull as numberOrNull, row.mapField as mapField
+            RETURN row.numberOrNull as numberOrNull, row.recordField as recordField
         `, {}, shape);
         assert.deepStrictEqual(results, [
             {
                 numberOrNull: 123,
-                mapField: {val1: "one", val2: true},
+                recordField: {val1: "one", val2: true},
             },
             {
                 numberOrNull: null,
-                mapField: {val1: "two", val2: null},
+                recordField: {val1: "two", val2: null},
+            },
+        ]);
+    });
+
+    test("basic test - a map of lists of integers", async () => {
+        const shape = ResponseSchema({
+            mapField: Field.Map(Field.List(Field.Int)),
+        });
+
+        const results = await runAndConvert(`
+            UNWIND [
+                {mapField: {pi: [3,1,4,1,5,9,2], e: [2,7,1,8,2,8]}},
+                {mapField: {φ: [1,6,1,8,0,3,3]}}
+            ] AS row
+            RETURN row.mapField as mapField
+        `, {}, shape);
+        assert.deepStrictEqual(results, [
+            {
+                mapField: {pi: [3,1,4,1,5,9,2], e: [2,7,1,8,2,8]},
+            },
+            {
+                mapField: {φ: [1,6,1,8,0,3,3]},
             },
         ]);
     });
