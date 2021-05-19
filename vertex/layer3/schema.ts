@@ -151,18 +151,23 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             ] as newRelationships,
 
 
-                            // Add details to the [:MODIFIED] relationship for every created relationship
+                            // Add details to the [:MODIFIED] relationship for every deleted relationship
                             // $deletedRelationships is a list of relationships
                             [
                                 rel IN $deletedRelationships
                                 WHERE startNode(rel):VNode AND startNode(rel)<>action AND endNode(rel)<>action
                                 | {
                                     modifiedNode: startNode(rel),
-                                    changeDetails: apoc.map.fromValues([
-                                        'deletedRel:' + id(rel) + ':' + type(rel), endNode(rel).id
-                                    ] + apoc.coll.flatten([
-                                        p IN keys(rel) | ['deletedRelProp:' + id(rel) + ':' + p, rel[p]]
-                                    ]))
+                                    changeDetails: apoc.map.fromValues(
+                                        ['deletedRel:' + id(rel) + ':' + type(rel), endNode(rel).id]
+                                        // Plus we need the removed relationship properties - they're not available on 'rel'
+                                        // but we can get them from $removedRelationshipProperties
+                                        + apoc.coll.flatten([
+                                            chg IN apoc.coll.flatten(apoc.map.values($removedRelationshipProperties, keys($removedRelationshipProperties)))
+                                            WHERE id(chg.relationship) = id(rel)
+                                            | ['deletedRelProp:' + id(rel) + ':' + chg.key, chg.old]
+                                        ])
+                                    )
                                 }
                             ] as deletedRelationships,
 

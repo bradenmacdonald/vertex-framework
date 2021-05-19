@@ -93,6 +93,11 @@ export {
 } from "./layer3/action-generic";
 
 export {
+    getActionChanges,
+    ActionChangeSet,
+} from "./layer3/action-changes";
+
+export {
     SYSTEM_VNID
 } from "./layer3/schema";
 
