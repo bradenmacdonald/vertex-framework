@@ -180,16 +180,19 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                                 WHERE 
                                     startNode(changedRelPropData.relationship):VNode AND 
                                     NOT changedRelPropData.relationship IN $createdRelationships AND
-                                    NOT changedRelPropData.relationship IN $deletedRelationships
-                                | {modifiedNode: null, errorReason: 'Changing relationship properties is not supported by Vertex Framework. Delete and re-create it instead.'}
-                                // ^ We can't raise an error here, but adding an entry with {modifiedNode: null} will raise an exception later.
+                                    NOT changedRelPropData.relationship IN $deletedRelationships AND
+                                    apoc.util.validatePredicate(
+                                        true,
+                                        'Changing relationship properties is not supported by Vertex Framework. Delete and re-create it instead.',
+                                        []
+                                    )
+                                | {}
                             ] as preventRelChanges
 
 
                         UNWIND (createdNodes + newLabels + removedLabels + newPropertyNodes + newRelationships + deletedRelationships + preventRelChanges) AS change
-                            WITH action, change.modifiedNode AS modifiedNode, change.changeDetails AS changeDetails, change.errorReason AS errorReason
+                            WITH action, change.modifiedNode AS modifiedNode, change.changeDetails AS changeDetails
                                 OPTIONAL MATCH (action)-[modRel:MODIFIED]->(modifiedNode)
-                                    CALL apoc.util.validate(modifiedNode IS NULL, errorReason, [])
                                     CALL apoc.util.validate(
                                         modRel IS NULL,
                                         'A :%s node was modified by this %s action (%s) but not explicitly marked as modified by the Action.',
