@@ -144,7 +144,7 @@ suite("action runner", () => {
         // The action will fail if the action implementation creates a node but doesn't include its VNID in "modifiedNodes":
         await assertRejects(
             testGraph.runAsSystem( CreateCeresAction({markAsModified: false}) ),
-            "A :AstroBody node was modified by this CreateCeres1 action (created node) but not explicitly marked as modified by the Action.",
+            "A :AstroBody node was modified by this CreateCeres1 action (created) but not explicitly marked as modified by the Action.",
         );
 
         // Then it should work if it does mark the node as modified:
@@ -162,7 +162,7 @@ suite("action runner", () => {
         const cypher = C`MATCH (ab:${AstronomicalBody} {id: ${id}}) SET ab.mass = 5`;
         await assertRejects(
             testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: []})),
-            "A :AstroBody node was modified by this GenericCypherAction action (modified property mass) but not explicitly marked as modified by the Action.",
+            "A :AstroBody node was modified by this GenericCypherAction action (newProp:mass) but not explicitly marked as modified by the Action.",
         );
         // Then it should work if it does mark the node as modified:
         await testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: [id]}));
@@ -216,7 +216,7 @@ suite("action runner", () => {
             testGraph.runAsSystem(
                 GenericCreateAction({labels: ["Planet", "VNode", "DeletedVNode"], data: {name: "Test Planet 6", mass: 100, numberOfMoons: 0}})
             ),
-            "VNode definition with label DeletedVNode has not been loaded."
+            "Nodes must not have :VNode and :DeletedVNode"
         );
     });
 

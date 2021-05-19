@@ -48,17 +48,13 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
             // (2) so that we can run validation on every modified node _before_ committing the transaction. It's not
             //     currently possible to get the "list of nodes the transaction will modify" without also attempting to
             //     commit the transaction, and we need to run the validation before we attempt to commit.
-
-            // The Action _must_ include a -[:MODIFIED]-> relationship to every node that it modified (created, updated,
-            // marked as Deleted, or created a relationship from).
-            // Creating a relationship (a)-[:REL]->(b) only counts as modifying (a), not (b)
             //
-            // The purpose of this trigger is to enforce these constraints by checking the transaction before it commits,
-            // and throwing an error (aborting the transaction) if it does not correctly mark the action as having
-            // MODIFIED the right nodes.
+            // Actions specify the VNIDs of all VNodes that they modify, and the action runner code then creates a
+            // -[:MODIFIED]-> relationship to every node that it modified (created, updated, soft deleted, deleted, or
+            // created a relationship from).
             //
-            // This trigger will complain if an Action is marked as modifying a node that it didn't actually modify,
-            // although that should also be avoided.
+            // Important: Creating a relationship (a)-[:REL]->(b) only counts as modifying (a), not (b)
+            // However, actions can also include (b) in their list of modified nodes if they think it's useful.
             //
             // This trigger would normally cause issues for schema migrations and data migrations, so the migrator code
             // explicitly pauses and resumes this trigger during each migration.
@@ -200,41 +196,6 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                                         [last(labels(modifiedNode)), action.type, head(keys(changeDetails))]
                                     )
                                     SET modRel += changeDetails
-
-                        WITH
-                            action,
-
-                            // Check that any newly created nodes are included in the list of nodes :MODIFIED by the current Action
-                            [
-                                n IN $createdNodes WHERE NOT n:Action AND NOT n:SlugId
-                                | {node: n, reason: 'created node'}
-                            ] AS createdNodes,
-
-                            // Check that any nodes with modified properties are included in the list of nodes :MODIFIED by the current Action
-                            [
-                                modProp IN apoc.coll.flatten(
-                                   apoc.map.values($assignedNodeProperties, keys($assignedNodeProperties)) +
-                                   apoc.map.values($removedNodeProperties, keys($removedNodeProperties))
-                                )
-                                | {node: modProp.node, reason: 'modified property ' + modProp.key}
-                            ] AS modifiedProps,
-
-                            // Check that any modified relationships have their 'from' node included in the list of :MODIFIED nodes:
-                            [
-                                rel IN ($createdRelationships + $deletedRelationships)
-                                WHERE type(rel) <> 'PERFORMED' AND type(rel) <> 'MODIFIED' AND type(rel) <> 'IDENTIFIES'
-                                | {node: startNode(rel), reason: 'added/deleted :'+type(rel)+' relationship'}
-                            ] AS createdOrDeletedRelationships
-
-                        UNWIND (createdNodes + modifiedProps + createdOrDeletedRelationships) AS change
-                            WITH action, change.node AS node, change.reason AS reason
-                                WHERE node <> action AND none(x IN $deletedNodes WHERE id(x) = id(node))
-                                OPTIONAL MATCH (action)-[rel:MODIFIED]->(node)
-                                CALL apoc.util.validate(
-                                    rel IS NULL,
-                                    'A :%s node was modified by this %s action (%s) but not explicitly marked as modified by the Action.',
-                                    [last(labels(node)), action.type, reason]
-                                )
 
                         RETURN null
                     ", {phase: "before"})
