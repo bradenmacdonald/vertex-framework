@@ -252,6 +252,24 @@ suite(__filename, () => {
             assert.deepStrictEqual(changes, expected);
         });
 
+        test("actions are not allowed to mutate properties on a relationship; they must re-created them", async () => {
+            const movieAction = await testGraph.runAsSystem(
+                CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018}),
+            );
+            const rdjAction = await testGraph.runAsSystem(
+                CreatePerson({slugId: "rdj", name: "Robert Downey Jr.", dateOfBirth: VD`1965-04-04`}),
+            );
+            const action0 = await testGraph.runAsSystem(
+                ActedIn({personId: "rdj", movieId: "infinity-war", role: "Tony Stark / Iron Man"}),
+            );
+            await assertRejects(testGraph.runAsSystem(
+                GenericCypherAction({cypher: C`
+                    MATCH (p:${Person})-[rel:${Person.rel.ACTED_IN}]->(m:${Movie}), p HAS KEY ${"rdj"}, m HAS KEY ${"infinity-war"}
+                    SET rel.role = "NEW ROLE"
+                `, modifiedNodes: [rdjAction.id]}),
+            ), "Error executing triggers");
+        });
+
         test("gives data about deleted relationships", async () => {
             const movieAction = await testGraph.runAsSystem(
                 CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018}),
