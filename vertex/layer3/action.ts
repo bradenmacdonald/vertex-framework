@@ -118,6 +118,9 @@ export class Action extends VNodeType {
         timestamp: Field.DateTime,
         // How many milliseconds it took to run this action.
         tookMs: Field.Int,
+        // Did this action (permanently) delete any nodes? (Set by the trackActionChanges trigger), used by the
+        // getActionChanges() function. If this is > 0, this action cannot be undone/reversed.
+        deletedNodesCount: Field.Int,
     };
     static async validate(dbObject: RawVNode<typeof Action>, tx: WrappedTransaction): Promise<void> {
         await super.validate(dbObject, tx);

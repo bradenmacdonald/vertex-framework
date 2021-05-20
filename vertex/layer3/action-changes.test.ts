@@ -45,6 +45,7 @@ suite(__filename, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
+                deletedNodesCount: 0,
             });
         });
 
@@ -81,6 +82,7 @@ suite(__filename, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
+                deletedNodesCount: 0,
             });
         });
 
@@ -130,6 +132,7 @@ suite(__filename, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
+                deletedNodesCount: 0,
             };
             assert.deepStrictEqual(changes, expected);
         });
@@ -173,6 +176,7 @@ suite(__filename, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
+                deletedNodesCount: 0,
             };
             assert.deepStrictEqual(changes, expected);
         });
@@ -211,6 +215,7 @@ suite(__filename, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
+                deletedNodesCount: 0,
             };
             assert.deepStrictEqual(changes, expected);
         });
@@ -242,6 +247,7 @@ suite(__filename, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
+                deletedNodesCount: 0,
             };
             assert.deepStrictEqual(changes, expected);
         });
@@ -280,6 +286,7 @@ suite(__filename, () => {
                 ],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
+                deletedNodesCount: 0,
             };
             assert.deepStrictEqual(changes, expected);
         });
@@ -308,6 +315,7 @@ suite(__filename, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [movieAction.id],
                 unDeletedNodes: [],
+                deletedNodesCount: 0,
             };
             assert.deepStrictEqual(changes, expected);
 
@@ -328,8 +336,39 @@ suite(__filename, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [movieAction.id],
+                deletedNodesCount: 0,
             };
             assert.deepStrictEqual(changes2, expected2);
+        });
+
+        test("records when nodes are fully deleted", async () => {
+            await testGraph.runAsSystem(
+                // To make this test more complex, we'll be soft deleting and restoring a node with relationships:
+                CreateMovieFranchise({slugId: "mcu", name: "Marvel Cinematic Universe"}),
+            );
+            const movieAction = await testGraph.runAsSystem(
+                CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018, franchiseId: "mcu"}),
+            );
+            const action1 = await testGraph.runAsSystem(
+                // Soft delete the movie:
+                GenericCypherAction({cypher: C`
+                    MATCH (m:${Movie}), m HAS KEY ${"infinity-war"}
+                    MATCH (s:SlugId)-[:IDENTIFIES]->(m)
+                    DETACH DELETE m
+                    DETACH DELETE s
+                `, modifiedNodes: [movieAction.id]}),
+            );
+            const changes = await testGraph.read(tx => getActionChanges(tx, action1.actionId));
+            const expected: ActionChangeSet = {
+                createdNodes: [],
+                modifiedNodes: [],
+                createdRelationships: [],
+                deletedRelationships: [],
+                softDeletedNodes: [],
+                unDeletedNodes: [],
+                deletedNodesCount: 1,
+            };
+            assert.deepStrictEqual(changes, expected);
         });
     });
 });

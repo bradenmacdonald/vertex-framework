@@ -70,6 +70,15 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             )
                         WITH head(actions) AS action
 
+                            // If a node is truly deleted, not just soft deleted using the :DeletedVNode label, we
+                            // record that the action deleted some node(s), but we don't record the detailed changes and
+                            // do not allow reversing the action. This is for things like GDPR user deletion that need
+                            // to irreversibly wipe data from the system.
+                            //
+                            // Count the number of fully deleted nodes that had the :VNode or :DeletedVNode label. We
+                            // exclude other nodes like :SlugID that aren't VNodes.
+                            SET action.deletedNodesCount = size([dn IN $deletedNodes WHERE dn IN $removedLabels['VNode'] OR dn IN $removedLabels['DeletedVNode']])
+
                         WITH
                             action,
 
@@ -110,7 +119,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                                     pair IN apoc.coll.flatten([k in keys($removedLabels) | apoc.coll.zip(apoc.coll.fill(k, size($removedLabels[k])), $removedLabels[k])])
                                     | {label: pair[0], node: pair[1]}
                                 ]
-                                WHERE (pair.node:VNode OR pair.node:DeletedVNode) AND NOT pair.node in $deletedNodes
+                                WHERE (pair.node:VNode OR pair.node:DeletedVNode) AND NOT pair.node IN $deletedNodes
                                 | {modifiedNode: pair.node, changeDetails: apoc.map.fromValues([
                                     'removedLabel:' + pair.label, true
                                 ])}
@@ -127,7 +136,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                                     apoc.map.values($assignedNodeProperties, keys($assignedNodeProperties)) +
                                     apoc.map.values($removedNodeProperties, keys($removedNodeProperties))
                                 )
-                                WHERE changedPropData.node:VNode AND changedPropData.node<>action
+                                WHERE changedPropData.node:VNode AND changedPropData.node<>action AND NOT changedPropData.node IN $deletedNodes
                                 | {modifiedNode: changedPropData.node, changeDetails: apoc.map.fromValues([
                                     'newProp:' + changedPropData.key, changedPropData.new,
                                     'oldProp:' + changedPropData.key, changedPropData.old
@@ -155,7 +164,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             // $deletedRelationships is a list of relationships
                             [
                                 rel IN $deletedRelationships
-                                WHERE startNode(rel):VNode AND startNode(rel)<>action AND endNode(rel)<>action
+                                WHERE startNode(rel):VNode AND startNode(rel)<>action AND endNode(rel)<>action AND NOT startNode(rel) IN $deletedNodes AND NOT endNode(rel) IN $deletedNodes
                                 | {
                                     modifiedNode: startNode(rel),
                                     changeDetails: apoc.map.fromValues(

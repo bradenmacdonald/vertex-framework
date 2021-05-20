@@ -104,7 +104,8 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
 
         const actionUpdate = await tx.run(`
             MERGE (a:Action:VNode {id: $actionId})
-            SET a += {type: $type, timestamp: datetime(), tookMs: $tookMs, data: $dataJson}
+            SET a += {type: $type, timestamp: datetime(), tookMs: $tookMs, data: $dataJson, deletedNodesCount: 0}
+            // Note: set deletedNodesCount=0 for now, the trigger will update it later if any nodes were deleted.
 
             ${isRevertOfAction ? `
                 WITH a
