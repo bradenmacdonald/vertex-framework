@@ -4,6 +4,7 @@ import {
     VNID,
     VNodeType,
     Field,
+    UndoAction,
 } from "..";
 import { defaultCreateFor, defaultUpdateActionFor } from "./action-templates";
 import { testGraph } from "../test-project";
@@ -164,7 +165,7 @@ suite(__filename, () => {
             assert.equal(orig.length, 1);
             assert.equal(orig[0].j.slugId, "Jupiter");
             // Now undo it:
-            await testGraph.undoAction({actionId: createResult.actionId, asUserId: undefined});
+            await testGraph.runAsSystem(UndoAction({actionId: createResult.actionId}));
             // Now make sure it's gone:
             const postDelete = await testGraph.read(tx => tx.query(findJupiter));
             assert.equal(postDelete.length, 0);

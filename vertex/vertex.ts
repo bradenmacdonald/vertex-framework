@@ -1,5 +1,5 @@
-import neo4j, { Driver, Transaction } from "neo4j-driver-lite";
-import { Action, ActionData, ActionResult, getActionImplementation } from "./layer3/action";
+import neo4j, { Driver } from "neo4j-driver-lite";
+import { ActionData, ActionResult } from "./layer3/action";
 import { runAction } from "./layer3/action-runner";
 import { log } from "./lib/log";
 import { looksLikeVNID, VNID } from "./lib/types/vnid";
@@ -87,23 +87,6 @@ export class Vertex implements VertexCore {
      */
     public async runAsSystem<T extends ActionData>(action: T, ...otherActions: ActionData[]): Promise<ActionResult<T>> {
         return this.runAs(SYSTEM_VNID, action, ...otherActions);
-    }
-
-    public async undoAction(args: {actionId: VNID, asUserId: VNID|undefined}): Promise<ActionResult<any>> {
-        // Get the result and data from the previous action that we want to undo:
-        const prevAction = await this.pullOne(Action, a => a.type.data, {key: args.actionId});
-        const prevActionImpl = getActionImplementation(prevAction.type);
-        if (prevActionImpl === undefined) {
-            throw new Error(`Action type ${prevAction.type} is no longer defined.`);
-        }
-        const {result, ...prevActionData} = JSON.parse(prevAction.data);
-        // Invert the action, creating the new undo action (this is synchronous and has no side effects)
-        const undoAction = prevActionImpl.invert(prevActionData, result);
-        if (undoAction === null) {
-            throw new Error(`That action cannot be undone.`);
-        }
-        // Now apply the undo action:
-        return await runAction(this, undoAction, args.asUserId, args.actionId);
     }
 
     /**

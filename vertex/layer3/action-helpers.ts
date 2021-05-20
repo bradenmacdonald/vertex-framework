@@ -4,6 +4,7 @@ import { RelationshipDeclaration, BaseVNodeType, getRelationshipType } from "../
 import { log } from "../lib/log";
 import { VNodeKey, VNID } from "../lib/key";
 import { Field, GetDataType, PropSchema } from "../lib/types/field";
+import { Neo4jDate } from "../lib/types/vdate";
 
 export type OneRelationshipSpec<VNR extends RelationshipDeclaration, KeyType = VNodeKey> = {
     key: KeyType|null;
@@ -133,10 +134,10 @@ export async function updateToManyRelationship<VNR extends RelationshipDeclarati
 
     // Create relationships to new target nodes(s):
     for (const {key, ...newProps} of to) {
-        // TODO: proper deep comparison instead of JSON.stringify() here.
+        // TODO: proper deep comparison instead of compatibleJsonStringify() here.
         const identicallExistingRelationship = relResult.find(el => (
             (el["target.id"] === key || el["target.slugId"] === key)
-            && JSON.stringify(el["oldProps"]) === JSON.stringify(newProps)
+            && compatibleJsonStringify(el["oldProps"]) === compatibleJsonStringify(newProps)
         ));
         if (identicallExistingRelationship) {
             // This relationship already exists. Remove this relationship from our list of relationships to delete:
@@ -171,4 +172,15 @@ export async function updateToManyRelationship<VNR extends RelationshipDeclarati
         `);
     }
     return {prevTo};
+}
+
+
+
+/** Version of JSON.stringify that supports bigint and date types */
+function compatibleJsonStringify(data: any): string {
+    return JSON.stringify(data, (key, value) =>
+        typeof value === "bigint" ? value.toString() + "n" :
+        value instanceof Neo4jDate ? value.toString() :
+        value
+    );
 }

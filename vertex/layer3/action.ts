@@ -112,8 +112,6 @@ export class Action extends VNodeType {
         ...VNodeType.properties,
         // The action type, e.g. "Create Article", "Delete User", etc.
         type: Field.String,
-        // The JSON data that defines the action, and contains enough data to undo it.
-        data: Field.String.Check(d => d.max(100_000)),
         // The time at which the action was completed.
         timestamp: Field.DateTime,
         // How many milliseconds it took to run this action.
@@ -124,11 +122,6 @@ export class Action extends VNodeType {
     };
     static async validate(dbObject: RawVNode<typeof Action>, tx: WrappedTransaction): Promise<void> {
         await super.validate(dbObject, tx);
-        try {
-            JSON.parse(dbObject.data);
-        } catch {
-            throw new ValidationError("Invalid JSON in Action data.");
-        }
     }
     static readonly rel = {
         /** What VNodes were modified by this action */

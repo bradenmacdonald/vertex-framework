@@ -8,6 +8,7 @@ import {
     VNodeKey,
     VDate,
     VD,
+    UndoAction,
 } from "..";
 import { testGraph } from "../test-project";
 
@@ -145,10 +146,10 @@ suite("action-helpers", () => {
             const action2 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: {key: null}}));
             assert.equal(await getOrbit("earth"), null);
             // Undo action 2:
-            await testGraph.undoAction({actionId: action2.actionId, asUserId: undefined});
+            await testGraph.runAsSystem(UndoAction({actionId: action2.actionId}));
             assert.deepStrictEqual(await getOrbitAndPeriod("earth"), earthOrbitsTheSun);
             // Undo action 1:
-            await testGraph.undoAction({actionId: action1.actionId, asUserId: undefined});
+            await testGraph.runAsSystem(UndoAction({actionId: action1.actionId}));
             assert.equal(await getOrbit("earth"), null);
         });
 
@@ -277,13 +278,13 @@ suite("action-helpers", () => {
                 ],
             }));
             // Now undo each action in turn:
-            await testGraph.undoAction({actionId: action2.actionId, asUserId: undefined});
+            await testGraph.runAsSystem(UndoAction({actionId: action2.actionId}));
             assert.deepStrictEqual(await getVisitors("moon"), [
                 jimLovellApollo8,
                 neilArmstrongApollo11,
                 jimLovellApollo13,
             ]);
-            await testGraph.undoAction({actionId: action1.actionId, asUserId: undefined});
+            await testGraph.runAsSystem(UndoAction({actionId: action1.actionId}));
             assert.deepStrictEqual(await getVisitors("moon"), []);
         });
 

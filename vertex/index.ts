@@ -90,6 +90,7 @@ export {
 
 export {
     GenericCypherAction,
+    UndoAction,
 } from "./layer3/action-generic";
 
 export {
