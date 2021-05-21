@@ -131,12 +131,12 @@ export class Action extends VNodeType {
 
     static readonly virtualProperties = VNodeType.hasVirtualProperties({
         revertedBy: {
-            type: "one-relationship" as const,
+            type: "one-relationship",
             query: C`(@target:${Action})-[:${Action.rel.REVERTED}]->(@this)`,
             target: Action,
         },
         revertedAction: {
-            type: "one-relationship" as const,
+            type: "one-relationship",
             query: C`(@this)-[:${Action.rel.REVERTED}]->(@target:${Action})`,
             target: Action,
         },
