@@ -1,4 +1,4 @@
-import { ActionData, getActionImplementation, ActionResult, Action } from "./action";
+import { ActionData, getActionDefinition, ActionResult, Action } from "./action";
 import { VNID } from "../lib/types/vnid";
 import { SYSTEM_VNID } from "./schema";
 import { log } from "../lib/log";
@@ -17,8 +17,8 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
     const actionId = VNID();
     const startTime = new Date();
     const {type, ...otherData} = actionData;
-    const actionImplementation = getActionImplementation(type);
-    if (actionImplementation === undefined) {
+    const ActionDefinition = getActionDefinition(type);
+    if (ActionDefinition === undefined) {
         throw new Error(`Unknown Action type: "${type}"`);
     }
     if (userId === undefined) {
@@ -31,7 +31,7 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
         let modifiedNodeIds: VNID[];
         let resultData: any;
         try {
-            const x = await actionImplementation.apply(tx, actionData/*, context */);
+            const x = await ActionDefinition.apply(tx, actionData/*, context */);
             modifiedNodeIds = x.modifiedNodes;
             resultData = x.resultData;
         } catch (err) {

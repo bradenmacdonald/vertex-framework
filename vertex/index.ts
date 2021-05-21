@@ -77,7 +77,7 @@ export {
 export {
     Action,
     ActionData,
-    ActionImplementation,
+    ActionDefinition,
     ActionResult,
     defineAction,
 } from "./layer3/action";

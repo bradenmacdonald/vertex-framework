@@ -1,4 +1,4 @@
-import { ActionImplementation, defineAction, ActionData, Action } from "./action";
+import { ActionDefinition, defineAction, ActionData, Action } from "./action";
 import { C } from "../layer2/cypher-sugar";
 import { VNID, VNodeKey } from "../lib/key";
 import { WrappedTransaction } from "../transaction";
@@ -35,7 +35,7 @@ type UpdateImplementationDetails<VNT extends BaseVNodeType, MutableProps extends
 };
 
 /** Detailed type specification for an Update action created by the defaultUpdateActionFor() template */
-export interface UpdateActionImplementation<
+export interface UpdateActionDefinition<
     // The VNode type that is being updated
     VNT extends BaseVNodeType,
     // Which of the VNode's raw properties can be updated
@@ -43,7 +43,7 @@ export interface UpdateActionImplementation<
     // Optional custom parameters that can (or must) be specified, which get used by the custom otherUpdates() method
     // (if any), to do things like update this VNode's relationships.
     OtherArgs extends Record<string, any>,
-> extends ActionImplementation<
+> extends ActionDefinition<
     `Update${VNT["label"]}`,
     // The parameters that can/must be passed to this action to run it:
     {key: VNodeKey} & PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs,
@@ -70,7 +70,7 @@ export function defaultUpdateActionFor<VNT extends BaseVNodeType, MutableProps e
     type: VNT,
     mutableProperties: MutableProps,
     {clean, otherUpdates}: UpdateImplementationDetails<VNT, GetRequestedRawProperties<MutableProps>, OtherArgs> = {},
-): UpdateActionImplementation<VNT, GetRequestedRawProperties<MutableProps>, OtherArgs>
+): UpdateActionDefinition<VNT, GetRequestedRawProperties<MutableProps>, OtherArgs>
 {
     const mutablePropertyKeys = getRequestedRawProperties(type, mutableProperties);
     type PropertyArgs = PropertyValuesForUpdate<VNT, GetRequestedRawProperties<MutableProps>>;
@@ -141,8 +141,8 @@ type RequiredArgsForCreate<VNT extends BaseVNodeType, keys extends keyof VNT["pr
 }
 
 /** Helper to get the (optional) arguments that can be used for an Update action */
-type ArgsForUpdateAction<UAI extends UpdateActionImplementation<BaseVNodeType, any, any>|undefined> = (
-    UAI extends UpdateActionImplementation<infer VNT, infer SelectedProps, infer OtherArgs> ?
+type ArgsForUpdateAction<UAI extends UpdateActionDefinition<BaseVNodeType, any, any>|undefined> = (
+    UAI extends UpdateActionDefinition<infer VNT, infer SelectedProps, infer OtherArgs> ?
         PropertyValuesForUpdate<VNT, SelectedProps> & OtherArgs
     : {/* If there's no update action, we don't accept any additional arguments */}
 );
@@ -154,11 +154,11 @@ type ArgsForUpdateAction<UAI extends UpdateActionImplementation<BaseVNodeType, a
  * @param type The VNode Type to create
  * @param updateAction The Update Action, created by defaultUpdateActionFor() (optional)
  */
-export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extends RequestVNodeRawProperties<VNT>, UAI extends UpdateActionImplementation<VNT, any, any>|undefined = undefined>(  // eslint-disable-line @typescript-eslint/ban-types
+export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extends RequestVNodeRawProperties<VNT>, UAI extends UpdateActionDefinition<VNT, any, any>|undefined = undefined>(  // eslint-disable-line @typescript-eslint/ban-types
     type: VNT,
     requiredProperties: RequiredProps,
     updateAction?: UAI
-): ActionImplementation<
+): ActionDefinition<
     `Create${VNT["label"]}`,
     // This Create action _requires_ the following properties:
     RequiredArgsForCreate<VNT, GetRequestedRawProperties<RequiredProps>>
@@ -260,7 +260,7 @@ export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extend
 }
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-export function defaultDeleteAndUnDeleteFor<VNT extends BaseVNodeType>(type: VNT): [ActionImplementation<`Delete${VNT["label"]}`, {key: VNodeKey}, {}>, ActionImplementation<`UnDelete${VNT["label"]}`, {id: VNID}, {}>] {
+export function defaultDeleteAndUnDeleteFor<VNT extends BaseVNodeType>(type: VNT): [ActionDefinition<`Delete${VNT["label"]}`, {key: VNodeKey}, {}>, ActionDefinition<`UnDelete${VNT["label"]}`, {id: VNID}, {}>] {
 
     const DeleteAction = defineAction({
         type: `Delete${type.label}` as `Delete${VNT["label"]}`,
