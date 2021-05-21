@@ -2,6 +2,7 @@ import { WrappedTransaction } from "../transaction";
 import { Field, TypedField, FieldType, GetDataShape, PropSchema, validatePropSchema } from "../lib/types/field";
 import { C } from "./cypher-sugar";
 import { convertNeo4jFieldValue } from "./cypher-return-shape";
+import { VNID } from "../lib/key";
 
 // An empty object that can be used as a default value for read-only properties
 export const emptyObj = Object.freeze({});
@@ -200,6 +201,25 @@ export class _BaseVNodeType {
         registerVNodeType(vnt);
     }
 
+    /**
+     * Helper function used to embed a reference to a specific VNode in a string
+     * e.g. Actions that describe themselves can say something like:
+     *      `Changed 'name' of ${Person.withId(result["p1.id"])}`
+     * and then if that is displayed somewhere, it can be rendered in a user-friendly way, such as:
+     *      `Changed 'name' of <Bob Jones (Person with slugId 'per-bob')>`
+     * or in a rich text environment, it can be replaced with a link.
+     *
+     * Subclasses should NOT override this.
+     * 
+     * Note that ` is used as a delimiter because when it prints something like this
+     *      Created `AstronomicalBody _16L9VRwDGzFZu0HJqtzW2Z`
+     * in plain text, one can double-click AstronomicalBody or _16L9VRwDGzFZu0HJqtzW2Z in a text editor to select it,
+     * without selecting the delimeter character.
+     */
+    static withId(id: VNID): string {
+        return `\`${this.name} ${id}\``;
+    }
+
     // This method is not used for anything, but without at least one non-static method, TypeScript allows this:
     //     const test: _BaseVNodeType = "some string which is not a VNodeType!";
     protected __vnode(): void {/* */}
@@ -223,6 +243,7 @@ export interface BaseVNodeType {
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 
     declare(vnt: BaseVNodeType): void;
+    withId(id: VNID): string;
 }
 
 /** Helper function to check if some object is a VNodeType */
