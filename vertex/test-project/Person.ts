@@ -6,8 +6,8 @@ import {
     Field,
     VirtualPropType,
     VNodeType,
+    DerivedProperty,
 } from "../";
-import { DerivedProperty } from "../layer4/derived-props";
 import { Movie } from "./Movie";
 
 /**

@@ -1,6 +1,7 @@
 import { C } from "../layer2/cypher-sugar";
 import { WrappedTransaction } from "../transaction";
-import { RelationshipDeclaration, BaseVNodeType, getRelationshipType } from "../layer2/vnode-base";
+import { RelationshipDeclaration, getRelationshipType } from "../layer2/vnode-base";
+import { VNodeType } from "../layer3/vnode";
 import { log, stringify } from "../lib/log";
 import { VNodeKey, VNID } from "../lib/key";
 import { Field, GetDataType, PropSchema } from "../lib/types/field";
@@ -19,7 +20,7 @@ export type OneRelationshipSpec<VNR extends RelationshipDeclaration, KeyType = V
  * pointing to either another VNode or null. (an "x:1" relationship, e.g. "1:1" or "many:1")
  */
 export async function updateToOneRelationship<VNR extends RelationshipDeclaration>(tx: WrappedTransaction, {from, rel, to}: {
-    from: [vnt: BaseVNodeType, id: VNID],
+    from: [vnt: VNodeType, id: VNID],
     rel: VNR,
     to: string|null|OneRelationshipSpec<VNR>,
 }): Promise<{prevTo: OneRelationshipSpec<VNR, VNID>}> {
@@ -109,7 +110,7 @@ export type RelationshipSpec<VNR extends RelationshipDeclaration, KeyType = VNod
  * If you don't want to allow that, set {cardinality: RelationshipDeclaration.Cardinality.ToManyUnique} on the relationship.
  */
 export async function updateToManyRelationship<VNR extends RelationshipDeclaration>(tx: WrappedTransaction, {from, rel, to}: {
-    from: [vnt: BaseVNodeType, id: VNID],
+    from: [vnt: VNodeType, id: VNID],
     rel: VNR,
     to: RelationshipSpec<VNR>[],
 }): Promise<{prevTo: RelationshipSpec<VNR, VNID>[]}> {

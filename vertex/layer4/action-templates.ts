@@ -2,19 +2,20 @@ import { ActionDefinition, defineAction } from "./action";
 import { C } from "../layer2/cypher-sugar";
 import { VNID, VNodeKey } from "../lib/key";
 import { WrappedTransaction } from "../transaction";
-import { RawVNode, BaseVNodeType, getAllLabels } from "../layer2/vnode-base";
-import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "./data-request";
+import { RawVNode, getAllLabels } from "../layer2/vnode-base";
+import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "../layer2/data-request";
 import { Field, GetDataType } from "../lib/types/field";
+import { VNodeType } from "../layer3/vnode";
 
 
 // Useful action generators to reduce boilerplate
 
 /** Helper to type the parameters in an auto-generated Update action */
-type PropertyValuesForUpdate<VNT extends BaseVNodeType, keys extends keyof VNT["properties"]> = {
+type PropertyValuesForUpdate<VNT extends VNodeType, keys extends keyof VNT["properties"]> = {
     [K in keys]?: GetDataType<VNT["properties"][K]>
 }
 
-type UpdateImplementationDetails<VNT extends BaseVNodeType, MutableProps extends keyof VNT["properties"], OtherArgs extends Record<string, any> = {}> = {  // eslint-disable-line @typescript-eslint/ban-types
+type UpdateImplementationDetails<VNT extends VNodeType, MutableProps extends keyof VNT["properties"], OtherArgs extends Record<string, any> = {}> = {  // eslint-disable-line @typescript-eslint/ban-types
     // The data argument passed into this action contains:
     //   key: the VNID or slugId of this node
     //   zero or more of the raw property values for the properties specified in "mutableProperties" (MutPropsArrayType)
@@ -37,7 +38,7 @@ type UpdateImplementationDetails<VNT extends BaseVNodeType, MutableProps extends
 /** Detailed type specification for an Update action created by the defaultUpdateFor() template */
 export interface UpdateActionDefinition<
     // The VNode type that is being updated
-    VNT extends BaseVNodeType,
+    VNT extends VNodeType,
     // Which of the VNode's raw properties can be updated
     MutableProps extends keyof VNT["properties"],
     // Optional custom parameters that can (or must) be specified, which get used by the custom otherUpdates() method
@@ -66,7 +67,7 @@ export interface UpdateActionDefinition<
  * @param otherUpdates Optionally provide a function to do additional changes on update, such as updating relationships
  *                     to other nodes.
  */
-export function defaultUpdateFor<VNT extends BaseVNodeType, MutableProps extends RequestVNodeRawProperties<VNT>, OtherArgs extends Record<string, any> = {}>(  // eslint-disable-line @typescript-eslint/ban-types
+export function defaultUpdateFor<VNT extends VNodeType, MutableProps extends RequestVNodeRawProperties<VNT>, OtherArgs extends Record<string, any> = {}>(  // eslint-disable-line @typescript-eslint/ban-types
     type: VNT,
     mutableProperties: MutableProps,
     {clean, otherUpdates}: UpdateImplementationDetails<VNT, GetRequestedRawProperties<MutableProps>, OtherArgs> = {},
@@ -133,12 +134,12 @@ export function defaultUpdateFor<VNT extends BaseVNodeType, MutableProps extends
 }
 
 /** Helper to type the parameters in an auto-generated Create action */
-type RequiredArgsForCreate<VNT extends BaseVNodeType, keys extends keyof VNT["properties"]> = {
+type RequiredArgsForCreate<VNT extends VNodeType, keys extends keyof VNT["properties"]> = {
     [K in keys]: GetDataType<VNT["properties"][K]>
 }
 
 /** Helper to get the (optional) arguments that can be used for an Update action */
-type ArgsForUpdateAction<UAI extends UpdateActionDefinition<BaseVNodeType, any, any>|undefined> = (
+type ArgsForUpdateAction<UAI extends UpdateActionDefinition<VNodeType, any, any>|undefined> = (
     UAI extends UpdateActionDefinition<infer VNT, infer SelectedProps, infer OtherArgs> ?
         PropertyValuesForUpdate<VNT, SelectedProps> & OtherArgs
     : {/* If there's no update action, we don't accept any additional arguments */}
@@ -151,7 +152,7 @@ type ArgsForUpdateAction<UAI extends UpdateActionDefinition<BaseVNodeType, any, 
  * @param type The VNode Type to create
  * @param updateAction The Update Action, created by defaultUpdateFor() (optional)
  */
-export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extends RequestVNodeRawProperties<VNT>, UAI extends UpdateActionDefinition<VNT, any, any>|undefined = undefined>(  // eslint-disable-line @typescript-eslint/ban-types
+export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends RequestVNodeRawProperties<VNT>, UAI extends UpdateActionDefinition<VNT, any, any>|undefined = undefined>(  // eslint-disable-line @typescript-eslint/ban-types
     type: VNT,
     requiredProperties: RequiredProps,
     updateAction?: UAI
@@ -222,7 +223,7 @@ export function defaultCreateFor<VNT extends BaseVNodeType, RequiredProps extend
 }
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-export function defaultDeleteFor<VNT extends BaseVNodeType>(type: VNT): ActionDefinition<`Delete${VNT["label"]}`, {key: VNodeKey}, {}> {
+export function defaultDeleteFor<VNT extends VNodeType>(type: VNT): ActionDefinition<`Delete${VNT["label"]}`, {key: VNodeKey}, {}> {
 
     const DeleteAction = defineAction({
         type: `Delete${type.label}` as `Delete${VNT["label"]}`,

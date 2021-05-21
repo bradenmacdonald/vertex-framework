@@ -38,10 +38,7 @@ export class UndoConflictError extends Error {}
     apply: async (tx, data) => {
         // Make sure the actionId to undo exists, and that it hasn't already been undone.
         // Note that code in the action-runner will set the REVERTED relationship once this undo action succeeds.
-        const prevAction = await tx.queryOne(C`
-            MATCH (a:Action {id: ${data.actionId}})
-            OPTIONAL MATCH (revertedBy:Action)-[:${Action.rel.REVERTED}]->(a)
-        `.RETURN({revertedBy: Field.NullOr.Node}));
+        const prevAction = await tx.pullOne(Action, a => a.revertedBy(ra => ra.id), {key: data.actionId});
         if (prevAction.revertedBy !== null) {
             throw new UndoConflictError("That action was already undone.");
         }

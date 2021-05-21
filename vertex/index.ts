@@ -65,44 +65,14 @@ export {
     VNodeTypeRef,
 } from "./layer2/vnode-ref";
 
-//// Layer 3 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 export {
     AnyDataRequest,
     BaseDataRequest,
     RequestVNodeRawProperties,
     getRequestedRawProperties,
-} from "./layer3/data-request";
+} from "./layer2/data-request";
 
-export {
-    Action,
-    ActionRequest,
-    ActionDefinition,
-    ActionResult,
-    defineAction,
-} from "./layer3/action";
-
-export {
-    defaultCreateFor,
-    defaultDeleteFor,
-    defaultUpdateFor,
-} from "./layer3/action-templates";
-
-export {
-    GenericCypherAction,
-    UndoAction,
-} from "./layer3/action-generic";
-
-export {
-    getActionChanges,
-    ActionChangeSet,
-} from "./layer3/action-changes";
-
-export {
-    SYSTEM_VNID
-} from "./layer3/schema";
-
-//// Layer 4 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+//// Layer 3 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
     VirtualManyRelationshipProperty,
@@ -111,27 +81,57 @@ export {
     VirtualPropType,
     VirtualPropertyDefinition,
     VirtualPropsSchema,
-} from "./layer4/virtual-props";
+} from "./layer3/virtual-props";
 
 export {
     DerivedProperty,
     DerivedPropertyFactory,
-} from "./layer4/derived-props";
+} from "./layer3/derived-props";
 
 export {
     VNodeType,
     isVNodeType,
     getVNodeType,
-} from "./layer4/vnode";
+} from "./layer3/vnode";
 
 export {
     DataRequestFilter,
-} from "./layer4/data-request-filtered";
+} from "./layer3/data-request-filtered";
 
 export {
     newDataRequest,
     subclassDataRequest,
-} from "./layer4/pull";
+} from "./layer3/pull";
+
+//// Layer 4 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export {
+    Action,
+    ActionRequest,
+    ActionDefinition,
+    ActionResult,
+    defineAction,
+} from "./layer4/action";
+
+export {
+    defaultCreateFor,
+    defaultDeleteFor,
+    defaultUpdateFor,
+} from "./layer4/action-templates";
+
+export {
+    GenericCypherAction,
+    UndoAction,
+} from "./layer4/action-generic";
+
+export {
+    getActionChanges,
+    ActionChangeSet,
+} from "./layer4/action-changes";
+
+export {
+    SYSTEM_VNID
+} from "./layer4/schema";
 
 //// High Level ////////////////////////////////////////////////////////////////////////////////////////////////////////
 

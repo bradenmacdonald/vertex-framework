@@ -13,7 +13,7 @@ export interface VNodeType extends VNodeTypeWithVirtualProps {
 }
 
 /**
- * Augment the base VNodeType definition to add in defaults and helper methods for layer 4 functionality.
+ * Augment the base VNodeType definition to add in defaults and helper methods for layer 3 functionality.
  * 
  * This class (and the interface with the same name) is the full VNodeType abstract class
  */
@@ -72,7 +72,7 @@ export function isVNodeType(obj: any): obj is VNodeType {
     return Object.prototype.isPrototypeOf.call(VNodeType, obj);
 }
 
-/** Extend "getVNodeType" to include layer 4 type definition */
+/** Extend "getVNodeType" to include layer 3 type definition */
 export function getVNodeType(label: string): VNodeType {
     return baseGetVNodeType(label) as VNodeType;
 }

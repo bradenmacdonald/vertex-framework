@@ -3,8 +3,7 @@ import { suite, test, assert, dedent, configureTestData } from "../lib/intern-te
 import { buildCypherQuery as _buildCypherQuery, newDataRequest } from "./pull";
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils";
 import { testGraph, Person, Movie } from "../test-project";
-import { C, VNID, DataRequestFilter, VDate } from "..";
-import { BaseDataRequest } from "../layer3/data-request";
+import { C, VNID, BaseDataRequest, DataRequestFilter, VDate } from "..";
 import { FilteredRequest } from "./data-request-filtered";
 
 function buildCypherQuery(request: BaseDataRequest<any, any, any>, filter?: DataRequestFilter): ReturnType<typeof _buildCypherQuery> {

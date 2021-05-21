@@ -6,7 +6,7 @@ import {
 } from "./virtual-props";
 import { CypherQuery } from "../layer2/cypher-sugar";
 import { VNodeType } from "./vnode";
-import { BaseDataRequest, DataRequestState } from "../layer3/data-request";
+import { BaseDataRequest, DataRequestState } from "../layer2/data-request";
 import {
     ConditionalRequest,
     getConditionalRawPropsData,
