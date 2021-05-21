@@ -123,6 +123,7 @@ export function defaultUpdateFor<VNT extends VNodeType, MutableProps extends Req
             return {
                 resultData: {prevValues: previousValues as any},
                 modifiedNodes,
+                description: `Updated ${type.withId(nodeSnapshot.id as any)} (${Object.keys(data).filter(k => k !== "key").join(", ")})`,
             };
         },
     });
@@ -204,16 +205,19 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends Re
                 CREATE (node:${C(labels.join(":"))} {id: ${id}})
                 SET node += ${propsToSetOnCreate}
             `);
+            const description = `Created ${type.withId(id)}`;
             if (updateAction && Object.keys(propsToSetViaUpdate).length > 0) {
                 const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: id, ...propsToSetViaUpdate});
                 return {
                     resultData: { id, updateResult: updateResult.resultData },
                     modifiedNodes: [id, ...updateResult.modifiedNodes],
+                    description,
                 };
             } else {
                 return {
                     resultData: { id, updateResult: null },
                     modifiedNodes: [id],
+                    description,
                 };
             }
         },
@@ -236,7 +240,7 @@ export function defaultDeleteFor<VNT extends VNodeType>(type: VNT): ActionDefini
                 REMOVE node:VNode
             `.RETURN({"node.id": Field.VNID}));
             const modifiedNodes = [result["node.id"]];
-            return {resultData: {id: result["node.id"]}, modifiedNodes};
+            return {resultData: {id: result["node.id"]}, modifiedNodes, description: `Deleted ${type.withId(result["node.id"])}`};
         },
     });
 

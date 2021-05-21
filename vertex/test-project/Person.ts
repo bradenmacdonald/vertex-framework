@@ -121,10 +121,11 @@ export const ActedIn = defineAction({
             MATCH (m:${Movie}), m HAS KEY ${data.movieId}
             MERGE (p)-[rel:${Person.rel.ACTED_IN}]->(m)
             SET rel.role = ${data.role}
-            `.RETURN({"p.id": Field.VNID}));
+            `.RETURN({"p.id": Field.VNID, "m.id": Field.VNID}));
         return {
             modifiedNodes: [result["p.id"]],
             resultData: {},
+            description: `Recorded that ${Person.withId(result["p.id"])} acted in ${Movie.withId(result["m.id"])}.`,
         };
     },
 });
@@ -140,11 +141,12 @@ export const RecordFriends = defineAction({
         const result = await tx.queryOne(C`
             MATCH (p1:${Person}), p1 HAS KEY ${data.personId}
             MATCH (p2:${Person}), p2 HAS KEY ${data.otherPersonId}
-            MERGE (p1)-[:${Person.rel.FRIEND_OF}]->(p2)
+            MERGE (p1)-[:${Person.rel.FRIEND_OF}]-(p2)
         `.RETURN({"p1.id": Field.VNID, "p2.id": Field.VNID}));
         return {
             modifiedNodes: [result["p1.id"], result["p2.id"]],
             resultData: {},
+            description: `Recorded that ${Person.withId(result["p1.id"])} and ${Person.withId(result["p2.id"])} are friends.`,
         };
     },
 });

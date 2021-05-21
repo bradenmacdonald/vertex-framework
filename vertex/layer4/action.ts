@@ -42,12 +42,17 @@ interface ApplyResult<ResultData extends Record<string, any> = {}> {  // eslint-
      * the (:Action)-[:MODIFIED]-> relationship can be created, giving us a change history for every node in the graph.
      */
     modifiedNodes: VNID[];
+    /**
+     * A textual description (in past tense) of what this action did, in English, with Node IDs inline.
+     * e.g. `Created ${Person.withId(newPersonVNID)}`
+     */
+    description: string;
 }
 
 /** TypeScript helper: given an ActionRequest type, this gets the shape of the return value from runAction(), if known */
 export type ActionResult<T extends ActionRequest> = (
     T extends ActionRequest<infer Parameters, infer ResultData> ? ResultData : any
-)&{actionId: VNID};
+)&{actionId: VNID, actionDescription: string};
 
 
 /** Base class for an Action, defining the interface that all actions must adhere to. */
@@ -109,6 +114,8 @@ export class Action extends VNodeType {
         timestamp: Field.DateTime,
         // How many milliseconds it took to run this action.
         tookMs: Field.Int,
+        // What this action did, in English, with Node IDs inline like `Created ${Person.withId(newPersonVNID)}`
+        description: Field.String,
         // Did this action (permanently) delete any nodes? (Set by the trackActionChanges trigger), used by the
         // getActionChanges() function. If this is > 0, this action cannot be undone/reversed.
         deletedNodesCount: Field.Int,

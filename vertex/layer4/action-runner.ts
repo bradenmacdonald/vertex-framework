@@ -25,15 +25,17 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
         userId = SYSTEM_VNID;
     }
 
-    const [result, tookMs] = await graph._restrictedWrite(async (tx) => {
+    const [result, tookMs, description] = await graph._restrictedWrite(async (tx) => {
 
         // First, apply the action:
         let modifiedNodeIds: VNID[];
         let resultData: any;
+        let description: string;
         try {
             const x = await ActionDefinition.apply(tx, parameters);
             modifiedNodeIds = x.modifiedNodes;
             resultData = x.resultData;
+            description = x.description;
         } catch (err) {
             log.error(`${type} action failed during apply() method.`);
             throw err;
@@ -96,7 +98,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
 
         const actionUpdate = await tx.run(`
             MERGE (a:Action:VNode {id: $actionId})
-            SET a += {type: $type, timestamp: datetime(), tookMs: $tookMs, deletedNodesCount: 0}
+            SET a += {type: $type, timestamp: datetime(), tookMs: $tookMs, description: $description, deletedNodesCount: 0}
             // Note: set deletedNodesCount=0 for now, the trigger will update it later if any nodes were deleted.
 
             ${isRevertOfAction ? `
@@ -115,6 +117,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
             actionId,
             userId,
             tookMs,
+            description,
             isRevertOfAction,
         });
 
@@ -123,12 +126,16 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
             throw new Error("Invalid user ID - unable to apply action.");
         }
 
-        return [resultData, tookMs];
+        return [resultData, tookMs, description];
     });
 
-    log(`${type} (${tookMs} ms)`); // TODO: a way for actions to describe themselves verbosely
+    // Calculate how long it took to commit the transaction too
+    const commitMs = (new Date()).getTime() - startTime.getTime() - tookMs;
+
+    log(`${description} (${type} took ${tookMs} ms + ${commitMs} ms)`); // TODO: a way for actions to describe themselves verbosely
 
     result.actionId = actionId;
+    result.actionDescription = description;
 
     return result;
 }

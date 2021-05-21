@@ -37,7 +37,7 @@ const GenericCreateAction = defineAction({
     apply: async (tx, data) => {
         const id = VNID();
         await tx.query(C`CREATE (p:${C(data.labels.join(":"))} {id: ${id}}) SET p += ${data.data}`);
-        return { resultData: {id}, modifiedNodes: [id], };
+        return { resultData: {id}, modifiedNodes: [id], description: `Created VNode with labels ${data.labels.join(", ")}` };
     },
 });
 
@@ -139,6 +139,7 @@ suite("action runner", () => {
                     resultData: {id},
                     // If "markAsModified" is true, say that we modified the new node, otherwise skip it.
                     modifiedNodes: data.markAsModified ? [id] : [],
+                    description: "Created Ceres",
                 };
             },
         });
@@ -157,6 +158,7 @@ suite("action runner", () => {
         const result = await testGraph.runAsSystem( CreateCeresAction({markAsModified: true}) );
         assert.isString(result.id);
         assert.isString(result.actionId);
+        assert.strictEqual(result.actionDescription, "Created Ceres");
     });
 
     test("An action cannot mutate a node without including it in modifiedNodes", async () => {

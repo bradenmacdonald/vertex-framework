@@ -2,7 +2,6 @@ import { VNID } from "../lib/types/vnid";
 import { C, CypherQuery } from "../layer2/cypher-sugar";
 import { Action, defineAction } from "./action";
 import { getActionChanges } from "./action-changes";
-import { Field } from "../lib/types/field";
 
 /**
  * A generic action that can run arbitrary cypher, meant only for use in tests.
@@ -11,16 +10,16 @@ export const GenericCypherAction = defineAction({
     type: `GenericCypherAction`,
     parameters: {} as {
         cypher: CypherQuery,
-        produceResult?: (dbResult: any) => {resultData: any, modifiedNodes: VNID[]},
         modifiedNodes?: VNID[],
+        description?: string,
     },
     apply: async (tx, data) => {
         const dbResult = await tx.query(data.cypher);
-        const {resultData, modifiedNodes} = data.produceResult ? data.produceResult(dbResult) : {resultData: {}, modifiedNodes: []};
-        if (data.modifiedNodes) {
-            modifiedNodes.push(...data.modifiedNodes);
-        }
-        return {resultData, modifiedNodes};
+        return {
+            resultData: {},
+            modifiedNodes: data.modifiedNodes ?? [],
+            description: data.description || `Generic action modified ${(data.modifiedNodes ?? []).length} VNode(s)`,
+        };
     },
 });
 
@@ -38,7 +37,7 @@ export class UndoConflictError extends Error {}
     apply: async (tx, data) => {
         // Make sure the actionId to undo exists, and that it hasn't already been undone.
         // Note that code in the action-runner will set the REVERTED relationship once this undo action succeeds.
-        const prevAction = await tx.pullOne(Action, a => a.revertedBy(ra => ra.id), {key: data.actionId});
+        const prevAction = await tx.pullOne(Action, a => a.description.revertedBy(ra => ra.id), {key: data.actionId});
         if (prevAction.revertedBy !== null) {
             throw new UndoConflictError("That action was already undone.");
         }
@@ -136,6 +135,10 @@ export class UndoConflictError extends Error {}
         changes.softDeletedNodes.forEach(vnid => modifiedNodes.add(vnid));
         changes.unDeletedNodes.forEach(vnid => modifiedNodes.add(vnid));
 
-        return {resultData: {}, modifiedNodes: Array.from(modifiedNodes)};
+        return {
+            resultData: {},
+            modifiedNodes: Array.from(modifiedNodes),
+            description: `Reverted ${Action.withId(data.actionId)}`
+        };
     },
 });
