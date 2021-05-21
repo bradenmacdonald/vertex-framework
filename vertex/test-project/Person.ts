@@ -1,7 +1,7 @@
 import {
     C,
     defaultCreateFor,
-    defaultUpdateActionFor,
+    defaultUpdateFor,
     defineAction,
     Field,
     VirtualPropType,
@@ -103,7 +103,7 @@ function numFriends(): DerivedProperty<number> { return DerivedProperty.make(
     }
 )}
 
-export const UpdatePerson = defaultUpdateActionFor(Person, p => p.name.dateOfBirth);
+export const UpdatePerson = defaultUpdateFor(Person, p => p.name.dateOfBirth);
 
 export const CreatePerson = defaultCreateFor(Person, p => p.slugId.name, UpdatePerson);
 
@@ -127,7 +127,6 @@ export const ActedIn = defineAction({
             resultData: {},
         };
     },
-    invert: (data, resultData) => null,  // Not implemented
 });
 
 // Mark two people as being friends
@@ -148,5 +147,4 @@ export const RecordFriends = defineAction({
             resultData: {},
         };
     },
-    invert: (data, resultData) => null,  // Not implemented
 });

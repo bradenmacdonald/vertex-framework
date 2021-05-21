@@ -1,6 +1,6 @@
 import {
     C,
-    defaultUpdateActionFor,
+    defaultUpdateFor,
     defaultCreateFor,
     VNodeType,
     VNodeTypeRef,
@@ -47,7 +47,7 @@ interface UpdateMovieExtraArgs {
     franchiseId?: string|null;
 }
 
-export const UpdateMovie = defaultUpdateActionFor(Movie, m => m.slugId.title.year, {
+export const UpdateMovie = defaultUpdateFor(Movie, m => m.slugId.title.year, {
     otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot, changes) => {
         const previousValues: Partial<UpdateMovieExtraArgs> = {};
         if (args.franchiseId !== undefined) {

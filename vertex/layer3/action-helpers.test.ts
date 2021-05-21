@@ -4,7 +4,7 @@ import {
     VNodeType,
     Field,
     defaultCreateFor,
-    defaultUpdateActionFor,
+    defaultUpdateFor,
     VNodeKey,
     VDate,
     VD,
@@ -44,7 +44,7 @@ class AstronomicalBody extends VNodeType {
 }
 
 const CreatePerson = defaultCreateFor(Person, p => p.slugId);
-const UpdateAstronomicalBody = defaultUpdateActionFor(AstronomicalBody, ab => ab.slugId, {
+const UpdateAstronomicalBody = defaultUpdateFor(AstronomicalBody, ab => ab.slugId, {
     otherUpdates: async (args: {orbits?: {key: string|null, periodInSeconds?: number|null}, visitedBy?: {key: string, when: VDate}[]}, tx, nodeSnapshot) => {
         const previousValues: Partial<typeof args> = {};
         if (args.orbits !== undefined) {

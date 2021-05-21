@@ -6,7 +6,7 @@ import {
     Field,
     UndoAction,
 } from "..";
-import { defaultCreateFor, defaultUpdateActionFor } from "./action-templates";
+import { defaultCreateFor, defaultUpdateFor } from "./action-templates";
 import { testGraph } from "../test-project";
 import { AssertEqual, AssertNotEqual, checkType } from "../lib/ts-utils";
 
@@ -35,7 +35,7 @@ class Planet extends AstronomicalBody {
 }
 
 const CreateAstroBody = defaultCreateFor(AstronomicalBody, ab => ab.slugId.mass);
-const UpdatePlanet = defaultUpdateActionFor(Planet, p => p.slugId.mass.numberOfMoons, {
+const UpdatePlanet = defaultUpdateFor(Planet, p => p.slugId.mass.numberOfMoons, {
     otherUpdates: async (args: {addMoon?: string, deleteMoon?: string}, tx, nodeSnapshot, changes) => {
         const previousValues: Partial<typeof args> = {};
         if (args.deleteMoon !== undefined) {
@@ -172,7 +172,7 @@ suite(__filename, () => {
         });
     });
 
-    suite("defaultUpdateActionFor", () => {
+    suite("defaultUpdateFor", () => {
 
         // TODO - test changing data
 

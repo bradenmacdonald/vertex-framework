@@ -39,7 +39,6 @@ const GenericCreateAction = defineAction({
         await tx.query(C`CREATE (p:${C(data.labels.join(":"))} {id: ${id}}) SET p += ${data.data}`);
         return { resultData: {id}, modifiedNodes: [id], };
     },
-    invert: (data, resultData) => null,
 });
 
 suite("action runner", () => {
@@ -142,7 +141,6 @@ suite("action runner", () => {
                     modifiedNodes: data.markAsModified ? [id] : [],
                 };
             },
-            invert: (data, resultData) => null,
         });
 
         // The action will fail if the action implementation creates a node but doesn't include its VNID in "modifiedNodes":

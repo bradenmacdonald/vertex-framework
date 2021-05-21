@@ -76,7 +76,7 @@ export {
 
 export {
     Action,
-    ActionData,
+    ActionRequest,
     ActionDefinition,
     ActionResult,
     defineAction,
@@ -84,8 +84,8 @@ export {
 
 export {
     defaultCreateFor,
-    defaultDeleteAndUnDeleteFor,
-    defaultUpdateActionFor,
+    defaultDeleteFor,
+    defaultUpdateFor,
 } from "./layer3/action-templates";
 
 export {

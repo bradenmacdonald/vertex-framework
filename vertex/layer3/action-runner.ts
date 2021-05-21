@@ -1,4 +1,4 @@
-import { ActionData, getActionDefinition, ActionResult, Action } from "./action";
+import { ActionRequest, getActionDefinition, ActionResult, Action } from "./action";
 import { VNID } from "../lib/types/vnid";
 import { SYSTEM_VNID } from "./schema";
 import { log } from "../lib/log";
@@ -11,12 +11,12 @@ import { UndoAction } from "./action-generic";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
- * @param actionData Structure representing the action and its parameters
+ * @param actionRequest Structure representing the action and its parameters
  */
-export async function runAction<T extends ActionData>(graph: VertexCore, actionData: T, userId?: VNID): Promise<ActionResult<T>> {
+export async function runAction<T extends ActionRequest>(graph: VertexCore, actionRequest: T, userId?: VNID): Promise<ActionResult<T>> {
     const actionId = VNID();
     const startTime = new Date();
-    const {type, ...otherData} = actionData;
+    const {type, parameters} = actionRequest;
     const ActionDefinition = getActionDefinition(type);
     if (ActionDefinition === undefined) {
         throw new Error(`Unknown Action type: "${type}"`);
@@ -31,7 +31,7 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
         let modifiedNodeIds: VNID[];
         let resultData: any;
         try {
-            const x = await ActionDefinition.apply(tx, actionData/*, context */);
+            const x = await ActionDefinition.apply(tx, parameters);
             modifiedNodeIds = x.modifiedNodes;
             resultData = x.resultData;
         } catch (err) {
@@ -89,7 +89,7 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
         }
 
         // Is this action a revert of a previous action?
-        const isRevertOfAction: VNID|null = (type === UndoAction.type) ? (actionData as any).actionId : null;
+        const isRevertOfAction: VNID|null = (type === UndoAction.type) ? parameters.actionId : null;
 
         // Then record the entry into the global action log, since the action succeeded.
         const tookMs = (new Date()).getTime() - startTime.getTime();

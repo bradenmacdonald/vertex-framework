@@ -1,5 +1,5 @@
 import neo4j, { Driver } from "neo4j-driver-lite";
-import { ActionData, ActionResult } from "./layer3/action";
+import { ActionRequest, ActionResult } from "./layer3/action";
 import { runAction } from "./layer3/action-runner";
 import { log } from "./lib/log";
 import { looksLikeVNID, VNID } from "./lib/types/vnid";
@@ -71,7 +71,7 @@ export class Vertex implements VertexCore {
      * @param action The action to run
      * @param otherActions Additional actions to run, if desired.
      */
-    public async runAs<T extends ActionData>(userId: VNID, action: T, ...otherActions: ActionData[]): Promise<ActionResult<T>> {
+    public async runAs<T extends ActionRequest>(userId: VNID, action: T, ...otherActions: ActionRequest[]): Promise<ActionResult<T>> {
         const result: ActionResult<T> = await runAction(this, action, userId);
         for (const action of otherActions) {
             await runAction(this, action, userId);
@@ -85,7 +85,7 @@ export class Vertex implements VertexCore {
      * @param action The action to run
      * @param otherActions Additional actions to run, if desired.
      */
-    public async runAsSystem<T extends ActionData>(action: T, ...otherActions: ActionData[]): Promise<ActionResult<T>> {
+    public async runAsSystem<T extends ActionRequest>(action: T, ...otherActions: ActionRequest[]): Promise<ActionResult<T>> {
         return this.runAs(SYSTEM_VNID, action, ...otherActions);
     }
 

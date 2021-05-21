@@ -6,8 +6,6 @@ import { Field } from "../lib/types/field";
 
 /**
  * A generic action that can run arbitrary cypher, meant only for use in tests.
- * 
- * This cannot be inverted (is not undoable).
  */
 export const GenericCypherAction = defineAction({
     type: `GenericCypherAction`,
@@ -24,7 +22,6 @@ export const GenericCypherAction = defineAction({
         }
         return {resultData, modifiedNodes};
     },
-    invert: (data, resultData) => null,
 });
 
 export class UndoConflictError extends Error {}
@@ -144,5 +141,4 @@ export class UndoConflictError extends Error {}
 
         return {resultData: {}, modifiedNodes: Array.from(modifiedNodes)};
     },
-    invert: (data, resultData) => null,
 });
