@@ -125,10 +125,14 @@ export class Action extends VNodeType {
     }
     static readonly rel = {
         /** What VNodes were modified by this action */
-        MODIFIED: { to: [BaseVNodeType] },
+        MODIFIED: {
+            to: [BaseVNodeType],
+            cardinality: VNodeType.Rel.ToManyUnique,
+        },
         /** This Action reverted another one */
         REVERTED: {
             to: [Action],
+            cardinality: VNodeType.Rel.ToOneOrNone,
         },
     };
 

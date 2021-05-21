@@ -39,7 +39,12 @@ export class UndoConflictError extends Error {}
         actionId: VNID,
     },
     apply: async (tx, data) => {
-        const prevAction = await tx.pullOne(Action, a => a.deletedNodesCount.revertedBy(ra => ra.id), {key: data.actionId});
+        // Make sure the actionId to undo exists, and that it hasn't already been undone.
+        // Note that code in the action-runner will set the REVERTED relationship once this undo action succeeds.
+        const prevAction = await tx.queryOne(C`
+            MATCH (a:Action {id: ${data.actionId}})
+            OPTIONAL MATCH (revertedBy:Action)-[:${Action.rel.REVERTED}]->(a)
+        `.RETURN({revertedBy: Field.NullOr.Node}));
         if (prevAction.revertedBy !== null) {
             throw new UndoConflictError("That action was already undone.");
         }
@@ -107,40 +112,27 @@ export class UndoConflictError extends Error {}
 
         // Soft delete any created nodes, but also verify that they haven't been modified since they were created.
         if (changes.createdNodes.length > 0) {
-            const createdNodesNow = await tx.query(C`
-                MATCH (n:VNode) WHERE n.id IN ${changes.createdNodes.map(cn => cn.id)}
+            const result = await tx.query(C`
+                UNWIND ${changes.createdNodes} as createdNode
+                MATCH (n:VNode) WHERE n.id = createdNode.id AND properties(n) = createdNode.properties
                 SET n:DeletedVNode
                 REMOVE n:VNode
-            `.RETURN({n: Field.Node}));
-            if (createdNodesNow.length < changes.createdNodes.length) {
-                throw new UndoConflictError("One of the nodes created by that action has since been deleted; cannot undo.");
-            }
-            for (const row of createdNodesNow) {
-                // First make sure the node hasn't changed yet
-                const currentProperties = row.n.properties;
-                const createdProperties = changes.createdNodes.find(cn => cn.id === row.n.properties.id)?.properties;
-                if (createdProperties === undefined) {
-                    throw new Error("Internal error, couldn't match current node to created node record.");
-                }
-                // Compare each property. Note that "createdProperties"/changes already has the field data in "raw" format
-                if (Object.keys(currentProperties).length > Object.keys(createdProperties).length) {
-                    throw new UndoConflictError("One of the nodes created by that action has since been modified (new property); cannot undo.");
-                }
-                Object.entries(createdProperties).forEach(([propName, createdValue]) => {
-                    if (currentProperties[propName] ?? null !== createdValue) {
-                        throw new UndoConflictError(`One of the nodes created by that action has since been modified (property ${propName} changed); cannot undo.`);
-                    }
-                });
+                RETURN NULL
+            `);
+            if (result.length !== changes.createdNodes.length) {
+                throw new UndoConflictError("One of the nodes created by that action has since been modified or deleted; cannot undo.");
             }
         }
 
         // Re-delete un-deleted nodes
-        await tx.query(C`
-            MATCH (n:VNode) WHERE n.id IN ${changes.unDeletedNodes}
-            SET n:DeletedVNode
-            REMOVE n:VNode
-            RETURN NULL
-        `);
+        if (changes.unDeletedNodes) {
+            await tx.query(C`
+                MATCH (n:VNode) WHERE n.id IN ${changes.unDeletedNodes}
+                SET n:DeletedVNode
+                REMOVE n:VNode
+                RETURN NULL
+            `);
+        }
 
         const modifiedNodes = new Set<VNID>();
         changes.createdNodes.forEach(cn => modifiedNodes.add(cn.id));

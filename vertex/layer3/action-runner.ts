@@ -7,12 +7,13 @@ import { VertexCore } from "../vertex-interface";
 import { neoNodeToRawVNode } from "../layer2/cypher-return-shape";
 import { C } from "../layer2/cypher-sugar";
 import { Field, Node } from "../lib/types/field";
+import { UndoAction } from "./action-generic";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
  * @param actionData Structure representing the action and its parameters
  */
-export async function runAction<T extends ActionData>(graph: VertexCore, actionData: T, userId?: VNID, isRevertOfAction?: VNID): Promise<ActionResult<T>> {
+export async function runAction<T extends ActionData>(graph: VertexCore, actionData: T, userId?: VNID): Promise<ActionResult<T>> {
     const actionId = VNID();
     const startTime = new Date();
     const {type, ...otherData} = actionData;
@@ -25,18 +26,6 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
     }
 
     const [result, tookMs] = await graph._restrictedWrite(async (tx) => {
-        if (isRevertOfAction) {
-            // We're reverting a previously applied action. Make sure it exists and isn't already reverted:
-            const prevAction = await tx.queryOne(C`
-                MATCH (prevAction:${Action} {id: ${isRevertOfAction}})
-                OPTIONAL MATCH (prevAction)<-[:${Action.rel.REVERTED}]-(existingRevert:${Action})
-                WITH prevAction.id AS prevId, collect(existingRevert {.id}) AS existingRevert
-            `.RETURN({"prevId" : Field.VNID, existingRevert: Field.List(Field.Record({id: Field.String}))}));
-            //const prevAction = await tx.pullOne(Action, a => a.revertedBy(x => x.id), {key: isRevertOfAction});
-            if (prevAction.existingRevert.length > 0) {
-                throw new Error(`Action ${isRevertOfAction} has already been reverted, by Action ${prevAction.existingRevert[0].id}`);
-            }
-        }
 
         // First, apply the action:
         let modifiedNodeIds: VNID[];
@@ -98,6 +87,9 @@ export async function runAction<T extends ActionData>(graph: VertexCore, actionD
                 }
             }
         }
+
+        // Is this action a revert of a previous action?
+        const isRevertOfAction: VNID|null = (type === UndoAction.type) ? (actionData as any).actionId : null;
 
         // Then record the entry into the global action log, since the action succeeded.
         const tookMs = (new Date()).getTime() - startTime.getTime();

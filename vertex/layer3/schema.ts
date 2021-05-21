@@ -164,7 +164,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             // $deletedRelationships is a list of relationships
                             [
                                 rel IN $deletedRelationships
-                                WHERE startNode(rel):VNode AND startNode(rel)<>action AND endNode(rel)<>action AND NOT startNode(rel) IN $deletedNodes AND NOT endNode(rel) IN $deletedNodes
+                                WHERE (startNode(rel):VNode OR startNode(rel):DeletedVNode) AND startNode(rel)<>action AND endNode(rel)<>action AND NOT startNode(rel) IN $deletedNodes AND NOT endNode(rel) IN $deletedNodes
                                 | {
                                     modifiedNode: startNode(rel),
                                     changeDetails: apoc.map.fromValues(
