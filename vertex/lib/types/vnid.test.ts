@@ -1,4 +1,4 @@
-import { suite, test, assert } from "./intern-tests";
+import { suite, test, assert } from "../intern-tests";
 import { UUIDv4 } from "./uuid";
 import { VNID, isVNID, testExports } from "./vnid";
 const {toBase62, decodeVNID, encodeVNID} = testExports;

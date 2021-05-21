@@ -1,5 +1,4 @@
-import type { Result, Transaction } from "neo4j-driver";
-import QueryRunner from "neo4j-driver/types/query-runner";
+import type { Result, Transaction } from "neo4j-driver-lite";
 import { VNID, RelationshipDeclaration } from ".";
 
 import type { CypherQuery, QueryResponse } from "./layer2/cypher-sugar";
@@ -9,7 +8,7 @@ import { pull, pullOne, PullNoTx, PullOneNoTx } from "./layer4/pull";
 import { VNodeType } from "./layer4/vnode";
 
 /** A Neo4j Transaction with some Vertex Framework convenience methods */
-export class WrappedTransaction implements QueryRunner {
+export class WrappedTransaction {
     #tx: Transaction;
 
     public constructor(plainTx: Transaction) {

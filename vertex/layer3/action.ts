@@ -1,16 +1,16 @@
 /**
  * Vertex Framework uses the command pattern, where all operations that can change the site's content in any way
  * (other than data/schema migrations) are described as "actions" (a.k.a. mutations) that take the current state and
- * transform it to another state. Many actions are invertable, making it easy to revert edits, undo changes, etc.
+ * transform it to another state. A generic UndoAction is provided which can be used to undo any action, making it easy
+ * to revert edits, undo changes, etc.
  */
-import Joi from "@hapi/joi";
-
-import { VNID } from "../lib/vnid";
+import { VNID } from "../lib/types/vnid";
 import { BaseVNodeType, RawVNode, ValidationError } from "../layer2/vnode-base";
 import { WrappedTransaction } from "../transaction";
 import { C } from "../layer2/cypher-sugar";
 // Unfortunately we have to "cheat" a bit and use VNodeType from layer 4 here instead of BaseVNodeType:
 import { VNodeType } from "../layer4/vnode";
+import { Field } from "../lib/types/field";
 
 
 /**
@@ -18,13 +18,16 @@ import { VNodeType } from "../layer4/vnode";
  * An action might be "rename article", so in that case the ActionData would look like:
  *     {
  *         type: "renameArticle",
- *         articleId: "foo",
- *         newTitle: "This is the new title",
+ *         parameters: {
+ *             articleId: "foo",
+ *             newTitle: "This is the new title",
+ *         },
  *     }
  */
-export type ActionData<Parameters extends Record<string, any> = {}, ResultData extends Record<string, any> = {}> = {  // eslint-disable-line @typescript-eslint/ban-types
+export type ActionRequest<Parameters extends Record<string, any> = any, ResultData extends Record<string, any> = any> = {
     type: string;
-} & Parameters;
+    parameters: Parameters;
+};
 
 /**
  * The data returned by an action implementation's apply() method.
@@ -32,9 +35,7 @@ export type ActionData<Parameters extends Record<string, any> = {}, ResultData e
  */
 interface ApplyResult<ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
     /**
-     * Any result data that the action wants to pass back. Importantly, this must also include enough information to
-     * reverse the action, if it's a reversable action (e.g. if this was a "Delete" action, this should contain enough
-     * data to reconstruct the deleted object.)
+     * Any result data that the action wants to pass back.
      */
     resultData: ResultData;
     /**
@@ -44,64 +45,56 @@ interface ApplyResult<ResultData extends Record<string, any> = {}> {  // eslint-
     modifiedNodes: VNID[];
 }
 
-/** TypeScript helper: given an ActionData type, this gets the action's apply() return value, if known */
-export type ActionResult<T extends ActionData> = (
-    T extends ActionData<infer Parameters, infer ResultData> ? ResultData : any
+/** TypeScript helper: given an ActionRequest type, this gets the shape of the return value from runAction(), if known */
+export type ActionResult<T extends ActionRequest> = (
+    T extends ActionRequest<infer Parameters, infer ResultData> ? ResultData : any
 )&{actionId: VNID};
 
 
 /** Base class for an Action, defining the interface that all actions must adhere to. */
-export interface ActionImplementation<ActionType extends string = string, Parameters extends Record<string, any> = any, ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
+export interface ActionDefinition<ActionType extends string = string, Parameters extends Record<string, any> = any, ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
     readonly type: ActionType;
 
     // Generate the ActionData for this action:
-    (args: Parameters): ActionData<Parameters, ResultData>;
+    (args: Parameters): ActionRequest<Parameters, ResultData>;
 
-    apply(tx: WrappedTransaction, data: ActionData<Parameters, ResultData>): Promise<ApplyResult<ResultData>>;
-
-    /**
-     * "Invert" an applied action, creating a new undo action that will exactly undo the original.
-     * Return null if the action does not support undo.
-     **/
-    invert(data: ActionData<Parameters, ResultData>, resultData: ResultData): ActionData|null;
+    apply(tx: WrappedTransaction, parameters: Parameters): Promise<ApplyResult<ResultData>>;
 }
 
 /**
  * The global list of actions that have been defined by defineAction()
  */
-const actions: Map<string, ActionImplementation> = new Map();
+const actions: Map<string, ActionDefinition> = new Map();
 
 /**
  * Define a new Action.
  *
- * Returns an ActionImplementation which can be used to run actions of this type, and which
+ * Returns an ActionDefinition which can be used to run actions of this type, and which
  * can be called to generate a data structure which represents a specific action of this type.
  */
 export function defineAction<ActionTypeString extends string, Parameters extends Record<string, any>, ResultData = Record<string, never>>(
-    {type, apply, invert}: {
+    {type, apply}: {
         type: ActionTypeString;
         parameters: Parameters;
         resultData?: ResultData;
-        apply: (tx: WrappedTransaction, data: ActionData<Parameters, ResultData>) => Promise<ApplyResult<ResultData>>;
-        invert: (data: ActionData & Parameters, resultData: ResultData) => ActionData|null;
+        apply: (tx: WrappedTransaction, parameters: Parameters) => Promise<ApplyResult<ResultData>>;
     }
-): ActionImplementation<ActionTypeString, Parameters, ResultData> {
+): ActionDefinition<ActionTypeString, Parameters, ResultData> {
     if (actions.get(type) !== undefined) {
         throw new Error(`Action ${type} already registered.`)
     }
-    const impl = function(args: Parameters): ActionData<Parameters, ResultData> { return {type, ...args}; }
-    impl.type = type;
-    impl.apply = apply;
-    impl.invert = invert;
-    actions.set(type, impl);
-    return impl;
+    const defn = function(parameters: Parameters): ActionRequest<Parameters, ResultData> { return {type, parameters}; }
+    defn.type = type;
+    defn.apply = apply;
+    actions.set(type, defn);
+    return defn;
 }
 
 /**
- * Get an Action Implementation, given an ActionType
+ * Get an Action Definition, given an ActionType
  * @param type 
  */
-export function getActionImplementation(type: string): ActionImplementation|undefined {
+export function getActionDefinition(type: string): ActionDefinition|undefined {
     return actions.get(type);
 }
 
@@ -112,28 +105,28 @@ export class Action extends VNodeType {
     static readonly properties = {
         ...VNodeType.properties,
         // The action type, e.g. "Create Article", "Delete User", etc.
-        type: Joi.string().required(),
-        // The JSON data that defines the action, and contains enough data to undo it.
-        data: Joi.string(),
+        type: Field.String,
         // The time at which the action was completed.
-        timestamp: Joi.date(),
+        timestamp: Field.DateTime,
         // How many milliseconds it took to run this action.
-        tookMs: Joi.number(),
+        tookMs: Field.Int,
+        // Did this action (permanently) delete any nodes? (Set by the trackActionChanges trigger), used by the
+        // getActionChanges() function. If this is > 0, this action cannot be undone/reversed.
+        deletedNodesCount: Field.Int,
     };
     static async validate(dbObject: RawVNode<typeof Action>, tx: WrappedTransaction): Promise<void> {
         await super.validate(dbObject, tx);
-        try {
-            JSON.parse(dbObject.data);
-        } catch {
-            throw new ValidationError("Invalid JSON in Action data.");
-        }
     }
     static readonly rel = {
         /** What VNodes were modified by this action */
-        MODIFIED: { to: [BaseVNodeType] },
+        MODIFIED: {
+            to: [BaseVNodeType],
+            cardinality: VNodeType.Rel.ToManyUnique,
+        },
         /** This Action reverted another one */
         REVERTED: {
             to: [Action],
+            cardinality: VNodeType.Rel.ToOneOrNone,
         },
     };
 

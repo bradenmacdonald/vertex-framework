@@ -7,18 +7,19 @@
 //// Lib ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
+    VDate,
+    VD,
+} from "./lib/types/vdate";
+
+export {
     VNID,
     isVNID,
-} from "./lib/vnid";
+} from "./lib/types/vnid";
 
 export {
     SlugId,
     VNodeKey,
 } from "./lib/key";
-
-export {
-    UUID,
-} from "./lib/uuid";
 
 //// Layer 1 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -28,23 +29,31 @@ export {
 //// Layer 2 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
+    Field,
+    TypedField,
+    FieldType,
+    ResponseFieldType,
+    PropSchema,
+    ResponseSchema,
+    GetDataType,
+    GetDataShape,
+    validateValue,
+    validatePropSchema,
+    // Neo4j types:
+    Node,
+    Relationship,
+    Path,
+} from "./lib/types/field";
+
+export {
     C,
     CypherQuery,
 } from "./layer2/cypher-sugar";
 
 export {
-    ReturnShape,
-    TypedResult
-} from "./layer2/cypher-return-shape";
- 
-export {
-    PropSchema,
-    PropertyDataType,
     InvalidNodeLabel,
     PublicValidationError,
     RawVNode,
-    SlugIdProperty,
-    VNIDProperty,
     // BaseVNodeType - internal use only: we use VNodeType (from layer 4) in its place
     RelationshipDeclaration,
     ValidationError,
@@ -67,21 +76,27 @@ export {
 
 export {
     Action,
-    ActionData,
-    ActionImplementation,
+    ActionRequest,
+    ActionDefinition,
     ActionResult,
     defineAction,
 } from "./layer3/action";
 
 export {
     defaultCreateFor,
-    defaultDeleteAndUnDeleteFor,
-    defaultUpdateActionFor,
+    defaultDeleteFor,
+    defaultUpdateFor,
 } from "./layer3/action-templates";
 
 export {
     GenericCypherAction,
+    UndoAction,
 } from "./layer3/action-generic";
+
+export {
+    getActionChanges,
+    ActionChangeSet,
+} from "./layer3/action-changes";
 
 export {
     SYSTEM_VNID

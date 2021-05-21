@@ -2,6 +2,8 @@
  * Vertex Framework logging functions.
  */
 
+import { Neo4jDate } from "./types/vdate";
+
 const enum Colors {
     red = "31;1",
     light = "30;1",
@@ -70,4 +72,13 @@ log.warn = (msg: string): void => {
 }
 log.error = (msg: string): void => {
     console.error(prefix() + applyColor(Colors.red, "❌ Error: ") + msg);
+}
+
+/** Version of JSON.stringify that supports bigint and date types. Useful for debugging. */
+export function stringify(data: any): string {
+    return JSON.stringify(data, (key, value) =>
+        typeof value === "bigint" ? value.toString() + "n" :
+        value instanceof Neo4jDate ? value.toString() :
+        value
+    );
 }

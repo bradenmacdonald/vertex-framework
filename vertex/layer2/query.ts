@@ -1,4 +1,4 @@
-import { Transaction } from "neo4j-driver";
+import { Transaction } from "neo4j-driver-lite";
 import { convertNeo4jRecord } from "./cypher-return-shape";
 import { CypherQuery, CypherQueryWithReturnShape, QueryResponse } from "./cypher-sugar";
 

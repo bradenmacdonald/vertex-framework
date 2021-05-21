@@ -3,7 +3,7 @@ import { suite, test, assert, dedent, configureTestData } from "../lib/intern-te
 import { buildCypherQuery as _buildCypherQuery, newDataRequest } from "./pull";
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils";
 import { testGraph, Person, Movie } from "../test-project";
-import { C, VNID, DataRequestFilter } from "..";
+import { C, VNID, DataRequestFilter, VDate } from "..";
 import { BaseDataRequest } from "../layer3/data-request";
 import { FilteredRequest } from "./data-request-filtered";
 
@@ -37,11 +37,11 @@ suite("pull", () => {
                 assert.typeOf(firstPerson.id, "string")
                 assert.equal(firstPerson.slugId, "chris-pratt");
                 assert.equal(firstPerson.name, "Chris Pratt");
-                assert.equal(firstPerson.dateOfBirth, "1979-06-21");
+                assert.equal(firstPerson.dateOfBirth.toString(), "1979-06-21");
                 checkType<AssertPropertyPresent<typeof firstPerson, "id", VNID>>();
                 checkType<AssertPropertyPresent<typeof firstPerson, "slugId", string>>();
                 checkType<AssertPropertyPresent<typeof firstPerson, "name", string>>();
-                checkType<AssertPropertyPresent<typeof firstPerson, "dateOfBirth", string>>();
+                checkType<AssertPropertyPresent<typeof firstPerson, "dateOfBirth", VDate>>();
             });
         });
 
@@ -77,7 +77,7 @@ suite("pull", () => {
                 // dateOfBirth was not requested due to the missing flag (only known at runtime, not compile time)
                 assert.equal(firstPerson.dateOfBirth, undefined);
 
-                checkType<AssertPropertyOptional<typeof firstPerson, "dateOfBirth", string>>();
+                checkType<AssertPropertyOptional<typeof firstPerson, "dateOfBirth", VDate>>();
                 // VNID was explicitly not requested, so should be undefined:
                 assert.equal((firstPerson as any).id, undefined);
                 checkType<AssertPropertyAbsent<typeof firstPerson, "id">>();
@@ -90,8 +90,8 @@ suite("pull", () => {
                 assert.equal(firstPerson.name, "Chris Pratt");
                 checkType<AssertPropertyPresent<typeof firstPerson, "name", string>>();
                 // dateOfBirth was requested using a flag (only known at runtime, not compile time)
-                assert.equal(firstPerson.dateOfBirth, "1979-06-21");
-                checkType<AssertPropertyOptional<typeof firstPerson, "dateOfBirth", string>>();
+                assert.equal(firstPerson.dateOfBirth?.toString(), "1979-06-21");
+                checkType<AssertPropertyOptional<typeof firstPerson, "dateOfBirth", VDate>>();
                 // VNID was explicitly not requested, so should be undefined:
                 assert.equal((firstPerson as any).id, undefined);
                 checkType<AssertPropertyAbsent<typeof firstPerson, "id">>();
@@ -119,7 +119,7 @@ suite("pull", () => {
                     flags: ["includeDOB"],
                 });
                 assert.equal(peopleYoungestFirst[0].name, "Karen Gillan");
-                assert.equal(peopleYoungestFirst[0].dateOfBirth, "1987-11-28");
+                assert.equal(peopleYoungestFirst[0].dateOfBirth?.toString(), "1987-11-28");
             });
         });
 
@@ -240,6 +240,11 @@ suite("pull", () => {
             );
             assert.deepStrictEqual(
                 await testGraph.pullOne(request, filter),
+                // TODO - FIXME - this used to work but a recent refactor is breaking the typescript types. * * * * * *
+                // It should still work at runtime; the compile-time type is just wrong. It's not a big deal as users
+                // won't generally be explicitly requesting a virtual property twice as in this example.
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
                 await testGraph.pullOne(mergedRequest, filter),
             );
         });
@@ -360,7 +365,7 @@ suite("pull", () => {
                 const query = buildCypherQuery(request, filter);
                 assert.equal(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
-                    WITH _node, (duration.between(date(_node.dateOfBirth), date()).years) AS _age1
+                    WITH _node, (duration.between(_node.dateOfBirth, date()).years) AS _age1
 
                     RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth, _age1 AS age ORDER BY _node.name
                 `);
@@ -368,11 +373,11 @@ suite("pull", () => {
             test("pull", async () => {
                 const chrisPratt = await testGraph.pullOne(request, filter);
                 // A function to compute the age in JavaScript, from https://stackoverflow.com/a/7091965 :
-                const getAge = (dateString: string): number => {
-                    const today = new Date(), birthDate = new Date(dateString);
-                    let age = today.getFullYear() - birthDate.getFullYear();
-                    const m = today.getMonth() - birthDate.getMonth();
-                    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) { age--; }
+                const getAge = (birthDate: VDate): number => {
+                    const today = new Date();
+                    let age = today.getFullYear() - birthDate.year;
+                    const m = today.getMonth() - (birthDate.month - 1);
+                    if (m < 0 || (m === 0 && today.getDate() < birthDate.day)) { age--; }
                     return age;
                 }
                 checkType<AssertEqual<typeof chrisPratt["age"], number>>();

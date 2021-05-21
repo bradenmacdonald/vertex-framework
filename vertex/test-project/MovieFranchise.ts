@@ -1,11 +1,9 @@
-import Joi from "@hapi/joi";
 import {
     C,
     VNodeType,
-    SlugIdProperty,
     VirtualPropType,
-    defaultUpdateActionFor,
     defaultCreateFor,
+    Field,
 } from "../";
 import { MovieRef as Movie } from "./Movie";
 
@@ -17,8 +15,8 @@ export class MovieFranchise extends VNodeType {
     static label = "TestMovieFranchise";
     static properties = {
         ...VNodeType.properties,
-        slugId: SlugIdProperty,
-        name: Joi.string().required(),
+        slugId: Field.Slug,
+        name: Field.String,
     };
     static defaultOrderBy = "@this.name";
     static virtualProperties = VNodeType.hasVirtualProperties({

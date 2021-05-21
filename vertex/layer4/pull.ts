@@ -1,5 +1,5 @@
 import { log } from "../lib/log";
-import { looksLikeVNID } from "../lib/vnid";
+import { looksLikeVNID } from "../lib/types/vnid";
 import { BaseVNodeType, } from "../layer2/vnode-base";
 import {
     VirtualManyRelationshipProperty,
@@ -20,6 +20,7 @@ import {
 } from "./data-request-mixins-impl";
 import { DerivedProperty } from "./derived-props";
 import { DataRequestFilter, FilteredRequest } from "./data-request-filtered";
+import { convertNeo4jFieldValue } from "../layer2/cypher-return-shape";
 
 type PullMixins<VNT extends VNodeType> = ConditionalPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT> & RequiredMixin;
 // This alias seems to confuse TypeScript 4.2:
@@ -290,17 +291,53 @@ export async function pull(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?:
     const filteredRequestWithDependencies = new FilteredRequest(request, {...filter, flags: [...filter.flags ?? [], includeDependenciesFlag]})
     
     const query = buildCypherQuery(filteredRequestWithDependencies);
-    log.debug(query.query);
+    //log.debug(query.query);
     
     const result = await tx.run(query.query, query.params);
 
-    // Now recursively add derived fields and remove any interim fields that we needed but weren't explicitly requested:
+    // Now recursively convert data types, add derived fields, and remove any interim fields that we needed but weren't explicitly requested:
     return result.records.map(record => {
         // The top-level entries in the result (but only the top level entries) need to be converted from 'Record' type to plain JS objects:
-        const obj = Object.fromEntries(record.entries());
+        let obj = Object.fromEntries(record.entries());
         //log.debug(`Raw result: ${JSON.stringify(obj)}\n`);
+        obj = postProcessResultDataTypes(obj, filteredRequestWithDependencies);
         return postProcessResult(obj, filteredRequest)
     });
+}
+
+/**
+ * Recursive helper function to convert data types from Neo4j result types to Vertex Framework Field Types
+ */
+function postProcessResultDataTypes(origResult: Readonly<Record<string, any>>, request: FilteredRequest): Record<string, any> {
+    const newResult: any = {}
+    // First add any raw fields to the new result:
+    request.rawPropertiesIncluded.forEach(propName => {
+        // Convert as needed from Neo4j types to Vertex Framework types, e.g. bigint -> number, Neo4jDate -> VDate:
+        newResult[propName] = convertNeo4jFieldValue(propName, origResult[propName], request.vnodeType.properties[propName]);
+    });
+
+    // Now recursively handle virtual properties included in the result:
+    request.virtualPropertiesIncluded.forEach(({propName, propDefn, subRequest}) => {
+        if (propDefn.type === VirtualPropType.ManyRelationship) {
+            if (subRequest === undefined) { throw new Error(`unexpectedly missing subrequest`); /* Just to appease TypeScript */ }
+            newResult[propName] = origResult[propName].map((subResultData: any) =>
+                postProcessResult(subResultData, subRequest)
+            );
+        } else if (propDefn.type === VirtualPropType.OneRelationship) {
+            if (origResult[propName] === null) {
+                newResult[propName] = null;
+            } else {
+                if (subRequest === undefined) { throw new Error(`unexpectedly missing subrequest`); /* Just to appease TypeScript */ }
+                newResult[propName] = postProcessResult(origResult[propName], subRequest);
+            }
+        } else {
+            // A cypher expression field
+            newResult[propName] = convertNeo4jFieldValue(propName, origResult[propName], propDefn.valueType);
+        }
+        //log.debug(` -> newresult[${propName}] = ${JSON.stringify(newResult[propName])} from ${JSON.stringify(origResult[propName])}`);
+    });
+
+    return newResult;
 }
 
 /**
@@ -329,7 +366,7 @@ function postProcessResult(origResult: Readonly<Record<string, any>>, request: F
         } else {
             newResult[propName] = origResult[propName];
         }
-        log.debug(` -> newresult[${propName}] = ${JSON.stringify(newResult[propName])} from ${JSON.stringify(origResult[propName])}`);
+        //log.debug(` -> newresult[${propName}] = ${JSON.stringify(newResult[propName])} from ${JSON.stringify(origResult[propName])}`);
     });
 
     // Then add derived properties to the result. They have access to all the data in the original result, which may

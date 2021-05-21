@@ -1,8 +1,8 @@
-import neo4j, { Driver, Transaction } from "neo4j-driver";
-import { Action, ActionData, ActionResult, getActionImplementation } from "./layer3/action";
+import neo4j, { Driver } from "neo4j-driver-lite";
+import { ActionRequest, ActionResult } from "./layer3/action";
 import { runAction } from "./layer3/action-runner";
 import { log } from "./lib/log";
-import { looksLikeVNID, VNID } from "./lib/vnid";
+import { looksLikeVNID, VNID } from "./lib/types/vnid";
 import { PullNoTx, PullOneNoTx } from "./layer4/pull";
 import { migrations as coreMigrations } from "./layer2/schema";
 import { migrations as actionMigrations, SYSTEM_VNID } from "./layer3/schema";
@@ -10,6 +10,7 @@ import { WrappedTransaction } from "./transaction";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
 import { VNodeKey } from "./lib/key";
 import { C } from "./layer2/cypher-sugar";
+import { Field } from "./lib/types/field";
 
 
 export interface InitArgs {
@@ -28,7 +29,7 @@ export class Vertex implements VertexCore {
         this.driver = neo4j.driver(
             config.neo4jUrl,
             neo4j.auth.basic(config.neo4jUser, config.neo4jPassword),
-            { disableLosslessIntegers: true },
+            { useBigInt: true },
         );
         this.migrations = {...coreMigrations, ...actionMigrations, ...config.extraMigrations};
     }
@@ -70,7 +71,7 @@ export class Vertex implements VertexCore {
      * @param action The action to run
      * @param otherActions Additional actions to run, if desired.
      */
-    public async runAs<T extends ActionData>(userId: VNID, action: T, ...otherActions: ActionData[]): Promise<ActionResult<T>> {
+    public async runAs<T extends ActionRequest>(userId: VNID, action: T, ...otherActions: ActionRequest[]): Promise<ActionResult<T>> {
         const result: ActionResult<T> = await runAction(this, action, userId);
         for (const action of otherActions) {
             await runAction(this, action, userId);
@@ -84,25 +85,8 @@ export class Vertex implements VertexCore {
      * @param action The action to run
      * @param otherActions Additional actions to run, if desired.
      */
-    public async runAsSystem<T extends ActionData>(action: T, ...otherActions: ActionData[]): Promise<ActionResult<T>> {
+    public async runAsSystem<T extends ActionRequest>(action: T, ...otherActions: ActionRequest[]): Promise<ActionResult<T>> {
         return this.runAs(SYSTEM_VNID, action, ...otherActions);
-    }
-
-    public async undoAction(args: {actionId: VNID, asUserId: VNID|undefined}): Promise<ActionResult<any>> {
-        // Get the result and data from the previous action that we want to undo:
-        const prevAction = await this.pullOne(Action, a => a.type.data, {key: args.actionId});
-        const prevActionImpl = getActionImplementation(prevAction.type);
-        if (prevActionImpl === undefined) {
-            throw new Error(`Action type ${prevAction.type} is no longer defined.`);
-        }
-        const {result, ...prevActionData} = JSON.parse(prevAction.data);
-        // Invert the action, creating the new undo action (this is synchronous and has no side effects)
-        const undoAction = prevActionImpl.invert(prevActionData, result);
-        if (undoAction === null) {
-            throw new Error(`That action cannot be undone.`);
-        }
-        // Now apply the undo action:
-        return await runAction(this, undoAction, args.asUserId, args.actionId);
     }
 
     /**
@@ -112,7 +96,7 @@ export class Vertex implements VertexCore {
         if (looksLikeVNID(key)) {
             return key;
         }
-        return this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": "vnid"}))).then(result => result["vn.id"]);
+        return this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": Field.VNID}))).then(result => result["vn.id"]);
     }
 
     /**

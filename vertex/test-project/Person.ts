@@ -1,10 +1,9 @@
-import Joi from "@hapi/joi";
 import {
     C,
     defaultCreateFor,
-    defaultUpdateActionFor,
+    defaultUpdateFor,
     defineAction,
-    SlugIdProperty,
+    Field,
     VirtualPropType,
     VNodeType,
 } from "../";
@@ -19,16 +18,16 @@ export class Person extends VNodeType {
     static label = "TestPerson" as const;
     static properties = {
         ...VNodeType.properties,
-        slugId: SlugIdProperty,
-        name: Joi.string(),
-        dateOfBirth: Joi.date().iso(),//.options({convert: false}),
+        slugId: Field.Slug,
+        name: Field.String,
+        dateOfBirth: Field.Date,
     };
     static readonly rel = VNodeType.hasRelationshipsFromThisTo({
         /** This Person acted in a given movie */
         ACTED_IN: {
             to: [Movie],
             properties: {
-                role: Joi.string(),
+                role: Field.String,
             },
         },
         /** This Person is a friend of the given person (non-directed relationship) */
@@ -65,9 +64,8 @@ export class Person extends VNodeType {
         },
         age: {
             type: VirtualPropType.CypherExpression,
-            // Note: currently, "dateOfBirth" is stored as a string - TODO: Add proper date support
-            cypherExpression: C`duration.between(date(@this.dateOfBirth), date()).years`,
-            valueType: "number" as const,
+            cypherExpression: C`duration.between(@this.dateOfBirth, date()).years`,
+            valueType: Field.Int,
         }
     });
     static defaultOrderBy = "@this.name";
@@ -86,9 +84,9 @@ function ageJS(): DerivedProperty<{ageJS: number, ageNeo: number}> { return Deri
     Person,
     p => p.dateOfBirth.age(),
     data => {
-        const today = new Date(), dob = new Date(data.dateOfBirth);
-        const m = today.getMonth() - dob.getMonth();
-        const age = (today.getFullYear() - dob.getFullYear()) - (m < 0 || (m === 0 && today.getDate() < dob.getDate()) ? 1 : 0);
+        const today = new Date(), dob = data.dateOfBirth;
+        const m = today.getMonth() - (dob.month - 1);
+        const age = (today.getFullYear() - dob.year) - (m < 0 || (m === 0 && today.getDate() < dob.day) ? 1 : 0);
         // Return a complex object and test that we can return/access data from virtual props too:
         return {ageJS: age, ageNeo: data.age};
     }
@@ -105,7 +103,7 @@ function numFriends(): DerivedProperty<number> { return DerivedProperty.make(
     }
 )}
 
-export const UpdatePerson = defaultUpdateActionFor(Person, p => p.name.dateOfBirth);
+export const UpdatePerson = defaultUpdateFor(Person, p => p.name.dateOfBirth);
 
 export const CreatePerson = defaultCreateFor(Person, p => p.slugId.name, UpdatePerson);
 
@@ -123,13 +121,12 @@ export const ActedIn = defineAction({
             MATCH (m:${Movie}), m HAS KEY ${data.movieId}
             MERGE (p)-[rel:${Person.rel.ACTED_IN}]->(m)
             SET rel.role = ${data.role}
-            `.RETURN({"p.id": "vnid"}));
+            `.RETURN({"p.id": Field.VNID}));
         return {
             modifiedNodes: [result["p.id"]],
             resultData: {},
         };
     },
-    invert: (data, resultData) => null,  // Not implemented
 });
 
 // Mark two people as being friends
@@ -144,11 +141,10 @@ export const RecordFriends = defineAction({
             MATCH (p1:${Person}), p1 HAS KEY ${data.personId}
             MATCH (p2:${Person}), p2 HAS KEY ${data.otherPersonId}
             MERGE (p1)-[:${Person.rel.FRIEND_OF}]->(p2)
-        `.RETURN({"p1.id": "vnid", "p2.id": "vnid"}));
+        `.RETURN({"p1.id": Field.VNID, "p2.id": Field.VNID}));
         return {
             modifiedNodes: [result["p1.id"], result["p2.id"]],
             resultData: {},
         };
     },
-    invert: (data, resultData) => null,  // Not implemented
 });

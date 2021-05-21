@@ -1,14 +1,15 @@
 import { C } from "../layer2/cypher-sugar";
 import { WrappedTransaction } from "../transaction";
-import { RelationshipDeclaration, BaseVNodeType, PropertyDataType, getRelationshipType, PropSchema } from "../layer2/vnode-base";
-import { log } from "../lib/log";
+import { RelationshipDeclaration, BaseVNodeType, getRelationshipType } from "../layer2/vnode-base";
+import { log, stringify } from "../lib/log";
 import { VNodeKey, VNID } from "../lib/key";
+import { Field, GetDataType, PropSchema } from "../lib/types/field";
 
 export type OneRelationshipSpec<VNR extends RelationshipDeclaration, KeyType = VNodeKey> = {
     key: KeyType|null;
 } & (
     VNR["properties"] extends PropSchema ?
-        {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
+        {[propName in keyof VNR["properties"]]?: GetDataType<VNR["properties"][propName]>}
     :
         {/* empty object */}
     )
@@ -45,7 +46,7 @@ export async function updateToOneRelationship<VNR extends RelationshipDeclaratio
             MATCH (:${fromType} {id: ${fromId}})-[rel:${rel}]->(target:VNode)
             WITH rel, target, properties(rel) as relProps
             DELETE rel
-        `.RETURN({"target.id": "vnid", relProps: "any"}));
+        `.RETURN({"target.id": Field.VNID, relProps: Field.Any}));
         return {prevTo: delResult.length ? {key: delResult[0]["target.id"], ...delResult[0].relProps} : {key: null}};
     } else {
         // We want this x:1 relationship pointing to a specific node, identified by "toKey"
@@ -71,7 +72,7 @@ export async function updateToOneRelationship<VNR extends RelationshipDeclaratio
             DELETE oldRel
 
             WITH oldTargets, target
-        `.RETURN({"oldTargets": {list: {map: {id: "vnid", properties: "any"}}}}));
+        `.RETURN({"oldTargets": Field.List(Field.Record({id: Field.VNID, properties: Field.Any}))}));
         if (mergeResult.length === 0) {
             // The above query should only fail if the MATCH clauses don't match anything.
             throw new Error(`Cannot change ${fromType.name} relationship ${relType} to "${toKey}" - target not found.`);
@@ -89,7 +90,7 @@ export type RelationshipSpec<VNR extends RelationshipDeclaration, KeyType = VNod
     key: KeyType;
 } & (
     VNR["properties"] extends PropSchema ?
-        {[propName in keyof VNR["properties"]]?: PropertyDataType<VNR["properties"], propName>}
+        {[propName in keyof VNR["properties"]]?: GetDataType<VNR["properties"][propName]>}
     :
         {/* empty object */}
 )
@@ -124,18 +125,18 @@ export async function updateToManyRelationship<VNR extends RelationshipDeclarati
     const relResult = await tx.query(C`
         MATCH (:${fromType} {id: ${fromId}})-[rel:${rel}]->(target:VNode)
         RETURN properties(rel) as oldProps, id(rel) as oldRelId, target.id, target.slugId
-    `.givesShape({"oldProps": "any", "oldRelId": "number", "target.id": "string", "target.slugId": "string"}));
+    `.givesShape({"oldProps": Field.Any, "oldRelId": Field.BigInt, "target.id": Field.String, "target.slugId": Field.Slug}));
     const prevTo: RelationshipSpec<VNR, VNID>[] = relResult.map(r => ({key: r["target.id"], ...r["oldProps"]}));
 
     // We'll build a list of all existing relationships, and remove entries from it as we find that they're supposed to be kept
-    const existingRelationshipIdsToDelete = new Set<number>(relResult.map(e => e.oldRelId));
+    const existingRelationshipIdsToDelete = new Set<bigint>(relResult.map(e => e.oldRelId));
 
     // Create relationships to new target nodes(s):
     for (const {key, ...newProps} of to) {
-        // TODO: proper deep comparison instead of JSON.stringify() here.
+        // TODO: proper deep comparison instead of stringify() here.
         const identicallExistingRelationship = relResult.find(el => (
             (el["target.id"] === key || el["target.slugId"] === key)
-            && JSON.stringify(el["oldProps"]) === JSON.stringify(newProps)
+            && stringify(el["oldProps"]) === stringify(newProps)
         ));
         if (identicallExistingRelationship) {
             // This relationship already exists. Remove this relationship from our list of relationships to delete:
@@ -152,7 +153,7 @@ export async function updateToManyRelationship<VNR extends RelationshipDeclarati
             if (result.length !== 1) {
                 // The query above will only not return a single row if one of the MATCH clauses failed to match.
                 // Which one? Let's give a helpful error message.
-                const self = await tx.query(C`MATCH (self:${fromType} {id: ${fromId}})`.RETURN({"self.id": "vnid"}));
+                const self = await tx.query(C`MATCH (self:${fromType} {id: ${fromId}})`.RETURN({"self.id": Field.VNID}));
                 if (self.length !== 1) {
                     throw new Error(`Cannot set ${relType} relationship from non-existent ${fromType.name} node with VNID ${fromId}`);
                 } else {

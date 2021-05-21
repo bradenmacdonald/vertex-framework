@@ -1,9 +1,8 @@
-import Joi from "@hapi/joi";
 import {
     VNodeType,
-    SlugIdProperty,
+    Field,
 } from "..";
-import { suite, test, assertRejects, configureTestData, assert, log, before, after } from "../lib/intern-tests";
+import { suite, test, assert } from "../lib/intern-tests";
 import { getAllLabels, getRelationshipType } from "./vnode-base";
 
 
@@ -31,7 +30,7 @@ class Employee extends VNodeType {
     static label = "Employee";
     static properties = {
         ...VNodeType.properties,
-        slugId: SlugIdProperty,
+        slugId: Field.Slug,
     };
 }
 
@@ -44,7 +43,7 @@ class Manager extends Employee {
     };
     static rel = {
         // A -to-many relationship:
-        MANAGER_OF: { to: [Employee], properties: { since: Joi.date() } }
+        MANAGER_OF: { to: [Employee], properties: { since: Field.DateTime } }
     };
 }
 
@@ -58,7 +57,7 @@ class Executive extends Manager {
     static readonly rel = {
         ...Manager.rel,
         // A -to-one relationship:
-        HAS_ASSISTANT: { to: [Employee], properties: { since: Joi.date() } }
+        HAS_ASSISTANT: { to: [Employee], properties: { since: Field.DateTime } }
     };
 }
 

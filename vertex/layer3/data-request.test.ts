@@ -1,11 +1,10 @@
-import Joi from "@hapi/joi";
 import { suite, test, assert } from "../lib/intern-tests";
 import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils";
 import {
     VNodeType,
     RequestVNodeRawProperties,
     getRequestedRawProperties,
-    SlugIdProperty,
+    Field,
 } from "..";
 
 
@@ -14,10 +13,10 @@ class SomeVNodeType extends VNodeType {
     static readonly label = "SomeVNodeType";
     static readonly properties = {
         ...VNodeType.properties,
-        slugId: SlugIdProperty,
-        name: Joi.string(),
-        number: Joi.number(),
-        otherProp: Joi.string(),
+        slugId: Field.Slug,
+        name: Field.String,
+        number: Field.Int,
+        otherProp: Field.String,
     };
 }
 

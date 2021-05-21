@@ -8,13 +8,12 @@
  * developer experience and type checking in the IDE, but don't exactly match how things are implemented underneath.
  */
 
-import Joi from "@hapi/joi";
-import { FieldType } from "../layer2/cypher-return-shape";
 import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
 import { BaseDataRequest, AnyDataRequest, UpdateMixin, RequiredMixin } from "../layer3/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import type { DerivedProperty } from "./derived-props";
+import { TypedField } from "../lib/types/field";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 
@@ -109,7 +108,7 @@ export interface IncludedVirtualOneProp<propType extends VirtualOneRelationshipP
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 }
 
-export interface IncludedVirtualCypherExpressionProp<FT extends FieldType> {
+export interface IncludedVirtualCypherExpressionProp<FT extends TypedField> {
     type: "cypher",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
     valueType: FT;  // This field also doesn't exist, but is required for type inference to work
 }
@@ -123,20 +122,14 @@ export interface IncludedVirtualCypherExpressionProp<FT extends FieldType> {
 type ProjectRelationshipProps<Rel extends RelationshipDeclaration|undefined> = (
     Rel extends RelationshipDeclaration ? {
         virtualProperties: {
-            [K in keyof Rel["properties"]]: VirtualCypherExpressionPropertyForRelationshipProp<Rel["properties"][K]>
+            [K in keyof Rel["properties"]]: (
+                Rel["properties"][K] extends TypedField ?
+                    VirtualCypherExpressionProperty<Rel["properties"][K]>
+                : never
+            )
         }
     } : unknown
 );
-interface VirtualCypherExpressionPropertyForRelationshipProp<Prop> extends Omit<VirtualCypherExpressionProperty, "valueType"> {
-    valueType: {nullOr: (
-        // "Prop" is the property definition (Joi validator) defined in the VNode.relationshipsFrom section
-        Prop extends Joi.StringSchema ? "string" :
-        Prop extends Joi.NumberSchema ? "number" :
-        Prop extends Joi.BooleanSchema ? "boolean" :
-        Prop extends Joi.DateSchema ? "string" :
-        "any"
-    )}
-}
 
 ///////////////// DerivedPropsMixin ////////////////////////////////////////////////////////////////////////////////////
 

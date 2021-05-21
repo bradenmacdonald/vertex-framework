@@ -4,14 +4,13 @@
  * The tests are in layer 3 because testing the validation code requires updating the graph via actions, which are part
  * of layer 3.
  */
-import Joi from "@hapi/joi";
 import { suite, test, assertRejects, assert, log, before, after, configureTestData } from "../lib/intern-tests";
 import { testGraph, } from "../test-project";
 import {
     C,
     VNID,
     VNodeType,
-    SlugIdProperty,
+    Field,
     GenericCypherAction,
     defaultCreateFor,
 } from "..";
@@ -25,7 +24,7 @@ class BirthCertificate extends VNodeType {
 @VNodeType.declare
 class Person extends VNodeType {
     static label = "PersonRVT";  // RVT: Relationship Validation Tests
-    static readonly properties = {...VNodeType.properties, slugId: SlugIdProperty};
+    static readonly properties = {...VNodeType.properties, slugId: Field.Slug};
     static readonly rel = {
         HAS_BIRTH_CERT: {
             to: [BirthCertificate],
@@ -35,14 +34,14 @@ class Person extends VNodeType {
             to: [Person],
             cardinality: VNodeType.Rel.ToManyUnique,
             properties: {
-                friendsSince: Joi.date().required(),
+                friendsSince: Field.Date,
             },
         },
         HAS_SPOUSE: {
             to: [Person],
             cardinality: VNodeType.Rel.ToOneOrNone,
             properties: {
-                marriedOn: Joi.date().required(),
+                marriedOn: Field.Date,
             },
         },
     };
@@ -63,7 +62,7 @@ const createPerson = async (name: string): Promise<VNID> => {
 class Note extends VNodeType {
     static label = "NoteVT";  // VT = validation tests
     static readonly slugIdPrefix = "note-";
-    static readonly properties = {...VNodeType.properties, slugId: SlugIdProperty, text: Joi.string()};
+    static readonly properties = {...VNodeType.properties, slugId: Field.Slug, text: Field.NullOr.String};
 }
 
 const CreateNote = defaultCreateFor(Note, n => n.slugId);
@@ -77,7 +76,7 @@ suite(__filename, () => {
 
         test("Creating a VNode with a valid slugIdPrefix works fine", async () => {
             const {id} = await testGraph.runAsSystem(CreateNote({slugId: "note-test1"}));
-            const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note}), n HAS KEY ${id}`.RETURN({n: Note})));
+            const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note}), n HAS KEY ${id}`.RETURN({n: Field.VNode(Note)})));
             assert.equal(check.n.slugId, "note-test1");
         });
 
@@ -139,7 +138,7 @@ suite(__filename, () => {
                 cypher: C`
                     MATCH (alice:${Person} {slugId: "alice"})
                     MATCH (bob:${Person} {slugId: "bob"})
-                    CREATE (alice)-[:${Person.rel.HAS_SPOUSE} {marriedOn: "2010-01-01"}]->(bob)
+                    CREATE (alice)-[:${Person.rel.HAS_SPOUSE} {marriedOn: date("2010-01-01")}]->(bob)
                 `,
                 modifiedNodes: [aliceId, bobId],
             })),
@@ -149,7 +148,7 @@ suite(__filename, () => {
                     cypher: C`
                         MATCH (alice:${Person} {slugId: "alice"})
                         MATCH (charli:${Person} {slugId: "charli"})
-                        CREATE (alice)-[:${Person.rel.HAS_SPOUSE} {marriedOn: "2010-01-01"}]->(charli)
+                        CREATE (alice)-[:${Person.rel.HAS_SPOUSE} {marriedOn: date("2010-01-01")}]->(charli)
                     `,
                     modifiedNodes: [aliceId, charliId],
                 })),
@@ -168,7 +167,7 @@ suite(__filename, () => {
                     cypher: C`
                         MATCH (p1:${Person}), p1 HAS KEY ${person1Id}
                         MATCH (p2:${Person}), p2 HAS KEY ${person2Id}
-                        CREATE (p1)-[:${Person.rel.HAS_FRIEND} {friendsSince: "2010-01-01"}]->(p2)
+                        CREATE (p1)-[:${Person.rel.HAS_FRIEND} {friendsSince: date("2010-01-01")}]->(p2)
                     `,
                     modifiedNodes: [person1Id, person2Id],
                 }));

@@ -1,4 +1,4 @@
-import { NominalType } from "./ts-utils";
+import { NominalType } from "../ts-utils";
 import { UUIDv4 } from "./uuid";
 
 /** A UUID-string, which is kind of like a subclass of string */
