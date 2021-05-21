@@ -8,8 +8,7 @@ import { VNID } from "../lib/types/vnid";
 import { BaseVNodeType, RawVNode, ValidationError } from "../layer2/vnode-base";
 import { WrappedTransaction } from "../transaction";
 import { C } from "../layer2/cypher-sugar";
-// Unfortunately we have to "cheat" a bit and use VNodeType from layer 4 here instead of BaseVNodeType:
-import { VNodeType } from "../layer4/vnode";
+import { VNodeType } from "../layer3/vnode";
 import { Field } from "../lib/types/field";
 
 
@@ -117,7 +116,7 @@ export class Action extends VNodeType {
     static async validate(dbObject: RawVNode<typeof Action>, tx: WrappedTransaction): Promise<void> {
         await super.validate(dbObject, tx);
     }
-    static readonly rel = {
+    static readonly rel = VNodeType.hasRelationshipsFromThisTo({
         /** What VNodes were modified by this action */
         MODIFIED: {
             to: [BaseVNodeType],
@@ -128,11 +127,9 @@ export class Action extends VNodeType {
             to: [Action],
             cardinality: VNodeType.Rel.ToOneOrNone,
         },
-    };
+    });
 
-    /////// The following is "forwards compatible" with functionality introduced in layer 4, but explicitly doesn't
-    /////// import any layer 4 functionality:
-    static readonly virtualProperties = {
+    static readonly virtualProperties = VNodeType.hasVirtualProperties({
         revertedBy: {
             type: "one-relationship" as const,
             query: C`(@target:${Action})-[:${Action.rel.REVERTED}]->(@this)`,
@@ -143,7 +140,6 @@ export class Action extends VNodeType {
             query: C`(@this)-[:${Action.rel.REVERTED}]->(@target:${Action})`,
             target: Action,
         },
-    };
+    });
     static readonly derivedProperties = {};
-    /////// End layer 4 compatiblity
 }

@@ -9,7 +9,7 @@ import {
 } from "./virtual-props";
 import type { WrappedTransaction } from "../transaction";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
-import { AnyDataRequest, BaseDataRequest, DataRequestState, RequiredMixin } from "../layer3/data-request";
+import { AnyDataRequest, BaseDataRequest, DataRequestState, RequiredMixin } from "../layer2/data-request";
 import { ConditionalPropsMixin, DerivedPropsMixin, SubclassMixins, VirtualPropsMixin } from "./data-request-mixins";
 import type { DataResponse } from "./data-response";
 import {

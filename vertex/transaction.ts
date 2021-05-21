@@ -3,9 +3,9 @@ import { VNID, RelationshipDeclaration } from ".";
 
 import type { CypherQuery, QueryResponse } from "./layer2/cypher-sugar";
 import { query, queryOne } from "./layer2/query";
-import { OneRelationshipSpec, RelationshipSpec, updateToManyRelationship, updateToOneRelationship } from "./layer3/action-helpers";
-import { pull, pullOne, PullNoTx, PullOneNoTx } from "./layer4/pull";
-import { VNodeType } from "./layer4/vnode";
+import { OneRelationshipSpec, RelationshipSpec, updateToManyRelationship, updateToOneRelationship } from "./layer4/action-helpers";
+import { pull, pullOne, PullNoTx, PullOneNoTx } from "./layer3/pull";
+import { VNodeType } from "./layer3/vnode";
 
 /** A Neo4j Transaction with some Vertex Framework convenience methods */
 export class WrappedTransaction {

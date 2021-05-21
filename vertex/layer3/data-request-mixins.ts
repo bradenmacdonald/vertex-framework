@@ -9,7 +9,7 @@
  */
 
 import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
-import { BaseDataRequest, AnyDataRequest, UpdateMixin, RequiredMixin } from "../layer3/data-request";
+import { BaseDataRequest, AnyDataRequest, UpdateMixin, RequiredMixin } from "../layer2/data-request";
 import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
 import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
 import type { DerivedProperty } from "./derived-props";

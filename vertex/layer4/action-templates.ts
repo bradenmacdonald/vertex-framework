@@ -3,7 +3,7 @@ import { C } from "../layer2/cypher-sugar";
 import { VNID, VNodeKey } from "../lib/key";
 import { WrappedTransaction } from "../transaction";
 import { RawVNode, BaseVNodeType, getAllLabels } from "../layer2/vnode-base";
-import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "./data-request";
+import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "../layer2/data-request";
 import { Field, GetDataType } from "../lib/types/field";
 
 

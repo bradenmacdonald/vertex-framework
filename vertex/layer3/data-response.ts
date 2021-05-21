@@ -1,6 +1,6 @@
 import { GetDataType } from "../lib/types/field";
 import { BaseVNodeType } from "../layer2/vnode-base";
-import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer3/data-request";
+import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request";
 import {
     ConditionalPropsMixin,
     DerivedPropsMixin,

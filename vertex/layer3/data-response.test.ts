@@ -7,7 +7,7 @@ import type { DataResponse } from "./data-response";
 import { VNodeTypeWithVirtualProps } from "./vnode";
 import { ConditionalPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
 import { BaseVNodeType } from "../layer2/vnode-base";
-import { RequiredMixin } from "../layer3/data-request";
+import { RequiredMixin } from "../layer2/data-request";
 
 
 suite("DataResponse", () => {

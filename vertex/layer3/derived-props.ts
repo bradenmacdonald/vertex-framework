@@ -1,5 +1,5 @@
 import type { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
-import type { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer3/data-request";
+import type { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request";
 import type { DataResponse } from "./data-response";
 import type { VirtualPropsMixin } from "./data-request-mixins";
 
