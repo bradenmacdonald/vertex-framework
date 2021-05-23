@@ -1,7 +1,7 @@
 /**
  * Syntactic sugar for writing Cypher queries.
  */
-import { Record as Neo4jRecord, int as neo4jinteger } from "neo4j-driver-lite";
+import { Record as Neo4jRecord } from "neo4j-driver-lite";
 import { looksLikeVNID } from "../lib/types/vnid";
 import { GetDataShape, ResponseSchema } from "../lib/types/field";
 import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from "./vnode-base";
@@ -36,6 +36,10 @@ import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from 
  *   CypherQuery, so that a single base query can be made into several derived queries with different parameters.
  *   e.g. Input:  C`MATCH (u:User) SET u.name = $name, u.username = toLower($name)`.withParams({name: "Jamie"})
  *        Output: "MATCH (u:User) SET u.name = $name, u.username = toLower($name)"
+ * 
+ * - To force a value to be saved as a Neo4j integer (instead of a float), use C.int().
+ *   e.g. C`... SET node.prop = ${C.int(15)}` will save the value '15' instead of '15.0'
+ *   This is just a shortcut to the Neo4j driver's Int class
  * 
  * - These features are implemented in a lazy way, so the variable interpolation into the query is only done when
  *   necessary, allowing the use of references to VNode types that may initially be undefined due to circular references
@@ -212,7 +216,11 @@ function C(strings: TemplateStringsArray|string, ...params: any[]): CypherQuery 
     // This was used as a tagged template literal:
     return new CypherQuery(strings, params);
 }
-C.int = neo4jinteger;
+/**
+ * Helper function to ensure a JavaScript number gets saved into Neo4j as an integer, not a float.
+ * Use it like this: C`... SET node.prop = ${C.int(newValue)}`
+ */ 
+C.int = BigInt;
 
 export {C};
 

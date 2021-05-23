@@ -57,7 +57,7 @@ suite(__filename, () => {
                 CreateMovie({slugId: "jumanji-2", title: "Jumanji: The Next Level", year: 2019, franchiseId: "jumanji"}),
             );
             const changes = await testGraph.read(tx => getActionChanges(tx, action1.actionId));
-            assert.deepStrictEqual(changes, {
+            const expected: ActionChangeSet = {
                 createdNodes: [
                     {
                         id: action1.id,
@@ -83,7 +83,8 @@ suite(__filename, () => {
                 softDeletedNodes: [],
                 unDeletedNodes: [],
                 deletedNodesCount: 0,
-            });
+            };
+            assert.deepStrictEqual(changes, expected);
         });
 
         test("gives data about created VNodes and their relationship properties", async () => {

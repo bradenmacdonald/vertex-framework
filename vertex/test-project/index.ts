@@ -13,4 +13,5 @@ export const testGraph = new Vertex({
 export * from "./Movie";
 export * from "./MovieFranchise";
 export * from "./Person";
+export * from "./TypeTester";
 export * from "./test-data";
