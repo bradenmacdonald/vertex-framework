@@ -4,8 +4,9 @@ import { VNID, VNodeKey } from "../lib/key";
 import { WrappedTransaction } from "../transaction";
 import { RawVNode, getAllLabels } from "../layer2/vnode-base";
 import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "../layer2/data-request";
-import { Field, GetDataType } from "../lib/types/field";
+import { Field, FieldType, GetDataType } from "../lib/types/field";
 import { VNodeType } from "../layer3/vnode";
+import { stringify } from "../lib/log";
 
 
 // Useful action generators to reduce boilerplate
@@ -92,10 +93,16 @@ export function defaultUpdateFor<VNT extends VNodeType, MutableProps extends Req
             // Simple Property Updates
             for (const propertyName of mutablePropertyKeys) {
                 if (propertyName in data) {
+                    let value = data[propertyName];
                     // Do a poor man's deep comparison to see if this value is different, in case it's an array value or similar:
-                    const isChanged = JSON.stringify(data[propertyName]) !== JSON.stringify(nodeSnapshot[propertyName]);
+                    const isChanged = stringify(value) !== stringify(nodeSnapshot[propertyName]);
                     if (isChanged) {
-                        changes[propertyName] = data[propertyName];
+                        // Save the new value.
+                        // Ensure that Number values assigned to Field.Int fields get saved into the database as Integers, not Floats:
+                        if (type.properties[propertyName].type === FieldType.Int && typeof value === "number") {
+                            value = BigInt(value);  // Using BigInt will ensure Neo4j stores it as int, not float. It will be read out as a Number because of our typing system.
+                        }
+                        changes[propertyName] = value;
                         (previousValues as any)[propertyName] = nodeSnapshot[propertyName];
                     }
                 }
@@ -104,7 +111,6 @@ export function defaultUpdateFor<VNT extends VNodeType, MutableProps extends Req
             if (clean) {
                 clean({data, nodeSnapshot, changes, previousValues});
             }
-            forceIntegers(changes);  // Store whole numbers as ints, not floats
             await tx.queryOne(C`
                 MATCH (t:${type}), t HAS KEY ${data.key}
                 SET t += ${changes}
@@ -183,9 +189,6 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends Re
             const propsToSetOnCreate: any = {};
             const propsToSetViaUpdate: any = {};
             for (const [propName, value] of Object.entries(data)) {
-                if (propName === "type") {
-                    continue;
-                }
                 if (updateAction) {
                     if (requiredPropertyKeys.includes(propName as any) && !updateAction.mutableProperties.includes(propName)) {
                         // This is a raw property but updateAction doesn't accept it as a parameter; we'll have to set it now.
@@ -198,8 +201,13 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends Re
                     propsToSetOnCreate[propName] = value;
                 }
             }
+            for (const propertyName in propsToSetOnCreate) {
+                // Ensure that Number values assigned to Field.Int fields get saved into the database as Integers, not Floats:
+                if (type.properties[propertyName].type === FieldType.Int && typeof propsToSetOnCreate[propertyName] === "number") {
+                    propsToSetOnCreate[propertyName] = BigInt(propsToSetOnCreate[propertyName]);  // Using BigInt will ensure Neo4j stores it as int, not float. It will be read out as a Number because of our typing system.
+                }
+            }
             // Create the new node, assigning its VNID, as well as setting any props that the upcoming Update can't handle
-            forceIntegers(propsToSetOnCreate);
             const labels = getAllLabels(type);
             await tx.query(C`
                 CREATE (node:${C(labels.join(":"))} {id: ${id}})
@@ -245,19 +253,4 @@ export function defaultDeleteFor<VNT extends VNodeType>(type: VNT): ActionDefini
     });
 
     return DeleteAction;
-}
-
-
-// Little hack: JS doesn't distinguish between ints and floats, but Neo4j does.
-// This function will force floats to ints where it seems useful, before saving a bunch of properties into the database.
-// Without this, integers would always get stored as floats.
-// Note that this doesn't matter too much since we read all numbers back from the database as "number" types anyways,
-// but it does produce nicer data if people read the graph in other ways (not from JavaScript)
-function forceIntegers(propertiesMap: Record<string, any>): void {
-    for (const propName in propertiesMap) {
-        if (typeof propertiesMap[propName] === "number" && Number.isInteger(propertiesMap[propName])) {
-            // Store this value into Neo4j as an INT not a FLOAT
-            propertiesMap[propName] = C.int(propertiesMap[propName]);
-        }
-    }
 }

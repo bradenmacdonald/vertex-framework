@@ -7,8 +7,9 @@ import {
     UndoAction,
 } from "..";
 import { defaultCreateFor, defaultUpdateFor } from "./action-templates";
-import { testGraph } from "../test-project";
+import { testGraph, CreateTypeTester, TypeTester, UpdateTypeTester } from "../test-project";
 import { AssertEqual, AssertNotEqual, checkType } from "../lib/ts-utils";
+import { VD } from "../lib/types/vdate";
 
 /** A VNodeType for use in this test suite. */
 @VNodeType.declare
@@ -170,11 +171,111 @@ suite(__filename, () => {
             const postDelete = await testGraph.read(tx => tx.query(findJupiter));
             assert.equal(postDelete.length, 0);
         });
+
+        test("Sets correct types for all fields", async () => {
+            const dateTime = new Date();
+
+            const args: Parameters<typeof CreateTypeTester>[0] = {
+                int: -50,
+                bigInt: 1234n,
+                float: -0.0625,
+                string: "負けるが勝ち",
+                slug: "main-entrée",
+                boolean: true,
+                date: VD`2021-05-21`,
+                dateTime: dateTime,
+                // All the nullable fields will start as null
+            };
+
+            // Use defaultCreateAction to create a "TypeTester" VNode:
+            const {id} = await testGraph.runAsSystem(
+                CreateTypeTester(args)
+            );
+
+            // Confirm that the types saved into the database are correct.
+            const dbTypes = await testGraph.read(tx => tx.query(C`
+                MATCH (t:${TypeTester} {id: ${id}})
+                UNWIND keys(t) AS propKey
+                RETURN propKey, apoc.meta.type(t[propKey]) AS type
+            `.givesShape({propKey: Field.String, type: Field.String})));
+            assert.sameDeepMembers(dbTypes, [
+                {propKey: "id", type: "STRING"},
+                {propKey: "int", type: "INTEGER"},  // <-- in particular, make sure an int typed field is not saved as a float
+                {propKey: "bigInt", type: "INTEGER"},
+                {propKey: "float", type: "FLOAT"},
+                {propKey: "string", type: "STRING"},
+                {propKey: "slug", type: "STRING"},
+                {propKey: "boolean", type: "BOOLEAN"},
+                {propKey: "date", type: "LocalDate"},
+                {propKey: "dateTime", type: "ZonedDateTime"},
+            ]);
+
+            // Check that the values are identical.
+            const pulled = await testGraph.pullOne(TypeTester, t => t.int.bigInt.float.string.slug.boolean.date.dateTime, {key: id});
+            assert.strictEqual(pulled.int, args.int);
+            assert.strictEqual(pulled.bigInt, args.bigInt);
+            assert.strictEqual(pulled.float, args.float);
+            assert.strictEqual(pulled.string, args.string);
+            assert.strictEqual(pulled.slug, args.slug);
+            assert.strictEqual(pulled.boolean, args.boolean);
+            assert.strictEqual(pulled.date.toString(), args.date.toString());
+            assert.strictEqual(pulled.dateTime.toString(), args.dateTime.toString());
+        });
     });
 
     suite("defaultUpdateFor", () => {
 
-        // TODO - test changing data
+        // Test changing data
+
+
+        test("Sets correct types for all fields", async () => {
+            const dateTime1 = new Date("2021-05-08T16:24:52.000Z");
+            const dateTime2 = new Date();
+
+            const origArgs: Parameters<typeof CreateTypeTester>[0] = {
+                int: -50,
+                bigInt: 1234n,
+                float: -0.0625,
+                string: "負けるが勝ち",
+                slug: "main-entrée",
+                boolean: true,
+                date: VD`2021-05-21`,
+                dateTime: dateTime1,
+
+                nullableFloat: 15.5,
+                nullableSlug: "nullable-slug",
+            };
+
+            // Use defaultCreateAction to create a "TypeTester" VNode:
+            const {id} = await testGraph.runAsSystem(
+                CreateTypeTester(origArgs)
+            );
+
+            // And then update it:
+            const newArgs: Parameters<typeof UpdateTypeTester>[0] = {
+                key: id,
+                int: 100,
+                string: "yo",
+                slug: "new-slug",
+                date: VD`2021-02-20`,
+                dateTime: dateTime2,
+                nullableFloat: null,
+            };
+            await testGraph.runAsSystem(UpdateTypeTester(newArgs));
+
+            // Check that the values are identical.
+            const pulled = await testGraph.pullOne(TypeTester, t => t.int.bigInt.float.string.slug.boolean.date.dateTime.nullableFloat.nullableSlug, {key: id});
+            assert.strictEqual(pulled.int, newArgs.int);
+            assert.strictEqual(pulled.bigInt, origArgs.bigInt);  // Unchanged
+            assert.strictEqual(pulled.float, origArgs.float);  // Unchanged
+            assert.strictEqual(pulled.string, newArgs.string);
+            assert.strictEqual(pulled.slug, newArgs.slug);
+            assert.strictEqual(pulled.boolean, origArgs.boolean);  // Unchanged
+            assert.strictEqual(pulled.date.toString(), newArgs.date?.toString());
+            assert.strictEqual(pulled.dateTime.toString(), newArgs.dateTime?.toString());
+            assert.strictEqual(pulled.nullableFloat, newArgs.nullableFloat);
+            assert.strictEqual(pulled.nullableSlug, origArgs.nullableSlug);  // Unchanged
+        });
 
         // TODO - test that VNID cannot be changed
 
