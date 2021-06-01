@@ -29,9 +29,9 @@ export interface DataRequestFilter {
      * Filter the main node(s) of this data request to only those that match this predicate.
      * 
      * Examples:
-     *     @this.name = ${name}
-     *     @this.dateOfbirth < date("2002-01-01")
-     *     EXISTS { MATCH (@)-->(m) WHERE @this.age = m.age }
+     * - `@this.name = ${name}`
+     * - `@this.dateOfbirth < date("2002-01-01")`
+     * - `EXISTS { MATCH (@)-->(m) WHERE @this.age = m.age }`
      */
     where?: CypherQuery;
     /** Order the results by one of the properties (e.g. "name" or "name DESC") */

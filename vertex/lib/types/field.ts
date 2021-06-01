@@ -265,7 +265,12 @@ function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
         /** A signed integer up to 64 bits. For larger than 64 bits, use a string type as Neo4j doesn't support it. */
         BigInt: makePropertyField(FieldType.BigInt, nullable, Joi.any().custom(validateBigInt)),
         Float: makePropertyField(FieldType.Float, nullable, Joi.number()),
-        /** A String. Default max length is 1,000, so use .Check(s => s.max(...)) if you need to change the limit. */
+        /**
+         * A String.
+         * By default neither Null nor an empty string is allowed. Use Field.NullOr.String or .Check(s => s.allow(''))
+         * as needed.
+         * Default max length is 1,000, so use .Check(s => s.max(...)) if you need to change the limit.
+         */
         String: makePropertyField(FieldType.String, nullable, Joi.string().max(1_000)) as unknown as Nullable extends true ? _NullableStringField : _StringField,
         /** A unicode-aware slug (cannot contain spaces/punctuation). Valid: "the-thing". Invalid: "foo_bar" or "foo bar" */
         Slug: makePropertyField(FieldType.Slug, nullable, Joi.string().regex(slugRegex).max(60)) as unknown as Nullable extends true ? _NullableSlugField : _SlugField,

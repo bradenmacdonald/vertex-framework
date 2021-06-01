@@ -34,6 +34,7 @@ export {
     FieldType,
     ResponseFieldType,
     PropSchema,
+    GenericSchema,
     ResponseSchema,
     GetDataType,
     GetDataShape,
