@@ -1,4 +1,4 @@
-import { VNID } from "./types/vnid";
+import { VNID } from "./types/vnid.ts";
 export { VNID };
 
 /** A SlugId is just a string; this typing is just more explicit than "string". */

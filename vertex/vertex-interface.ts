@@ -1,5 +1,5 @@
-import { VNID, VNodeKey } from "./lib/key";
-import { WrappedTransaction } from "./transaction";
+import { VNID, VNodeKey } from "./lib/key.ts";
+import { WrappedTransaction } from "./transaction.ts";
 
 /**
  * Definition of the core methods of the Vertex class, so that we can avoid circular imports.

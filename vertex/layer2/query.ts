@@ -1,6 +1,6 @@
-import type { WrappedTransaction } from "../transaction";
-import { convertNeo4jRecord } from "./cypher-return-shape";
-import { CypherQuery, CypherQueryWithReturnShape, QueryResponse } from "./cypher-sugar";
+import type { WrappedTransaction } from "../transaction.ts";
+import { convertNeo4jRecord } from "./cypher-return-shape.ts";
+import { CypherQuery, CypherQueryWithReturnShape, QueryResponse } from "./cypher-sugar.ts";
 
 /**
  * Run a query on the Neo4j graph database and return its result.

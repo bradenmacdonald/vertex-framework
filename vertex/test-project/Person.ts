@@ -7,8 +7,8 @@ import {
     VirtualPropType,
     VNodeType,
     DerivedProperty,
-} from "../";
-import { Movie } from "./Movie";
+} from "../index.ts";
+import { Movie } from "./Movie.ts";
 
 /**
  * A Person VNode type

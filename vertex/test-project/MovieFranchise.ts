@@ -4,8 +4,9 @@ import {
     VirtualPropType,
     defaultCreateFor,
     Field,
-} from "../";
-import { MovieRef as Movie } from "./Movie";
+    VNodeTypeRef,
+} from "../index.ts";
+import { MovieRef as Movie } from "./Movie.ts";
 
 /**
  * A Movie Franchise VNode for testing

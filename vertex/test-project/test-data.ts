@@ -1,8 +1,8 @@
-import { Vertex, VD, VertexTestDataSnapshot } from "..";
-import { log } from "../lib/intern-tests";
-import { CreateMovie } from "./Movie";
-import { CreateMovieFranchise } from "./MovieFranchise";
-import { CreatePerson, ActedIn, RecordFriends } from "./Person";
+import { Vertex, VD, VertexTestDataSnapshot } from "../index.ts";
+import { log } from "../lib/log.ts";
+import { CreateMovie } from "./Movie.ts";
+import { CreateMovieFranchise } from "./MovieFranchise.ts";
+import { CreatePerson, ActedIn, RecordFriends } from "./Person.ts";
 
 let dataSnapshot: VertexTestDataSnapshot;
 

@@ -4,7 +4,7 @@ import {
     defaultUpdateFor,
     Field,
     VNodeType,
-} from "../";
+} from "../index.ts";
 
 /**
  * A VNode type that contains nullable and non-nullable fields of all types supported by Vertex Framework

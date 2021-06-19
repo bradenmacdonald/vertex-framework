@@ -1,16 +1,16 @@
-import neo4j, { Driver } from "neo4j-driver-lite";
-import { ActionRequest, ActionResult } from "./layer4/action";
-import { runAction } from "./layer4/action-runner";
-import { log } from "./lib/log";
-import { looksLikeVNID, VNID } from "./lib/types/vnid";
-import { PullNoTx, PullOneNoTx } from "./layer3/pull";
-import { migrations as coreMigrations } from "./layer2/schema";
-import { migrations as actionMigrations, SYSTEM_VNID } from "./layer4/schema";
-import { WrappedTransaction } from "./transaction";
-import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
-import { VNodeKey } from "./lib/key";
-import { C } from "./layer2/cypher-sugar";
-import { Field } from "./lib/types/field";
+import { neo4j, Neo4j } from "./deps.ts";
+import { ActionRequest, ActionResult } from "./layer4/action.ts";
+import { runAction } from "./layer4/action-runner.ts";
+import { log } from "./lib/log.ts";
+import { looksLikeVNID, VNID } from "./lib/types/vnid.ts";
+import { PullNoTx, PullOneNoTx } from "./layer3/pull.ts";
+import { migrations as coreMigrations } from "./layer2/schema.ts";
+import { migrations as actionMigrations, SYSTEM_VNID } from "./layer4/schema.ts";
+import { WrappedTransaction } from "./transaction.ts";
+import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface.ts";
+import { VNodeKey } from "./lib/key.ts";
+import { C } from "./layer2/cypher-sugar.ts";
+import { Field } from "./lib/types/field.ts";
 
 
 export interface InitArgs {
@@ -22,7 +22,7 @@ export interface InitArgs {
 }
 
 export class Vertex implements VertexCore {
-    private readonly driver: Driver;
+    private readonly driver: Neo4j.Driver;
     public readonly migrations: {[name: string]: Migration};
 
     constructor(config: InitArgs) {
@@ -235,7 +235,7 @@ export class Vertex implements VertexCore {
                     }
                 });
                 // Apply the migration
-                log(`Applying migration "${migrationId}"`);
+                log.info(`Applying migration "${migrationId}"`);
                 await this._restrictedAllowWritesWithoutAction(async () => {
                     await migration.forward(dbWrite);
                     await dbWrite(tx =>
@@ -250,7 +250,7 @@ export class Vertex implements VertexCore {
                 appliedMigrationIds.add(migrationId);
             }
         }
-        log.success("Migrations applied.");
+        log.info("Migrations applied.");
     }
 
     public async reverseMigration(id: string): Promise<void> {
@@ -265,7 +265,7 @@ export class Vertex implements VertexCore {
             throw new Error(`Cannot reverse migration "${id}": another migration, ${blockers.records[0].get("id")} depends on it.`);
         }
         // Reverse the migration
-        log(`Reversing migration "${id}"`);
+        log.info(`Reversing migration "${id}"`);
         await this._restrictedAllowWritesWithoutAction(async () => {
             await migration.backward(dbWrite);
             await dbWrite(tx => tx.run(`MATCH (m:Migration {id: $id}) DETACH DELETE m`, {id, }));
@@ -285,7 +285,7 @@ export class Vertex implements VertexCore {
             }
             await this.reverseMigration(id);
         }
-        log.success("Migrations reset.");
+        log.info("Migrations reset.");
     }
 
 }

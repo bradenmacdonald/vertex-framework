@@ -1,10 +1,10 @@
 /**
  * Syntactic sugar for writing Cypher queries.
  */
-import { Record as Neo4jRecord } from "neo4j-driver-lite";
-import { looksLikeVNID } from "../lib/types/vnid";
-import { GetDataShape, ResponseSchema } from "../lib/types/field";
-import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from "./vnode-base";
+import { Neo4j } from "../deps.ts";
+import { looksLikeVNID } from "../lib/types/vnid.ts";
+import { GetDataShape, ResponseSchema } from "../lib/types/field.ts";
+import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from "./vnode-base.ts";
 
 /**
  * Wrapper around a cypher statement/query string, with optional parameters.
@@ -204,7 +204,7 @@ export class CypherQueryWithReturnShape<RS extends ResponseSchema> extends Cyphe
 // Get what the expected response shape of a query is, if known. Meant only for use with query() and queryOne()
 export type QueryResponse<CQ extends CypherQuery> = (
     CQ extends CypherQueryWithReturnShape<infer RS> ? GetDataShape<RS> :
-    CQ extends CypherQuery ? Neo4jRecord :
+    CQ extends CypherQuery ? Neo4j.Record :
     never
 );
 

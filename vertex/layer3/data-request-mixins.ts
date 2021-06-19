@@ -8,12 +8,12 @@
  * developer experience and type checking in the IDE, but don't exactly match how things are implemented underneath.
  */
 
-import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
-import { BaseDataRequest, AnyDataRequest, UpdateMixin, RequiredMixin } from "../layer2/data-request";
-import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props";
-import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
-import type { DerivedProperty } from "./derived-props";
-import { TypedField } from "../lib/types/field";
+import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base.ts";
+import { BaseDataRequest, AnyDataRequest, UpdateMixin, RequiredMixin } from "../layer2/data-request.ts";
+import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualOneRelationshipProperty } from "./virtual-props.ts";
+import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode.ts";
+import type { DerivedProperty } from "./derived-props.ts";
+import { TypedField } from "../lib/types/field.ts";
 
 ///////////////// ConditionalRawPropsMixin /////////////////////////////////////////////////////////////////////////////
 

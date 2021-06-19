@@ -18,14 +18,7 @@
             "label": "Test environment: Open shell",
             "type": "shell",
             "command": "docker-compose",
-            "args": ["exec", "tester", "/bin/bash"],
-            "problemMatcher": []
-        },
-        {
-            "label": "Test environment: Transpile in watch mode",
-            "type": "shell",
-            "command": "docker-compose",
-            "args": ["exec", "tester", "npm", "run", "watch"],
+            "args": ["exec", "tester", "/bin/sh"],
             "problemMatcher": []
         },
         {

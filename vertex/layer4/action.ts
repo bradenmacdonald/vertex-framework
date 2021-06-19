@@ -4,12 +4,12 @@
  * transform it to another state. A generic UndoAction is provided which can be used to undo any action, making it easy
  * to revert edits, undo changes, etc.
  */
-import { VNID } from "../lib/types/vnid";
-import { BaseVNodeType, RawVNode, ValidationError } from "../layer2/vnode-base";
-import { WrappedTransaction } from "../transaction";
-import { C } from "../layer2/cypher-sugar";
-import { VNodeType } from "../layer3/vnode";
-import { Field } from "../lib/types/field";
+import { VNID } from "../lib/types/vnid.ts";
+import { BaseVNodeType, RawVNode } from "../layer2/vnode-base.ts";
+import { WrappedTransaction } from "../transaction.ts";
+import { C } from "../layer2/cypher-sugar.ts";
+import { VNodeType } from "../layer3/vnode.ts";
+import { Field } from "../lib/types/field.ts";
 
 
 /**
@@ -131,7 +131,7 @@ export class Action extends VNodeType {
         },
         /** This Action reverted another one */
         REVERTED: {
-            to: [Action],
+            to: [this],
             cardinality: VNodeType.Rel.ToOneOrNone,
         },
     });
@@ -139,12 +139,12 @@ export class Action extends VNodeType {
     static readonly virtualProperties = VNodeType.hasVirtualProperties({
         revertedBy: {
             type: "one-relationship",
-            query: C`(@target:${Action})-[:${Action.rel.REVERTED}]->(@this)`,
+            query: C`(@target:${Action})-[:${this.rel.REVERTED}]->(@this)`,
             target: Action,
         },
         revertedAction: {
             type: "one-relationship",
-            query: C`(@this)-[:${Action.rel.REVERTED}]->(@target:${Action})`,
+            query: C`(@this)-[:${this.rel.REVERTED}]->(@target:${Action})`,
             target: Action,
         },
     });

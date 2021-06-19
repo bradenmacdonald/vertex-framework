@@ -1,19 +1,18 @@
-import { log } from "../lib/log";
-import { VNodeKey } from "../lib/key";
-import { BaseVNodeType, } from "../layer2/vnode-base";
+import { VNodeKey } from "../lib/key.ts";
+import { BaseVNodeType, } from "../layer2/vnode-base.ts";
 import {
     VirtualPropertyDefinition,
-} from "./virtual-props";
-import { CypherQuery } from "../layer2/cypher-sugar";
-import { VNodeType } from "./vnode";
-import { BaseDataRequest, DataRequestState } from "../layer2/data-request";
+} from "./virtual-props.ts";
+import { CypherQuery } from "../layer2/cypher-sugar.ts";
+import { VNodeType } from "./vnode.ts";
+import { BaseDataRequest, DataRequestState } from "../layer2/data-request.ts";
 import {
     ConditionalRequest,
     getConditionalRawPropsData,
     getDerivedPropsData,
     getProjectedVirtualPropsData,
     getVirtualPropsData,
-} from "./data-request-mixins-impl";
+} from "./data-request-mixins-impl.ts";
 
 
 

@@ -3,7 +3,7 @@
  * one will encounter when creating a project using Vertex Framework. See the description of VNodeTypeRef below for
  * details.
  */
-import { getVNodeType, BaseVNodeType, RelationshipDeclaration } from "./vnode-base";
+import { getVNodeType, BaseVNodeType, RelationshipDeclaration } from "./vnode-base.ts";
 
 /** Interface for our "Fake" VNodeType which holds the label used to lazily load the real type. */
 interface FakeVNodeType {

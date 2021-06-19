@@ -1,8 +1,8 @@
-import { WrappedTransaction } from "../transaction";
-import { Field, TypedField, FieldType, GetDataShape, PropSchema, validatePropSchema } from "../lib/types/field";
-import { C } from "./cypher-sugar";
-import { convertNeo4jFieldValue } from "./cypher-return-shape";
-import { VNID } from "../lib/key";
+import { WrappedTransaction } from "../transaction.ts";
+import { Field, FieldType, GetDataShape, PropSchema, validatePropSchema, PropertyTypedField } from "../lib/types/field.ts";
+import { C } from "./cypher-sugar.ts";
+import { convertNeo4jFieldValue } from "./cypher-return-shape.ts";
+import { VNID } from "../lib/key.ts";
 
 // An empty object that can be used as a default value for read-only properties
 export const emptyObj = Object.freeze({});
@@ -10,7 +10,7 @@ export const emptyObj = Object.freeze({});
 const relTypeKey = Symbol("relTypeKey");
 
 export interface PropSchemaWithId extends PropSchema {
-    id: TypedField<FieldType.VNID, false, any>;
+    id: PropertyTypedField<FieldType.VNID, false, VNID>;
 }
 
 export interface RelationshipsSchema {
@@ -84,10 +84,10 @@ export class _BaseVNodeType {
         }
 
         // Validate properties:
-        validatePropSchema(this.properties, dbObject, {
-            abortEarly: false,
-            allowUnknown: true,  // We must allow unknown so that parent classes can validate, without knowledge of their child class schemas
-        });
+        const newValues = validatePropSchema(this.properties, dbObject);
+
+
+
 
         // Validate relationships:
         const relTypes = Object.keys(this.rel);

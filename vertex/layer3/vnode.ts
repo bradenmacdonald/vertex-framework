@@ -1,6 +1,6 @@
-import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType, RelationshipsSchema } from "../layer2/vnode-base";
-import { CleanDerivedProps, DerivedProperty, DerivedPropsSchema, DerivedPropsSchemaCleaned } from "./derived-props";
-import type { VirtualPropsSchema } from "./virtual-props";
+import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType, RelationshipsSchema } from "../layer2/vnode-base.ts";
+import { CleanDerivedProps, DerivedProperty, DerivedPropsSchema } from "./derived-props.ts";
+import type { VirtualPropsSchema } from "./virtual-props.ts";
 
 
 // In some parts of the code, it's necessary to refer to a type that has virtual props but not derived props:

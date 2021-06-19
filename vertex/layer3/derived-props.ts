@@ -1,7 +1,7 @@
-import type { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
-import type { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request";
-import type { DataResponse } from "./data-response";
-import type { VirtualPropsMixin } from "./data-request-mixins";
+import type { VNodeType, VNodeTypeWithVirtualProps } from "./vnode.ts";
+import type { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request.ts";
+import type { DataResponse } from "./data-response.ts";
+import type { VirtualPropsMixin } from "./data-request-mixins.ts";
 
 /**
  * Derived properties are a special type of virtual property which gets computed with the help of some callback function

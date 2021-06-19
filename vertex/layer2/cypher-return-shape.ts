@@ -1,4 +1,4 @@
-import { Record as Neo4jRecord } from "neo4j-driver-lite";
+import { Neo4j } from "../deps.ts";
 import {
     FieldType,
     GetDataType,
@@ -6,9 +6,10 @@ import {
     GetDataShape,
     Node,
     TypedField,
- } from "../lib/types/field";
-import { VDate } from "../lib/types/vdate";
-import type { BaseVNodeType, RawVNode } from "./vnode-base";
+    CompositeTypedField,
+} from "../lib/types/field.ts";
+import { VDate } from "../lib/types/vdate.ts";
+import type { BaseVNodeType, RawVNode } from "./vnode-base.ts";
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //// Conversion methods:
@@ -45,7 +46,7 @@ export function convertNeo4jFieldValue<FD extends TypedField>(fieldName: string,
         ////////////////////////////////////////////////
         // Composite field types
         case FieldType.Record: {
-            const schema = fieldDeclaration.schema;
+            const schema = (fieldDeclaration as any as CompositeTypedField).schema;
             const map: any = {}
             for (const mapKey in schema) {
                 map[mapKey] = convertNeo4jFieldValue(mapKey, fieldValue[mapKey] ?? null, schema[mapKey]);
@@ -53,7 +54,7 @@ export function convertNeo4jFieldValue<FD extends TypedField>(fieldName: string,
             return map;
         }
         case FieldType.Map: {
-            const schema = fieldDeclaration.schema;
+            const schema = (fieldDeclaration as any as CompositeTypedField).schema;
             const map: any = {}
             for (const mapKey in fieldValue) {
                 map[mapKey] = convertNeo4jFieldValue(mapKey, fieldValue[mapKey], schema);
@@ -61,13 +62,13 @@ export function convertNeo4jFieldValue<FD extends TypedField>(fieldName: string,
             return map;
         }
         case FieldType.List: {
-            const schema = fieldDeclaration.schema;
+            const schema = (fieldDeclaration as any as CompositeTypedField).schema;
             return fieldValue.map((listValue: any) => convertNeo4jFieldValue(fieldName, listValue, schema));
         }
         ////////////////////////////////////////////////
         // Response field types
         case FieldType.VNode: {
-            const vnodeType = fieldDeclaration.schema;
+            const vnodeType = (fieldDeclaration as any as CompositeTypedField).schema;
             return neoNodeToRawVNode(fieldValue, vnodeType, fieldName) as any;
         }
         case FieldType.Node:
@@ -82,7 +83,7 @@ export function convertNeo4jFieldValue<FD extends TypedField>(fieldName: string,
 }
 
 // Convert a transaction response (from the native Neo4j driver) to a TypedResult
-export function convertNeo4jRecord<RS extends ResponseSchema>(record: Neo4jRecord, returnShape: RS): GetDataShape<RS> {
+export function convertNeo4jRecord<RS extends ResponseSchema>(record: Neo4j.Record, returnShape: RS): GetDataShape<RS> {
     const newRecord: any = {};
     for (const fieldName of Object.keys(returnShape)) {
         const fieldValue = record.get(fieldName);

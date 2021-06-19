@@ -1,5 +1,5 @@
-import { NominalType } from "../ts-utils";
-import { UUIDv4 } from "./uuid";
+import { NominalType } from "../ts-utils.ts";
+import { UUIDv4 } from "./uuid.ts";
 
 /** A UUID-string, which is kind of like a subclass of string */
 export type VNID = NominalType<string, "VNID">;

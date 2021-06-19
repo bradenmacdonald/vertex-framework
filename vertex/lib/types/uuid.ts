@@ -1,7 +1,4 @@
-import { randomFillSync } from "crypto";
-import { NominalType } from "../ts-utils";
-
-const inspect = Symbol.for("nodejs.util.inspect.custom");
+import { NominalType } from "../ts-utils.ts";
 
 /**
  * A simple TypeScript UUIDv4 implementation for NodeJS
@@ -34,7 +31,7 @@ export class UUIDv4 {
             }
         } else {
             // Generate a new random UUIDv4:
-            randomFillSync(this._value);
+            crypto.getRandomValues(this._value);
             this._value[6] = (this._value[6] & 0x0f) | (UUIDv4.VERSION<<4);
             this._value[8] = (this._value[8] & 0xbf) | (UUIDv4.VARIANT<<6);
         }
@@ -80,12 +77,6 @@ export class UUIDv4 {
             (BigInt(this._value[ 1] + (this._value[ 0] << 8)) << 112n)
         );
         */
-    }
-
-    /* istanbul ignore next */
-    /** Customize display of UUIDs in NodeJS REPL */
-    [inspect](depth: any, options: any): string {
-        return options.stylize(this.toString(), "special");
     }
 }
 

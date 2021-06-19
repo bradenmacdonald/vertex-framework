@@ -5,7 +5,8 @@
     "eslint.workingDirectories": [
         "."
     ],
-    "deno.enable": false,
-    "debug.javascript.usePreview": true,
-    "typescript.tsdk": "node_modules/typescript/lib",
+    "deno.enable": true,
+    "deno.importMap": "./vertex/import_map.json",
+    //"debug.javascript.usePreview": true,
+    //"typescript.tsdk": "node_modules/typescript/lib",
 }

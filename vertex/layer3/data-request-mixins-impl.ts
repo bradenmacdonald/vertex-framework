@@ -7,12 +7,12 @@
  * are quite different.
  */
 
-import { C } from "../layer2/cypher-sugar";
-import { BaseVNodeType } from "../layer2/vnode-base";
-import { BaseDataRequest, MixinImplementation, DataRequestState, AnyDataRequest } from "../layer2/data-request";
-import { DerivedProperty } from "./derived-props";
-import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualPropType } from "./virtual-props";
-import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
+import { C } from "../layer2/cypher-sugar.ts";
+import { BaseVNodeType } from "../layer2/vnode-base.ts";
+import { BaseDataRequest, MixinImplementation, DataRequestState, AnyDataRequest } from "../layer2/data-request.ts";
+import { DerivedProperty } from "./derived-props.ts";
+import { VirtualCypherExpressionProperty, VirtualManyRelationshipProperty, VirtualPropType } from "./virtual-props.ts";
+import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode.ts";
 
 /** The type of a function which adds some fields onto an existing (or empty) data request */
 type RequestBuilderFn<VNT extends BaseVNodeType = any> = (existingRequest: BaseDataRequest<VNT, any, any>) => BaseDataRequest<VNT, any, any>;

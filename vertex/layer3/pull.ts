@@ -1,25 +1,25 @@
-import { looksLikeVNID } from "../lib/types/vnid";
-import { BaseVNodeType, } from "../layer2/vnode-base";
+import { looksLikeVNID } from "../lib/types/vnid.ts";
+import { BaseVNodeType, } from "../layer2/vnode-base.ts";
 import {
     VirtualManyRelationshipProperty,
     VirtualOneRelationshipProperty,
     VirtualCypherExpressionProperty,
     VirtualPropType,
-} from "./virtual-props";
-import type { WrappedTransaction } from "../transaction";
-import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
-import { AnyDataRequest, BaseDataRequest, DataRequestState, RequiredMixin } from "../layer2/data-request";
-import { ConditionalPropsMixin, DerivedPropsMixin, SubclassMixins, VirtualPropsMixin } from "./data-request-mixins";
-import type { DataResponse } from "./data-response";
+} from "./virtual-props.ts";
+import type { WrappedTransaction } from "../transaction.ts";
+import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode.ts";
+import { AnyDataRequest, BaseDataRequest, DataRequestState, RequiredMixin } from "../layer2/data-request.ts";
+import { ConditionalPropsMixin, DerivedPropsMixin, SubclassMixins, VirtualPropsMixin } from "./data-request-mixins.ts";
+import type { DataResponse } from "./data-response.ts";
 import {
     conditionalRawPropsMixinImplementation,
     derivedPropsMixinImplementation,
     includeDependenciesFlag,
     virtualPropsMixinImplementation,
-} from "./data-request-mixins-impl";
-import { DerivedProperty } from "./derived-props";
-import { DataRequestFilter, FilteredRequest } from "./data-request-filtered";
-import { convertNeo4jFieldValue } from "../layer2/cypher-return-shape";
+} from "./data-request-mixins-impl.ts";
+import { DerivedProperty } from "./derived-props.ts";
+import { DataRequestFilter, FilteredRequest } from "./data-request-filtered.ts";
+import { convertNeo4jFieldValue } from "../layer2/cypher-return-shape.ts";
 
 type PullMixins<VNT extends VNodeType> = ConditionalPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT> & RequiredMixin;
 // This alias seems to confuse TypeScript 4.2:

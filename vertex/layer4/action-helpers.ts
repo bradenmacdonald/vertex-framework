@@ -1,10 +1,10 @@
-import { C } from "../layer2/cypher-sugar";
-import { WrappedTransaction } from "../transaction";
-import { RelationshipDeclaration, getRelationshipType } from "../layer2/vnode-base";
-import { VNodeType } from "../layer3/vnode";
-import { log, stringify } from "../lib/log";
-import { VNodeKey, VNID } from "../lib/key";
-import { Field, GetDataType, PropSchema } from "../lib/types/field";
+import { C } from "../layer2/cypher-sugar.ts";
+import { WrappedTransaction } from "../transaction.ts";
+import { RelationshipDeclaration, getRelationshipType } from "../layer2/vnode-base.ts";
+import { VNodeType } from "../layer3/vnode.ts";
+import { log, stringify } from "../lib/log.ts";
+import { VNodeKey, VNID } from "../lib/key.ts";
+import { Field, GetDataType, PropSchema } from "../lib/types/field.ts";
 
 export type OneRelationshipSpec<VNR extends RelationshipDeclaration, KeyType = VNodeKey> = {
     key: KeyType|null;

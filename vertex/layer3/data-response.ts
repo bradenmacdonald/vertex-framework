@@ -1,6 +1,6 @@
-import { GetDataType } from "../lib/types/field";
-import { BaseVNodeType } from "../layer2/vnode-base";
-import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request";
+import { GetDataType } from "../lib/types/field.ts";
+import { BaseVNodeType } from "../layer2/vnode-base.ts";
+import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request.ts";
 import {
     ConditionalPropsMixin,
     DerivedPropsMixin,
@@ -9,8 +9,8 @@ import {
     IncludedVirtualManyProp,
     IncludedVirtualOneProp,
     VirtualPropsMixin
-} from "./data-request-mixins";
-import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
+} from "./data-request-mixins.ts";
+import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode.ts";
 
 
 type UnWindConditionalPropsArray<conditionallyRequestedProperties extends AnyDataRequest<any>[]> = (
