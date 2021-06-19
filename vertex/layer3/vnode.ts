@@ -1,6 +1,7 @@
 import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType, RelationshipsSchema } from "../layer2/vnode-base.ts";
 import { CleanDerivedProps, DerivedProperty, DerivedPropsSchema } from "./derived-props.ts";
 import type { VirtualPropsSchema } from "./virtual-props.ts";
+import { deferrable, Deferrable } from "../lib/deferrable.ts";
 
 
 // In some parts of the code, it's necessary to refer to a type that has virtual props but not derived props:
@@ -28,8 +29,8 @@ export abstract class VNodeType extends BaseVNodeType {
     }
 
     /** Completely optional helper method to declare a VNodeType's "virtualProperties" with correct typing. */
-    static hasVirtualProperties<VPS extends VirtualPropsSchema>(props: VPS): VPS {
-        return props;
+    static hasVirtualProperties<VPS extends VirtualPropsSchema>(props: Deferrable<VPS>): VPS {
+        return deferrable(props);
     }
 
     /** Completely optional helper method to declare a VNodeType's "derivedProperties" with correct typing */
