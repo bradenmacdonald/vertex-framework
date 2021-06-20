@@ -1,4 +1,4 @@
-import { group, test, assert } from "../tests.ts";
+import { group, test, assert, assertEquals, assertThrows } from "../tests.ts";
 import { VDate, VD } from "./vdate.ts";
 import { Neo4j } from "../../deps.ts";
 
@@ -6,33 +6,33 @@ group(import.meta, () => {
 
     group("VDate", () => {
         test("fromString() can parse the compact ISO 8601 representation", () => {
-            assert.equal(VDate.fromString("20300102").toString(), "2030-01-02");
+            assertEquals(VDate.fromString("20300102").toString(), "2030-01-02");
         });
 
         test("fromString() and toString() round trips work", () => {
-            const check = (dateString: string) => assert.equal(VDate.fromString(dateString).toString(), dateString);
+            const check = (dateString: string) => assertEquals(VDate.fromString(dateString).toString(), dateString);
             check("1920-01-02");
             check("2015-10-05");
         });
 
         test("VD tagged string template", () => {
             const vd = VD`2020-05-10`;
-            assert.assert(vd instanceof VDate);
-            assert.equal(vd.toString(), "2020-05-10");
+            assert(vd instanceof VDate);
+            assertEquals(vd.toString(), "2020-05-10");
         });
 
         test("VD tagged string template with inerpolation", () => {
             const month = "05";
             const day = 10;
             const vd = VD`2020-${month}-${day}`;
-            assert.assert(vd instanceof VDate);
-            assert.equal(vd.toString(), "2020-05-10");
+            assert(vd instanceof VDate);
+            assertEquals(vd.toString(), "2020-05-10");
         });
 
         test("Rejects invalid dates and understands leap years", () => {
             const check = (goodDate: string, badDate: string): void => {
-                assert.equal(VDate.fromString(goodDate).toString(), goodDate);
-                assert.assertThrows(() => { VDate.fromString(badDate); });
+                assertEquals(VDate.fromString(goodDate).toString(), goodDate);
+                assertThrows(() => { VDate.fromString(badDate); });
             };
             // The following pairs have one date that is a valid date at the end of a month, and one the subsequent
             // "bad date" which is invalid. The first of each pair should parse and the second should throw an error.
@@ -55,13 +55,13 @@ group(import.meta, () => {
         });
 
         test("rejects invalid date strings", () => {
-            assert.assertThrows(() => { VDate.fromString("foobar"); });
-            assert.assertThrows(() => { VDate.fromString("2020-15-15"); });
-            assert.assertThrows(() => { VDate.fromString("2020-MM-DD"); });
+            assertThrows(() => { VDate.fromString("foobar"); });
+            assertThrows(() => { VDate.fromString("2020-15-15"); });
+            assertThrows(() => { VDate.fromString("2020-MM-DD"); });
         });
 
         test("Converts to JSON as an ISO 8601 string", () => {
-            assert.equal(
+            assertEquals(
                 JSON.stringify({someKey: [new VDate(2010, 5, 15)]}),
                 JSON.stringify({someKey: ["2010-05-15"]}),
             );
@@ -69,7 +69,7 @@ group(import.meta, () => {
 
         test("Neo4jDate can be converted to VDate", () => {
             const neoDate = new Neo4j.Date(2010, 5, 15);
-            assert.equal(
+            assertEquals(
                 VDate.fromNeo4jDate(neoDate).toString(),
                 neoDate.toString(),
             );
