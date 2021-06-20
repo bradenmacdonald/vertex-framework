@@ -13,6 +13,7 @@ import { isVNID, VNID } from "./vnid.ts";
  * not directly use that library.
  */
 export type Validator<T> = (value: unknown) => T;
+export type TypedValidator<T> = (value: T) => T;
 
 /** A VNID Validator */
 export const validateVNID: Validator<VNID> = (value) => {
@@ -75,11 +76,11 @@ export const validateString: Validator<string> = (value) => {
     return value;
 };
 
-/** A default string validator, that trims whitespace from the string and gives it a max length of 1,000 */
-export const trimStringMaxLength1000: Validator<string> = (value) => {
+/** A default string validator, that trims whitespace from the string and gives it a max length */
+export const trimStringMaxLength = (maxLength: number) => (value: unknown) => {
     let newValue = validateString(value).trim();
-    if (newValue.length > 1_000) {
-        throw new Error(`String value is longer than default length of 1,000 characters`);
+    if (newValue.length > maxLength) {
+        throw new Error(`String value is longer than default length of ${maxLength} characters`);
     }
     return newValue;
 };
@@ -90,7 +91,7 @@ export const validateVDate: Validator<VDate> = (value) => {
         return value;
     } else if (Neo4j.isDate(value as any)) {
         return VDate.fromNeo4jDate(value as any);
-    } else if (value instanceof Date) {
+    } else if ((value as any) instanceof Date) {
         throw new Error("Don't use JavaScript Date objects for calendar dates - too many timezone problems. Try VDate.fromString(\"YYYY-MM-DD\") instead.");
     }
     throw new Error("Not a date value.");
@@ -126,12 +127,53 @@ export const validateAnyPrimitive: Validator<null|boolean|number|bigint|string|V
 /** Validation regex for Unicode-aware slugs */
 const slugRegex = /^[-\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]+$/u;
 
-export const validateSlug: Validator<string> = (value) => {
-    if (typeof value !== "string") {
-        throw new Error("value is not a string.");
-    }
+/**
+ * Validate that a string value is a slug. Can contain letters from any language, but not spaces or punctuation other
+ * than hyphen (hyphen is allowed, but underscore is not as underscore is less visible when text is underlined).
+ */
+export const validateSlug: Validator<string> = (_value) => {
+    const value = validateString(_value);
     if (!slugRegex.test(value)) {
         throw new Error(`${value} is not a valid slug (cannot contain spaces or other special characters other than '-')`);
+    }
+    return value;
+}
+
+const emailTester = /^[-!#$%&'*+\/0-9=?A-Z^_a-z`{|}~](\.?[-!#$%&'*+\/0-9=?A-Z^_a-z`{|}~])*@[a-zA-Z0-9](-*\.?[a-zA-Z0-9])*\.[a-zA-Z](-?[a-zA-Z0-9])+$/;
+
+function isEmail(email: string): boolean {
+    // Email validation code is from https://github.com/manishsaraan/email-validator (public domain)
+    const emailParts = email.split('@');
+
+    if(emailParts.length !== 2) {
+        return false;
+    }
+
+    const account = emailParts[0];
+    const address = emailParts[1];
+
+    if (account.length > 64) {
+        return false;
+    } else if(address.length > 255) {
+        return false;
+    }
+
+    const domainParts = address.split('.');
+    if (domainParts.some((part) => part.length > 63)) {
+        return false;
+    }
+
+    if (!emailTester.test(email)) {
+        return false;
+    }
+
+    return true;
+}
+
+export const validateEmail: Validator<string> = (_value) => {
+    const value = validateString(_value);
+    if (!isEmail(value)) {
+        throw new Error(`"${value}" is not a valid email address.`);
     }
     return value;
 }

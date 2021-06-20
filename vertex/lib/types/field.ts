@@ -3,17 +3,19 @@ import { VNID } from "./vnid.ts";
 import { VDate } from "./vdate.ts";
 import {
     Validator,
+    TypedValidator,
     validateAnyPrimitive,
     validateBigInt,
     validateSlug,
     validateVDate,
     validateVNID,
-validateInteger,
-validateFloat,
-validateString,
-trimStringMaxLength1000,
-validateBoolean,
-validateDateTime,
+    validateInteger,
+    validateFloat,
+    validateString,
+    trimStringMaxLength,
+    validateBoolean,
+    validateDateTime,
+    validateEmail,
 } from "./validator.ts";
 
 /* Export properly typed Neo4j data structures  */
@@ -103,7 +105,7 @@ export interface PropertyTypedField<
  * Properties Schema (usually for a VNodeType, but also can be used to define properties on a relationship)
  */
 export interface PropSchema {
-    [K: string]: PropertyTypedField;
+    [K: string]: PropertyTypedField<PropertyFieldType, boolean, any>;
 }
 
 // This helper function is used to declare variables with appropriate typing as "RS extends ResponseSchema" and not just "ResponseSchema"
@@ -201,7 +203,7 @@ export interface _PropertyTypedFieldConstructor<FT extends PropertyFieldType, Nu
     extends PropertyTypedField<FT, Nullable, PVT>
 {
     /** Add a custom validator for this field's value. Note that custom validators are not called if the value is null. */
-    Check: (customValidator: Validator<PVT>) => PropertyTypedField<FT, Nullable, PVT>
+    Check: (customValidator: TypedValidator<PVT>) => PropertyTypedField<FT, Nullable, PVT>
 }
 
 // These aliases are only defined to provide much nicer-looking types in the IDE (e.g. VS Code).
@@ -229,8 +231,9 @@ function makePropertyField<FT extends PropertyFieldType, Nullable extends boolea
         type,
         nullable,
         baseValidator,
-        customValidator: defaultValidator,
-        Check: (newCustomValidator: Validator<PVT>) => makePropertyField(type, nullable, baseValidator, defaultValidator, (value: unknown) => {
+        customValidator: customValidator ?? defaultValidator,
+        Check: (newCustomValidator: TypedValidator<PVT>) => makePropertyField(type, nullable, baseValidator, defaultValidator, (_value: unknown) => {
+            let value = baseValidator(_value);
             if (customValidator && customValidator !== defaultValidator) {
                 value = customValidator(value);
             }
@@ -259,9 +262,9 @@ function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
          * e.g. using https://deno.land/x/computed_types :
          *     myString: Field.String.Check(string.min(2).max(100))
          */
-        String: makePropertyField(FieldType.String, nullable, validateString, trimStringMaxLength1000) as Nullable extends true ? _NullableStringField : _StringField,
+        String: makePropertyField(FieldType.String, nullable, validateString, trimStringMaxLength(1_000)) as Nullable extends true ? _NullableStringField : _StringField,
         /** A unicode-aware slug (cannot contain spaces/punctuation). Valid: "the-thing". Invalid: "foo_bar" or "foo bar" */
-        Slug: makePropertyField(FieldType.Slug, nullable, validateSlug) as Nullable extends true ? _NullableSlugField : _SlugField,
+        Slug: makePropertyField(FieldType.Slug, nullable, validateSlug, trimStringMaxLength(60)) as Nullable extends true ? _NullableSlugField : _SlugField,
         Boolean: makePropertyField(FieldType.Boolean, nullable, validateBoolean) as Nullable extends true ? _NullableBooleanField : _BooleanField,
         /** A calendar date, i.e. a date without time information */
         Date: makePropertyField(FieldType.Date, nullable, validateVDate),
@@ -321,10 +324,15 @@ export const Field = Object.freeze({
     NullOr: {
         ..._getFieldTypes(true),
     },
-    AnyPrimitive: makePropertyField(FieldType.AnyPrimitive as const, false, validateAnyPrimitive),
+    AnyPrimitive: makePropertyField(FieldType.AnyPrimitive as const, true, validateAnyPrimitive),
 
     Any: {type: FieldType.Any as const, nullable: false as const, schema: undefined},
     AnyGeneric: {type: FieldType.AnyGeneric as const, nullable: false as const, schema: undefined} as AnyGenericField,
+
+    // Helpful validators
+    validators: {
+        email: validateEmail,
+    },
 });
 
 /**
@@ -369,11 +377,16 @@ export function validateValue<FD extends PropertyTypedField<any, any, any>>(fiel
         if (!fieldType.nullable) {
             throw new Error("Value is not allowed to be null");
         }
+        return value;
     }
 
     if (fieldType.customValidator) {
+        // Not that the code in Check() which accepts the custom validator also configures the base validator to run
+        // first, so that the custom validator knows that 'value' is already the right type and is not 'unknown' type.
         value = fieldType.customValidator(value);
     }
+
+    // Make sure the custom validator didn't change the fundamental type, or violate the base validator:
     value = fieldType.baseValidator(value);
     return value;
 }
