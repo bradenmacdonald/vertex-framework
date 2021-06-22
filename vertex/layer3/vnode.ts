@@ -39,6 +39,7 @@ export abstract class VNodeType extends BaseVNodeType {
         // @VNodeType.declare that changes the type of this, converting any derived props that are functions to the
         // DerivedProperty instances that they return. In practice that takes effect at class declaration time so it's
         // convenient to let TypeScript know about the type now; otherwise TypeScript won't know.
+        // deno-lint-ignore no-explicit-any
         return props as any;
     }
 
@@ -69,8 +70,8 @@ export abstract class VNodeType extends BaseVNodeType {
 }
 
 /** Helper function to check if some object is a VNodeType */
-export function isVNodeType(obj: any): obj is VNodeType {
-    return Object.prototype.isPrototypeOf.call(VNodeType, obj);
+export function isVNodeType(obj: unknown): obj is VNodeType {
+    return typeof obj === "function" && Object.prototype.isPrototypeOf.call(VNodeType, obj);
 }
 
 /** Extend "getVNodeType" to include layer 3 type definition */

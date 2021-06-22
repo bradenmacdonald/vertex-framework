@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { Neo4j } from "../../deps.ts";
 import { VNID } from "./vnid.ts";
 import { VDate } from "./vdate.ts";

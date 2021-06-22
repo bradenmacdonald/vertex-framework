@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any camelcase
 import { group, test, configureTestData, assert, assertEquals, assertStrictEquals } from "../lib/tests.ts";
 import { dedent } from "../lib/dedent.ts";
 
@@ -240,11 +241,6 @@ group(import.meta, () => {
             );
             assertEquals(
                 await testGraph.pullOne(request, filter),
-                // TODO - FIXME - this used to work but a recent refactor is breaking the typescript types. * * * * * *
-                // It should still work at runtime; the compile-time type is just wrong. It's not a big deal as users
-                // won't generally be explicitly requesting a virtual property twice as in this example.
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
                 await testGraph.pullOne(mergedRequest, filter),
             );
         });
@@ -266,7 +262,7 @@ group(import.meta, () => {
             assertEquals(rdj.movies[1].role, "Kirk Lazarus");
         });
 
-        group("Test ordering a to-many virtual property by a relationship property", async () => {
+        group("Test ordering a to-many virtual property by a relationship property", () => {
             const request = newDataRequest(Person).name.moviesOrderedByRole(m => m.title.year.role())
             const filter: DataRequestFilter = {key: "rdj", };
             test("buildCypherQuery", () => {

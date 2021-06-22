@@ -83,7 +83,7 @@ function yearsWithCompany(): DerivedProperty<number|null> { return DerivedProper
 function annualBonus(): DerivedProperty<number> { return DerivedProperty.make(
     Executive,
     e => e,
-    data => { return 100_000; }
+    _data => { return 100_000; }
 );}
 
 group(import.meta, () => {

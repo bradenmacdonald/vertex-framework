@@ -43,6 +43,7 @@ group(import.meta, () => {
     test("a forward reference's relationships can be accessed before the VNodeType is loaded", () => {
         const test = OtherVNTRef.rel.SELF_RELATIONSHIP;
         // And typescript sees it as a VNode Relationship declaration:
+        // deno-lint-ignore no-explicit-any
         checkType<AssertPropertyPresent<typeof test, "to", Array<any>>>();
         checkType<AssertPropertyAbsent<typeof test, "somethingElse">>();
     });

@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any ban-types
 import { ActionDefinition, defineAction } from "./action.ts";
 import { C } from "../layer2/cypher-sugar.ts";
 import { VNID, VNodeKey } from "../lib/key.ts";
@@ -227,7 +228,6 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends Re
     return CreateAction;
 }
 
-// eslint-disable-next-line @typescript-eslint/ban-types
 export function defaultDeleteFor<VNT extends VNodeType>(type: VNT): ActionDefinition<`Delete${VNT["label"]}`, {key: VNodeKey}, {}> {
 
     const DeleteAction = defineAction({

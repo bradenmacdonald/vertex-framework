@@ -44,15 +44,15 @@ group(import.meta, () => {
                 assertEquals(await checkData(), expectedAfter1and2);
 
                 // Now undo action2:
-                const undo2 = await testGraph.runAsSystem(UndoAction({actionId: result2.actionId}));
+                const _undo2 = await testGraph.runAsSystem(UndoAction({actionId: result2.actionId}));
                 assertEquals(await checkData(), expectedAfter1);
                 // Now undo action1:
-                const undo1 = await testGraph.runAsSystem(UndoAction({actionId: result1.actionId}));
+                const _undo1 = await testGraph.runAsSystem(UndoAction({actionId: result1.actionId}));
                 assertEquals(await checkData(), expectedAfter0);
             });
 
             test("It marks actions as reverted when undone", async () => {
-                const result1 = await testGraph.runAsSystem(action1);
+                const _result1 = await testGraph.runAsSystem(action1);
                 const result2 = await testGraph.runAsSystem(action2);
                 assertEquals(
                     // action 2 is not marked as reverted:
@@ -73,9 +73,9 @@ group(import.meta, () => {
             });
 
             test("It won't let an action be undone twice", async () => {
-                const result1 = await testGraph.runAsSystem(action1);
+                const _result1 = await testGraph.runAsSystem(action1);
                 const result2 = await testGraph.runAsSystem(action2);
-                const undo2 = await testGraph.runAsSystem(UndoAction({actionId: result2.actionId}));
+                const _undo2 = await testGraph.runAsSystem(UndoAction({actionId: result2.actionId}));
                 assertEquals(await checkData(), expectedAfter1);
                 await assertThrowsAsync(
                     () => testGraph.runAsSystem(UndoAction({actionId: result2.actionId})),
@@ -91,16 +91,16 @@ group(import.meta, () => {
                     assertEquals(await checkData(), expectedAfter1);
                     const undo1 = await testGraph.runAsSystem(UndoAction({actionId: result1.actionId}));
                 assertEquals(await checkData(), expectedAfter0);
-                    const redo1 = await testGraph.runAsSystem(UndoAction({actionId: undo1.actionId}));
+                    const _redo1 = await testGraph.runAsSystem(UndoAction({actionId: undo1.actionId}));
                     assertEquals(await checkData(), expectedAfter1);
                     const redo2 = await testGraph.runAsSystem(UndoAction({actionId: undo2.actionId}));
                         assertEquals(await checkData(), expectedAfter1and2);
-                        const undoRedo2 = await testGraph.runAsSystem(UndoAction({actionId: redo2.actionId}));
+                        const _undoRedo2 = await testGraph.runAsSystem(UndoAction({actionId: redo2.actionId}));
                     assertEquals(await checkData(), expectedAfter1);
             });
 
             test("It won't undo an action if there is a conflict", async () => {
-                const result1 = await testGraph.runAsSystem(action1);
+                const _result1 = await testGraph.runAsSystem(action1);
                 const result2 = await testGraph.runAsSystem(action2);
 
                 // Set the franchise to NULL

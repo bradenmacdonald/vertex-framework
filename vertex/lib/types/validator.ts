@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 /**
  * Helper functions and types for validating typed data.
  * 
@@ -78,7 +79,7 @@ export const validateString: Validator<string> = (value) => {
 
 /** A default string validator, that trims whitespace from the string and gives it a max length */
 export const trimStringMaxLength = (maxLength: number) => (value: unknown) => {
-    let newValue = validateString(value).trim();
+    const newValue = validateString(value).trim();
     if (newValue.length > maxLength) {
         throw new Error(`String value is longer than default length of ${maxLength} characters`);
     }

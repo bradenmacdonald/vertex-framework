@@ -1,5 +1,4 @@
 import { group, test, assertEquals, configureTestData } from "./lib/tests.ts";
-import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "./lib/ts-utils.ts";
 import { Person, testGraph } from "./test-project/index.ts";
 
 import { VNID, SlugId } from "./index.ts";

@@ -14,7 +14,7 @@ export const GenericCypherAction = defineAction({
         description?: string,
     },
     apply: async (tx, data) => {
-        const dbResult = await tx.query(data.cypher);
+        await tx.query(data.cypher);
         return {
             resultData: {},
             modifiedNodes: data.modifiedNodes ?? [],

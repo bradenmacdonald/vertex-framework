@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any ban-types
 /**
  * Vertex Framework uses the command pattern, where all operations that can change the site's content in any way
  * (other than data/schema migrations) are described as "actions" (a.k.a. mutations) that take the current state and
@@ -32,7 +33,7 @@ export type ActionRequest<Parameters extends Record<string, any> = any, ResultDa
  * The data returned by an action implementation's apply() method.
  * For example, when creating a new user, this returns the user's VNID.
  */
-interface ApplyResult<ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
+interface ApplyResult<ResultData extends Record<string, any> = {}> {
     /**
      * Any result data that the action wants to pass back.
      */
@@ -56,7 +57,7 @@ export type ActionResult<T extends ActionRequest> = (
 
 
 /** Base class for an Action, defining the interface that all actions must adhere to. */
-export interface ActionDefinition<ActionType extends string = string, Parameters extends Record<string, any> = any, ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
+export interface ActionDefinition<ActionType extends string = string, Parameters extends Record<string, any> = any, ResultData extends Record<string, any> = {}> {
     readonly type: ActionType;
 
     // Generate the ActionData for this action:

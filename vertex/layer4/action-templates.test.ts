@@ -37,15 +37,13 @@ class Planet extends AstronomicalBody {
 
 const CreateAstroBody = defaultCreateFor(AstronomicalBody, ab => ab.slugId.mass);
 const UpdatePlanet = defaultUpdateFor(Planet, p => p.slugId.mass.numberOfMoons, {
-    otherUpdates: async (args: {addMoon?: string, deleteMoon?: string}, tx, nodeSnapshot, changes) => {
-        const previousValues: Partial<typeof args> = {};
+    otherUpdates: async (args: {addMoon?: string, deleteMoon?: string}, tx, nodeSnapshot) => {
         if (args.deleteMoon !== undefined) {
             await tx.queryOne(C`
                 MATCH (p:${Planet} {id: ${nodeSnapshot.id}})
                 MATCH (p)-[rel:${Planet.rel.HAS_MOON}]->(moon:${AstronomicalBody}), moon HAS KEY ${args.deleteMoon}
                 DELETE rel
             `.RETURN({}));
-            previousValues.addMoon = args.deleteMoon;
         }
         if (args.addMoon !== undefined) {
             await tx.queryOne(C`
@@ -53,9 +51,8 @@ const UpdatePlanet = defaultUpdateFor(Planet, p => p.slugId.mass.numberOfMoons, 
                 MATCH (moon:${AstronomicalBody}), moon HAS KEY ${args.addMoon}
                 MERGE (p)-[:${Planet.rel.HAS_MOON}]->(moon)
             `.RETURN({}));
-            previousValues.deleteMoon = args.addMoon;
         }
-        return { additionalModifiedNodes: [], previousValues };
+        return { additionalModifiedNodes: [] };
     },
 });
 const CreatePlanet = defaultCreateFor(Planet, p => p.slugId.mass, UpdatePlanet);
@@ -115,6 +112,7 @@ group(import.meta, () => {
         test("doesn't allow creating invalid VNodes", async () => {
             // There are overlapping tests in action-runner.test.ts, but that's OK.
             await assertThrowsAsync(() => testGraph.runAsSystem(
+                // deno-lint-ignore no-explicit-any
                 CreateAstroBody({slugId: 17 as any, mass: 15}),
             ), undefined, `Not a string`);  // TODO: should say: "slugId" must be a string
             // slugId cannot contain spaces:
@@ -123,6 +121,7 @@ group(import.meta, () => {
             ), undefined, `not a valid slug`);
             // required props missing:
             await assertThrowsAsync(() => testGraph.runAsSystem(
+                // deno-lint-ignore no-explicit-any
                 CreateAstroBody({} as any),
             ), undefined, `Value is not allowed to be null`);  //`"slugId" must be a string. "mass" must be a number`);
         });

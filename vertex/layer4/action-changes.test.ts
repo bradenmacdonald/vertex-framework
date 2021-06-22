@@ -188,7 +188,7 @@ group(import.meta, () => {
             const franchiseAction = await testGraph.runAsSystem(
                 CreateMovieFranchise({slugId: "jumanji", name: "Jumanji"}),
             );
-            const action0 = await testGraph.runAsSystem(
+            const _action0 = await testGraph.runAsSystem(
                 // Add an extra property that we'll later set null:
                 GenericCypherAction({cypher: C`
                     MATCH (mf:${MovieFranchise}), mf HAS KEY ${franchiseAction.id}
@@ -255,13 +255,13 @@ group(import.meta, () => {
         });
 
         test("actions are not allowed to mutate properties on a relationship; they must re-created them", async () => {
-            const movieAction = await testGraph.runAsSystem(
+            const _movieAction = await testGraph.runAsSystem(
                 CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018}),
             );
             const rdjAction = await testGraph.runAsSystem(
                 CreatePerson({slugId: "rdj", name: "Robert Downey Jr.", dateOfBirth: VD`1965-04-04`}),
             );
-            const action0 = await testGraph.runAsSystem(
+            const _action0 = await testGraph.runAsSystem(
                 ActedIn({personId: "rdj", movieId: "infinity-war", role: "Tony Stark / Iron Man"}),
             );
             await assertThrowsAsync(() => testGraph.runAsSystem(

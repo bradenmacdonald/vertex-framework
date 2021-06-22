@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any no-unused-vars
 /**
  * This whole file is a giant hack, but creates an easy way to work around most instances of circular references that
  * one will encounter when creating a project using Vertex Framework. See the description of VNodeTypeRef below for

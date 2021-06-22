@@ -46,26 +46,23 @@ class AstronomicalBody extends VNodeType {
 const CreatePerson = defaultCreateFor(Person, p => p.slugId);
 const UpdateAstronomicalBody = defaultUpdateFor(AstronomicalBody, ab => ab.slugId, {
     otherUpdates: async (args: {orbits?: {key: string|null, periodInSeconds?: number|null}, visitedBy?: {key: string, when: VDate}[]}, tx, nodeSnapshot) => {
-        const previousValues: Partial<typeof args> = {};
         if (args.orbits !== undefined) {
-            const {prevTo} = await tx.updateToOneRelationship({
+            await tx.updateToOneRelationship({
                 from: [AstronomicalBody, nodeSnapshot.id],
                 rel: AstronomicalBody.rel.ORBITS,
                 to: args.orbits,
             });
-            previousValues.orbits = prevTo;
         }
 
         if (args.visitedBy !== undefined) {
-            const {prevTo} = await tx.updateToManyRelationship({
+            await tx.updateToManyRelationship({
                 from: [AstronomicalBody, nodeSnapshot.id],
                 rel: AstronomicalBody.rel.VISITED_BY,
                 to: args.visitedBy,
             });
-            previousValues.visitedBy = prevTo as any;
         }
 
-        return { previousValues, additionalModifiedNodes: []};
+        return { additionalModifiedNodes: []};
     },
 })
 const CreateAstronomicalBody = defaultCreateFor(AstronomicalBody, ab => ab.slugId, UpdateAstronomicalBody);

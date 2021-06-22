@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 /**
  * Data Request:
  * 
@@ -176,7 +177,9 @@ export class DataRequestState {
     }
 
     static proxyHandler: ProxyHandler<DataRequestState> = {
+        // deno-lint-ignore no-unused-vars
         set: (dataRequestState, propKey, value, proxyObj) => false,  // Disallow setting properties on the Data Request
+        // deno-lint-ignore no-unused-vars
         get: (dataRequestState, propKey, proxyObj) => {
             if (propKey === DataRequestState._internalState) {
                 return dataRequestState;

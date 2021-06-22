@@ -70,6 +70,7 @@ export class _BaseVNodeType {
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
     static readonly defaultOrderBy: string|undefined = undefined;
 
+    // deno-lint-ignore no-explicit-any
     static async validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void> {
         // Note: tests for this function are in layer3/validation.test.ts since they depend on actions
 
@@ -87,7 +88,7 @@ export class _BaseVNodeType {
         const newValues = validatePropSchema(this.properties, dbObject);
 
         // Check if the validation cleaned/changed any of the values:
-        const valuesChangedDuringValidation: Record<string, any> = {}
+        const valuesChangedDuringValidation: Record<string, unknown> = {}
         for (const key in newValues) {
             if (newValues[key] !== dbObject[key]) {
                 valuesChangedDuringValidation[key] = newValues[key];
@@ -251,6 +252,7 @@ export interface BaseVNodeType {
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     readonly rel: RelationshipsSchema;
     readonly defaultOrderBy: string|undefined;
+    // deno-lint-ignore no-explicit-any
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 
     declare(vnt: BaseVNodeType): void;
@@ -258,25 +260,27 @@ export interface BaseVNodeType {
 }
 
 /** Helper function to check if some object is a VNodeType */
-export function isBaseVNodeType(obj: any): obj is BaseVNodeType {
-    return Object.prototype.isPrototypeOf.call(_BaseVNodeType, obj);
+export function isBaseVNodeType(obj: unknown): obj is BaseVNodeType {
+    return typeof obj === "function" && Object.prototype.isPrototypeOf.call(_BaseVNodeType, obj);
 }
 
 /** Helper function to get the type/name of a relationship from its declaration - see _BaseVNodeType.declare() */
 export function getRelationshipType(rel: RelationshipDeclaration): string {
-    const relDeclaration = rel as any;
-    if (relDeclaration[relTypeKey] === undefined) {
+    const relDeclaration = rel;
+    const result = relDeclaration[relTypeKey];
+    if (result === undefined) {
         throw new Error(`Tried accessing a relationship on a VNodeType that didn't use the @VNodeType.declare class decorator`);
     }
-    return relDeclaration[relTypeKey];
+    return result;
 }
+
 /**
  * Is the thing passed as a parameter a relationship declaration (that was declared in a VNode's "rel" static prop?)
  * This checks for a private property that gets added to every relationship by the @VNodeType.declare decorator.
  */
-export function isRelationshipDeclaration(relDeclaration: RelationshipDeclaration): relDeclaration is RelationshipDeclaration {
+export function isRelationshipDeclaration(relDeclaration: unknown): relDeclaration is RelationshipDeclaration {
     // In JavaScript, typeof null === "object" which is why we need the middle condition here.
-    return typeof relDeclaration === "object" && relDeclaration !== null && relDeclaration[relTypeKey] !== undefined;
+    return typeof relDeclaration === "object" && relDeclaration !== null && relTypeKey in relDeclaration;
 }
 
 

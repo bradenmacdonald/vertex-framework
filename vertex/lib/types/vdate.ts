@@ -74,7 +74,7 @@ export class VDate extends Neo4j.Date<number> {
     /**
      * Parse a template string literal, e.g. const VD = VDate.parseTemplateLiteral; const date1 = VD`2016-01-01`;
      */
-    public static parseTemplateLiteral(strings: TemplateStringsArray, ...keys: any[]): VDate {
+    public static parseTemplateLiteral(strings: TemplateStringsArray, ...keys: unknown[]): VDate {
         return VDate.fromString(String.raw(strings, ...keys));
     }
 }

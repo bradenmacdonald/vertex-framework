@@ -1,6 +1,6 @@
 import { group, test, assert, assertEquals, assertThrowsAsync, configureTestData, assertArrayIncludes } from "../lib/tests.ts";
 import { convertNeo4jRecord } from "./cypher-return-shape.ts";
-import { AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils.ts";
+import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils.ts";
 import { testGraph, Person } from "../test-project/index.ts";
 import { VDate, VNID, Field, ResponseSchema, GetDataShape } from "../index.ts";
 
@@ -9,7 +9,7 @@ group(import.meta, () => {
     // Note: this test suite deliberately avoids using any cypher syntactic sugar (C`...`) or pull() and just focuses
     // on testing the ReturnShape specification class itself, as well as convertNeo4jRecord()
 
-    async function runAndConvert<RS extends ResponseSchema>(query: string, params: any, shape: RS): Promise<GetDataShape<RS>[]> {
+    async function runAndConvert<RS extends ResponseSchema>(query: string, params: Record<string, unknown>, shape: RS): Promise<GetDataShape<RS>[]> {
         const result = await testGraph.read(tx => tx.run(query, params));
         return result.records.map(record => convertNeo4jRecord(record, shape));
     }

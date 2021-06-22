@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import type { VNodeType, VNodeTypeWithVirtualProps } from "./vnode.ts";
 import type { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request.ts";
 import type { DataResponse } from "./data-response.ts";

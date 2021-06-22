@@ -1,10 +1,7 @@
-import { Vertex, VD, VertexTestDataSnapshot } from "../index.ts";
-import { log } from "../lib/log.ts";
+import { Vertex, VD } from "../index.ts";
 import { CreateMovie } from "./Movie.ts";
 import { CreateMovieFranchise } from "./MovieFranchise.ts";
 import { CreatePerson, ActedIn, RecordFriends } from "./Person.ts";
-
-let dataSnapshot: VertexTestDataSnapshot;
 
 /**
  * Create data that can be used for testing.

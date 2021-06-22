@@ -1,4 +1,5 @@
-import { group, test, assertEquals, assertThrows, assert } from "../lib/tests.ts";
+// deno-lint-ignore-file no-explicit-any
+import { group, test, assertEquals, assertThrows } from "../lib/tests.ts";
 import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils.ts";
 import {
     VNodeType,
@@ -40,7 +41,7 @@ group("Data Request", () => {
 
         test("Provides fully typed building of the request", () => {
             // Note: this is a compile-time test, not a run-time test
-            const selector: RequestVNodeRawProperties<typeof SomeVNodeType> = v => {
+            const _selector: RequestVNodeRawProperties<typeof SomeVNodeType> = v => {
                 const selectionSoFar = v.otherProp.number;
                 // The "name" property exists and can be added to the request:
                 checkType<AssertPropertyPresent<typeof selectionSoFar, "name", any>>();
@@ -52,7 +53,7 @@ group("Data Request", () => {
 
         test("Does not have typing to add properties that are already included", () => {
             // Note: this is a compile-time test, not a run-time test
-            const selector: RequestVNodeRawProperties<typeof SomeVNodeType> = v => {
+            const _selector: RequestVNodeRawProperties<typeof SomeVNodeType> = v => {
                 const selectionSoFar = v.otherProp.number;
                 // No "number" property is already requested so cannot be added:
                 checkType<AssertPropertyAbsent<typeof selectionSoFar, "number">>();

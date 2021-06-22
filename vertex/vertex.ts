@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { neo4j, Neo4j } from "./deps.ts";
 import { ActionRequest, ActionResult } from "./layer4/action.ts";
 import { runAction } from "./layer4/action-runner.ts";
@@ -35,7 +36,7 @@ export class Vertex implements VertexCore {
     }
 
     /** Await this when your application prepares to shut down */
-    public async shutdown(): Promise<void> {
+    public shutdown(): Promise<void> {
         return this.driver.close();
     }
 
@@ -85,7 +86,7 @@ export class Vertex implements VertexCore {
      * @param action The action to run
      * @param otherActions Additional actions to run, if desired.
      */
-    public async runAsSystem<T extends ActionRequest>(action: T, ...otherActions: ActionRequest[]): Promise<ActionResult<T>> {
+    public runAsSystem<T extends ActionRequest>(action: T, ...otherActions: ActionRequest[]): Promise<ActionResult<T>> {
         return this.runAs(SYSTEM_VNID, action, ...otherActions);
     }
 
@@ -96,7 +97,7 @@ export class Vertex implements VertexCore {
         if (looksLikeVNID(key)) {
             return key;
         }
-        return this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": Field.VNID}))).then(result => result["vn.id"]);
+        return await this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": Field.VNID}))).then(result => result["vn.id"]);
     }
 
     /**
@@ -125,7 +126,7 @@ export class Vertex implements VertexCore {
      * we don't use Actions, so we need to pause the trigger during migrations or the trigger
      * will throw an exception and prevent the migration transactions from committing.
      */
-    public async _restrictedAllowWritesWithoutAction(someCode: () => Promise<any>): Promise<void> {
+    public async _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<void> {
         try {
             if (await this.isTriggerInstalled("trackActionChanges")) {
                 await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.pause("trackActionChanges")`));

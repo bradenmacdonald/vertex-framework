@@ -32,6 +32,7 @@ class Planet extends AstronomicalBody {
 /** A generic create action that can create a node with any labels and properties */
 const GenericCreateAction = defineAction({
     type: `GenericCreateForART`,  // for Action Runner Tests
+    // deno-lint-ignore no-explicit-any
     parameters: {} as {labels: string[], data: any},
     resultData: {} as {id: VNID},
     apply: async (tx, data) => {

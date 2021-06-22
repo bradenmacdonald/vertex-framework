@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { GetDataType } from "../lib/types/field.ts";
 import { BaseVNodeType } from "../layer2/vnode-base.ts";
 import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request.ts";

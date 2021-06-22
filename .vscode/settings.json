@@ -6,6 +6,7 @@
         "."
     ],
     "deno.enable": true,
+    "deno.lint": true,
     //"debug.javascript.usePreview": true,
     //"typescript.tsdk": "node_modules/typescript/lib",
 }

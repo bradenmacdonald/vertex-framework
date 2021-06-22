@@ -33,8 +33,8 @@ const disallowValue = <T>(disallowedValue: T) => {
         return value;
     }
 };
-const validateAllowedValues = (...values: any[]) => {
-    return (value: any) => {
+const validateAllowedValues = (...values: unknown[]) => {
+    return <T>(value: T): T => {
         if (values.includes(value)) {
             return value;
         }
@@ -69,7 +69,7 @@ group(import.meta, () => {
     
                 const value1 = validateValue(fieldDeclaration, "_0");
                 checkType<AssertEqual<typeof value1, VNID|null>>();
-                const value2 = validateValue(fieldDeclaration, null);
+                validateValue(fieldDeclaration, null);
                 assertThrows(() => { validateValue(fieldDeclaration, 123); });
                 assertThrows(() => { validateValue(fieldDeclaration, "_not a vnid"); });
             });
@@ -524,7 +524,7 @@ group(import.meta, () => {
     group("Property vs Generic vs Response Schemas", () => {
 
         test("Property Schemas can hold only property typed values", () => {
-            const valid = PropSchema({
+            const _valid = PropSchema({
                 fieldId: Field.VNID,
                 fieldNullId: Field.NullOr.VNID,
                 fieldInt: Field.Int,
@@ -555,7 +555,7 @@ group(import.meta, () => {
         });
 
         test("Generic Schemas can hold property typed values and composite types, but not response types", () => {
-            const valid = GenericSchema({
+            const _valid = GenericSchema({
                 fieldId: Field.VNID,
                 fieldNullId: Field.NullOr.VNID,
                 fieldInt: Field.Int,
@@ -584,7 +584,7 @@ group(import.meta, () => {
         });
 
         test("Response Schemas can hold property typed values and composite types and response types", () => {
-            const valid = ResponseSchema({
+            const _valid = ResponseSchema({
                 fieldId: Field.VNID,
                 fieldNullId: Field.NullOr.VNID,
                 fieldInt: Field.Int,
@@ -757,6 +757,7 @@ group(import.meta, () => {
         });
         test("Any", () => {
             const shape = ResponseSchema({someUnknownValue: Field.Any});
+            // deno-lint-ignore no-explicit-any
             checkType<AssertEqual<GetDataShape<typeof shape>, {someUnknownValue: any}>>();
         });
     });

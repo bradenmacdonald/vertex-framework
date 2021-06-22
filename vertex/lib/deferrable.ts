@@ -1,3 +1,5 @@
+// deno-lint-ignore-file no-explicit-any
+
 /**
  * A generic mechanism for avoiding circular imports with Vertex Framework
  */
@@ -7,7 +9,7 @@ interface DeferredObjectMetadata {
 }
 
 const deferredObjectProxyHandler: ProxyHandler<DeferredObjectMetadata> = {
-    set: (metadata, propKey, value, proxyObj) => false,  // We don't need set for now
+    set: (_metadata, _propKey, _value, _proxyObj) => false,  // We don't need set for now
     get: (metadata, propKey, proxyObj) => {
         if (metadata.instance === undefined) { metadata.instance = metadata.fn(); }
         return Reflect.get(metadata.instance, propKey, proxyObj);

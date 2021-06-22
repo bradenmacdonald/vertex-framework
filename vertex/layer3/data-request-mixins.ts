@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 /**
  * A standard data request (BaseDataRequest) only allows specifying raw properties of a VNode.
  * These mixins extend the standard data request, so that one can request "virtual properties" (like related nodes),

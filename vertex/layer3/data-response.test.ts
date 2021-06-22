@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { group, test } from "../lib/tests.ts";
 
 import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils.ts";
@@ -17,7 +18,7 @@ group(import.meta, () => {
 
         // A helper function to create a typed DataRequest that supports raw properties and conditional (flagged) raw properties.
         // This does not include the mixins to support virtual or derived properties.
-        function newDataRequest<VNT extends BaseVNodeType>(vnodeType: VNT): BaseDataRequest<VNT, never, RequiredMixin & ConditionalPropsMixin<VNT>> {
+        function newDataRequest<VNT extends BaseVNodeType>(_vnodeType: VNT): BaseDataRequest<VNT, never, RequiredMixin & ConditionalPropsMixin<VNT>> {
             // These tests only test typing so we don't have to actually implement this method.
             // Just return a Mock object to allow the chaining to work when building the request.
             return new Proxy({}, { get: (_, propName, proxy) => (propName in Person.properties ? proxy : () => proxy), }) as any;
@@ -60,7 +61,7 @@ group(import.meta, () => {
 
         // A helper function to create a typed DataRequest that supports raw properties and virtual properties.
         // This does not include the mixins to support derived properties.
-        function newDataRequest<VNT extends VNodeTypeWithVirtualProps>(vnodeType: VNT): BaseDataRequest<VNT, never, RequiredMixin & ConditionalPropsMixin<VNT> & VirtualPropsMixin<VNT>> {
+        function newDataRequest<VNT extends VNodeTypeWithVirtualProps>(_vnodeType: VNT): BaseDataRequest<VNT, never, RequiredMixin & ConditionalPropsMixin<VNT> & VirtualPropsMixin<VNT>> {
             // These tests only test typing so we don't have to actually implement this method.
             // Just return a Mock object to allow the chaining to work when building the request.
             return new Proxy({}, { get: (_, propName, proxy) => (propName in Person.properties ? proxy : () => proxy), }) as any;

@@ -74,7 +74,7 @@ export function test(
     }
     
     // Generate name.
-    let name = globalContext.stack.map(({ name: n }) => n);
+    const name = globalContext.stack.map(({ name: n }) => n);
     name.push(testName);
     
     // Build hook stack.

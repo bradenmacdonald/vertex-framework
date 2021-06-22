@@ -29,6 +29,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
 
         // First, apply the action:
         let modifiedNodeIds: VNID[];
+        // deno-lint-ignore no-explicit-any
         let resultData: any;
         let description: string;
         try {

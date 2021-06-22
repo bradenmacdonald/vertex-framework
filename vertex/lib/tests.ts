@@ -14,7 +14,7 @@ export {
 };
 
 // Additional asserts
-export function assertIsEmpty(value: Record<string, any>) {
+export function assertIsEmpty(value: Record<string, unknown>) {
     if (typeof value !== "object" || Object.keys(value).length > 0) {
         throw new Error(`Expected object "${value}" to be empty; found keys: ${Object.keys(value).join(", ")}`);
     }
@@ -32,7 +32,7 @@ export function assertIsEmpty(value: Record<string, any>) {
  *
  * @param nameOrImportMeta A custom name for this group, or `import.meta` to auto-generate the name from the filename
  */
- export function group(nameOrImportMeta: {url: string}|string, tests: () => any) {
+ export function group(nameOrImportMeta: {url: string}|string, tests: () => unknown) {
     if (typeof nameOrImportMeta === "string") {
         return baseGroup(nameOrImportMeta, tests);
     }
@@ -55,7 +55,7 @@ export function test(
     testFn?: () => void | Promise<void>,
 ): void {
     // Extract args
-    let { name, fn, ...opts } = typeof t === "object"
+    const { name, fn, ...opts } = typeof t === "object"
         ? t
         : (typeof testFn !== "undefined" ? { name: t, fn: testFn } : badArgs());
     opts.sanitizeOps = false;
@@ -67,11 +67,11 @@ export function test(
 let dataStr: string;
 try {
     dataStr = await Deno.readTextFile("_vertex-tests-data.json");
-} catch (err) {
+} catch {
     log.error("Please run 'deno run --allow-net --allow-write vertex/lib/test-setup.ts'");
     Deno.exit(1);
 }
-let {baseSnapshot, testProjectSnapshot} = JSON.parse(dataStr) as {[K: string]: VertexTestDataSnapshot};
+const {baseSnapshot, testProjectSnapshot} = JSON.parse(dataStr) as {[K: string]: VertexTestDataSnapshot};
 
 async function resetTestDbToSnapshot(): Promise<void> {
     try {

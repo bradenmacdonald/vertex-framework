@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import type { WrappedTransaction } from "../transaction.ts";
 import { convertNeo4jRecord } from "./cypher-return-shape.ts";
 import { CypherQuery, CypherQueryWithReturnShape, QueryResponse } from "./cypher-sugar.ts";

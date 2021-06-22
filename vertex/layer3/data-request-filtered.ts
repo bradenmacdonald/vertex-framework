@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { VNodeKey } from "../lib/key.ts";
 import { BaseVNodeType, } from "../layer2/vnode-base.ts";
 import {

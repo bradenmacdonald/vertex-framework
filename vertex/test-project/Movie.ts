@@ -48,7 +48,7 @@ interface UpdateMovieExtraArgs {
 }
 
 export const UpdateMovie = defaultUpdateFor(Movie, m => m.slugId.title.year, {
-    otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot, changes) => {
+    otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot) => {
         const previousValues: Partial<UpdateMovieExtraArgs> = {};
         if (args.franchiseId !== undefined) {
             await tx.updateToOneRelationship({
