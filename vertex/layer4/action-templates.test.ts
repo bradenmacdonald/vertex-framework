@@ -1,15 +1,15 @@
-import { suite, test, assertRejects, configureTestData, assert, log, before, after } from "../lib/intern-tests";
+import { group, test, assertEquals, assertNotEquals, assertStrictEquals, assertThrowsAsync, configureTestData } from "../lib/tests.ts";
 import {
     C,
     VNID,
     VNodeType,
     Field,
     UndoAction,
-} from "..";
-import { defaultCreateFor, defaultUpdateFor } from "./action-templates";
-import { testGraph, CreateTypeTester, TypeTester, UpdateTypeTester } from "../test-project";
-import { AssertEqual, AssertNotEqual, checkType } from "../lib/ts-utils";
-import { VD } from "../lib/types/vdate";
+} from "../index.ts";
+import { defaultCreateFor, defaultUpdateFor } from "./action-templates.ts";
+import { testGraph, CreateTypeTester, TypeTester, UpdateTypeTester } from "../test-project/index.ts";
+import { AssertEqual, AssertNotEqual, checkType } from "../lib/ts-utils.ts";
+import { VD } from "../lib/types/vdate.ts";
 
 /** A VNodeType for use in this test suite. */
 @VNodeType.declare
@@ -61,11 +61,11 @@ const UpdatePlanet = defaultUpdateFor(Planet, p => p.slugId.mass.numberOfMoons, 
 const CreatePlanet = defaultCreateFor(Planet, p => p.slugId.mass, UpdatePlanet);
 
 
-suite(__filename, () => {
+group(import.meta, () => {
 
     configureTestData({isolateTestWrites: true, loadTestProjectData: false});
 
-    suite("defaultCreateFor", () => {
+    group("defaultCreateFor", () => {
 
         test("has a statically typed 'type'", () => {
             checkType<AssertEqual<typeof CreatePlanet.type, "CreatePlanetAT">>();
@@ -76,12 +76,12 @@ suite(__filename, () => {
             const result = await testGraph.runAsSystem(
                 CreateAstroBody({slugId: "Ceres", mass: 15}),
             );
-            assert.isString(result.id);
+            assertEquals(typeof result.id, "string");
             // Get and check the new node in various ways:
             const checkCeres = (p: {id: VNID, slugId: string, mass: number, }): void => {
-                assert.equal(p.id, result.id);
-                assert.equal(p.slugId, "Ceres");
-                assert.equal(p.mass, 15);
+                assertEquals(p.id, result.id);
+                assertEquals(p.slugId, "Ceres");
+                assertEquals(p.mass, 15);
             };
             // By its slugId:
             const r1 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody}), p HAS KEY ${"Ceres"}`.RETURN({p: Field.VNode(AstronomicalBody)})));
@@ -99,32 +99,32 @@ suite(__filename, () => {
                 CreateAstroBody({slugId: "Ceres", mass: 1801}),
             );
             const ceresId = createCeres.id;
-            assert.isString(ceresId);
-            assert.equal(ceresId, VNID(ceresId));  // VNID must be in standard form
+            assertEquals(typeof ceresId, "string");
+            assertEquals(ceresId, VNID(ceresId));  // VNID must be in standard form
 
             const createPluto = await testGraph.runAsSystem(
                 CreateAstroBody({slugId: "pluto", mass: 1930}),
             );
             const plutoId = createPluto.id;
-            assert.isString(plutoId);
-            assert.equal(plutoId, VNID(plutoId));
+            assertEquals(typeof plutoId, "string");
+            assertEquals(plutoId, VNID(plutoId));
 
-            assert.notEqual(ceresId, plutoId);
+            assertNotEquals(ceresId, plutoId);
         });
 
         test("doesn't allow creating invalid VNodes", async () => {
             // There are overlapping tests in action-runner.test.ts, but that's OK.
-            await assertRejects(testGraph.runAsSystem(
+            await assertThrowsAsync(() => testGraph.runAsSystem(
                 CreateAstroBody({slugId: 17 as any, mass: 15}),
-            ), `"slugId" must be a string`);
+            ), undefined, `Not a string`);  // TODO: should say: "slugId" must be a string
             // slugId cannot contain spaces:
-            await assertRejects(testGraph.runAsSystem(
+            await assertThrowsAsync(() => testGraph.runAsSystem(
                 CreateAstroBody({slugId: "this slugId has spaces", mass: 123}),
-            ), `"slugId"`);
+            ), undefined, `not a valid slug`);
             // required props missing:
-            await assertRejects(testGraph.runAsSystem(
+            await assertThrowsAsync(() => testGraph.runAsSystem(
                 CreateAstroBody({} as any),
-            ), `"slugId" must be a string. "mass" must be a number`);
+            ), undefined, `Value is not allowed to be null`);  //`"slugId" must be a string. "mass" must be a number`);
         });
 
         test("sets all required labels for VNodeTypes with inherited labels", async () => {
@@ -132,7 +132,7 @@ suite(__filename, () => {
                 CreatePlanet({slugId: "Earth", mass: 9000})
             );
             const result = await testGraph.read(tx => tx.query(C`MATCH (p:${Planet} {id: ${id}})`.RETURN({"labels(p)": Field.List(Field.String) })));
-            assert.sameMembers(result[0]["labels(p)"], ["PlanetAT", "AstroBodyAT", "VNode"]);
+            assertEquals(new Set(result[0]["labels(p)"]), new Set(["PlanetAT", "AstroBodyAT", "VNode"]));
         })
 
         test("it can set properties via the Update action", async () => {
@@ -147,9 +147,9 @@ suite(__filename, () => {
                 MATCH (j:${Planet}), j HAS KEY ${"Jupiter"}
                 MATCH (j)-[:${Planet.rel.HAS_MOON}]->(moon:${AstronomicalBody})
             `.RETURN({moon: Field.VNode(AstronomicalBody), j: Field.VNode(Planet)})));
-            assert.equal(result.j.slugId, "Jupiter");
-            assert.equal(result.j.numberOfMoons, 79);
-            assert.equal(result.moon.slugId, "Io");
+            assertEquals(result.j.slugId, "Jupiter");
+            assertEquals(result.j.numberOfMoons, 79);
+            assertEquals(result.moon.slugId, "Io");
         });
 
         test("it can be undone", async () => {
@@ -163,13 +163,13 @@ suite(__filename, () => {
             // Check that it was created:
             const findJupiter = C`MATCH (j:${Planet}), j HAS KEY ${"Jupiter"}`.RETURN({j: Field.VNode(Planet)});
             const orig = await testGraph.read(tx => tx.query(findJupiter));
-            assert.equal(orig.length, 1);
-            assert.equal(orig[0].j.slugId, "Jupiter");
+            assertEquals(orig.length, 1);
+            assertEquals(orig[0].j.slugId, "Jupiter");
             // Now undo it:
             await testGraph.runAsSystem(UndoAction({actionId: createResult.actionId}));
             // Now make sure it's gone:
             const postDelete = await testGraph.read(tx => tx.query(findJupiter));
-            assert.equal(postDelete.length, 0);
+            assertEquals(postDelete.length, 0);
         });
 
         test("Sets correct types for all fields", async () => {
@@ -198,7 +198,7 @@ suite(__filename, () => {
                 UNWIND keys(t) AS propKey
                 RETURN propKey, apoc.meta.type(t[propKey]) AS type
             `.givesShape({propKey: Field.String, type: Field.String})));
-            assert.sameDeepMembers(dbTypes, [
+            assertEquals(new Set(dbTypes), new Set([
                 {propKey: "id", type: "STRING"},
                 {propKey: "int", type: "INTEGER"},  // <-- in particular, make sure an int typed field is not saved as a float
                 {propKey: "bigInt", type: "INTEGER"},
@@ -208,22 +208,22 @@ suite(__filename, () => {
                 {propKey: "boolean", type: "BOOLEAN"},
                 {propKey: "date", type: "LocalDate"},
                 {propKey: "dateTime", type: "ZonedDateTime"},
-            ]);
+            ]));
 
             // Check that the values are identical.
             const pulled = await testGraph.pullOne(TypeTester, t => t.int.bigInt.float.string.slug.boolean.date.dateTime, {key: id});
-            assert.strictEqual(pulled.int, args.int);
-            assert.strictEqual(pulled.bigInt, args.bigInt);
-            assert.strictEqual(pulled.float, args.float);
-            assert.strictEqual(pulled.string, args.string);
-            assert.strictEqual(pulled.slug, args.slug);
-            assert.strictEqual(pulled.boolean, args.boolean);
-            assert.strictEqual(pulled.date.toString(), args.date.toString());
-            assert.strictEqual(pulled.dateTime.toString(), args.dateTime.toString());
+            assertStrictEquals(pulled.int, args.int);
+            assertStrictEquals(pulled.bigInt, args.bigInt);
+            assertStrictEquals(pulled.float, args.float);
+            assertStrictEquals(pulled.string, args.string);
+            assertStrictEquals(pulled.slug, args.slug);
+            assertStrictEquals(pulled.boolean, args.boolean);
+            assertStrictEquals(pulled.date.toString(), args.date.toString());
+            assertStrictEquals(pulled.dateTime.toString(), args.dateTime.toString());
         });
     });
 
-    suite("defaultUpdateFor", () => {
+    group("defaultUpdateFor", () => {
 
         // Test changing data
 
@@ -265,16 +265,16 @@ suite(__filename, () => {
 
             // Check that the values are identical.
             const pulled = await testGraph.pullOne(TypeTester, t => t.int.bigInt.float.string.slug.boolean.date.dateTime.nullableFloat.nullableSlug, {key: id});
-            assert.strictEqual(pulled.int, newArgs.int);
-            assert.strictEqual(pulled.bigInt, origArgs.bigInt);  // Unchanged
-            assert.strictEqual(pulled.float, origArgs.float);  // Unchanged
-            assert.strictEqual(pulled.string, newArgs.string);
-            assert.strictEqual(pulled.slug, newArgs.slug);
-            assert.strictEqual(pulled.boolean, origArgs.boolean);  // Unchanged
-            assert.strictEqual(pulled.date.toString(), newArgs.date?.toString());
-            assert.strictEqual(pulled.dateTime.toString(), newArgs.dateTime?.toString());
-            assert.strictEqual(pulled.nullableFloat, newArgs.nullableFloat);
-            assert.strictEqual(pulled.nullableSlug, origArgs.nullableSlug);  // Unchanged
+            assertStrictEquals(pulled.int, newArgs.int);
+            assertStrictEquals(pulled.bigInt, origArgs.bigInt);  // Unchanged
+            assertStrictEquals(pulled.float, origArgs.float);  // Unchanged
+            assertStrictEquals(pulled.string, newArgs.string);
+            assertStrictEquals(pulled.slug, newArgs.slug);
+            assertStrictEquals(pulled.boolean, origArgs.boolean);  // Unchanged
+            assertStrictEquals(pulled.date.toString(), newArgs.date?.toString());
+            assertStrictEquals(pulled.dateTime.toString(), newArgs.dateTime?.toString());
+            assertStrictEquals(pulled.nullableFloat, newArgs.nullableFloat);
+            assertStrictEquals(pulled.nullableSlug, origArgs.nullableSlug);  // Unchanged
         });
 
         // TODO - test that VNID cannot be changed

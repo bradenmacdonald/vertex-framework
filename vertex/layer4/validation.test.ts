@@ -4,8 +4,8 @@
  * The tests are in layer 3 because testing the validation code requires updating the graph via actions, which are part
  * of layer 3.
  */
-import { suite, test, assertRejects, assert, log, before, after, configureTestData } from "../lib/intern-tests";
-import { testGraph, } from "../test-project";
+import { group, test, assertThrowsAsync, assertEquals, configureTestData } from "../lib/tests.ts";
+import { testGraph, } from "../test-project/index.ts";
 import {
     C,
     VNID,
@@ -13,7 +13,7 @@ import {
     Field,
     GenericCypherAction,
     defaultCreateFor,
-} from "..";
+} from "../index.ts";
 
 @VNodeType.declare
 class BirthCertificate extends VNodeType {
@@ -25,26 +25,26 @@ class BirthCertificate extends VNodeType {
 class Person extends VNodeType {
     static label = "PersonRVT";  // RVT: Relationship Validation Tests
     static readonly properties = {...VNodeType.properties, slugId: Field.Slug};
-    static readonly rel = {
+    static readonly rel = this.hasRelationshipsFromThisTo({
         HAS_BIRTH_CERT: {
             to: [BirthCertificate],
             cardinality: VNodeType.Rel.ToOneRequired,  // Every person must have a birth certificate
         },
         HAS_FRIEND: {
-            to: [Person],
+            to: [this],
             cardinality: VNodeType.Rel.ToManyUnique,
             properties: {
                 friendsSince: Field.Date,
             },
         },
         HAS_SPOUSE: {
-            to: [Person],
+            to: [this],
             cardinality: VNodeType.Rel.ToOneOrNone,
             properties: {
                 marriedOn: Field.Date,
             },
         },
-    };
+    });
 }
 
 const createPerson = async (name: string): Promise<VNID> => {
@@ -68,27 +68,28 @@ class Note extends VNodeType {
 const CreateNote = defaultCreateFor(Note, n => n.slugId);
 
 
-suite(__filename, () => {
+group(import.meta, () => {
 
     configureTestData({isolateTestWrites: true, loadTestProjectData: false});
 
-    suite("test slugIdPrefix validation", () => {
+    group("test slugIdPrefix validation", () => {
 
         test("Creating a VNode with a valid slugIdPrefix works fine", async () => {
             const {id} = await testGraph.runAsSystem(CreateNote({slugId: "note-test1"}));
             const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note}), n HAS KEY ${id}`.RETURN({n: Field.VNode(Note)})));
-            assert.equal(check.n.slugId, "note-test1");
+            assertEquals(check.n.slugId, "note-test1");
         });
 
         test("Creating a VNode with an invalid slugIdPrefix works fine", async () => {
-            await assertRejects(
-                testGraph.runAsSystem(CreateNote({slugId: "test1-note-foo"})),
+            await assertThrowsAsync(
+                () => testGraph.runAsSystem(CreateNote({slugId: "test1-note-foo"})),
+                undefined,
                 `NoteVT has an invalid slugId "test1-note-foo". Expected it to start with "note-".`,
             );
         });
     });
 
-    suite("test relationship validation", () => {
+    group("test relationship validation", () => {
         
         test("ToOneRequired cardinality makes a to-one relationship required", async () => {
             // Try creating a person and a birth certificate - this should succeed:
@@ -98,11 +99,12 @@ suite(__filename, () => {
                 modifiedNodes: [aliceId, bcId],
             }));
             // Try creating a person without the required BirthCertificate:
-            await assertRejects(
-                testGraph.runAsSystem(GenericCypherAction({
+            await assertThrowsAsync(
+                () => testGraph.runAsSystem(GenericCypherAction({
                     cypher: C`CREATE (p:${Person} { id: ${bobId}, slugId: "Bob"})`,
                     modifiedNodes: [bobId],
                 })),
+                undefined,
                 "Required relationship type HAS_BIRTH_CERT must point to one node, but does not exist."
             );
         });
@@ -115,14 +117,15 @@ suite(__filename, () => {
                 modifiedNodes: [aliceId, bcId],
             }));
             // Try adding an additional birth certificate to that person:
-            await assertRejects(
-                testGraph.runAsSystem(GenericCypherAction({
+            await assertThrowsAsync(
+                () => testGraph.runAsSystem(GenericCypherAction({
                     cypher: C`
                         MATCH (p:${Person} {slugId: "Alice"})
                         CREATE (p)-[:${Person.rel.HAS_BIRTH_CERT}]->(bc:${BirthCertificate} {id: ${bcId2}})
                     `,
                     modifiedNodes: [aliceId, bcId],
                 })),
+                undefined,
                 "Required to-one relationship type HAS_BIRTH_CERT is pointing to more than one node."
             );
         });
@@ -143,8 +146,8 @@ suite(__filename, () => {
                 modifiedNodes: [aliceId, bobId],
             })),
             // Try adding an additional spouse to Alice:
-            await assertRejects(
-                testGraph.runAsSystem(GenericCypherAction({
+            await assertThrowsAsync(
+                () => testGraph.runAsSystem(GenericCypherAction({
                     cypher: C`
                         MATCH (alice:${Person} {slugId: "alice"})
                         MATCH (charli:${Person} {slugId: "charli"})
@@ -152,6 +155,7 @@ suite(__filename, () => {
                     `,
                     modifiedNodes: [aliceId, charliId],
                 })),
+                undefined,
                 "To-one relationship type HAS_SPOUSE is pointing to more than one node."
             );
         });
@@ -178,8 +182,9 @@ suite(__filename, () => {
             // Mark Alice and Charli as being friends:
             await addFriendship(aliceId, charliId);
             // Try adding an additional friendship between Alice and Bob, who are already friends:
-            await assertRejects(
-                addFriendship(aliceId, bobId),
+            await assertThrowsAsync(
+                () => addFriendship(aliceId, bobId),
+                undefined,
                 "Creating multiple HAS_FRIEND relationships between the same pair of nodes is not allowed."
             );
         });
