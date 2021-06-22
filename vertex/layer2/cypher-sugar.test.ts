@@ -1,28 +1,28 @@
-import { ProfiledPlan } from "neo4j-driver-lite";
-import { suite, test, assert, configureTestData } from "../lib/intern-tests";
-import { C, CypherQuery, VNID, Field } from "..";
-import { testGraph, Person } from "../test-project";
+import { Neo4j } from "../deps.ts";
+import { group, test, configureTestData, assertEquals, assert, assertIsEmpty, assertThrows } from "../lib/tests.ts";
+import { C, CypherQuery, VNID, Field } from "../index.ts";
+import { testGraph, Person } from "../test-project/index.ts";
 
 /** Helper function to calculate the dbHits cost of a profiled cypher query */
-const sumDbHits = (profile: ProfiledPlan|false): number => {
+const sumDbHits = (profile: Neo4j.ProfiledPlan|false): number => {
     if (profile === false) {
         throw new Error("Profile is missing");
     }
     return profile.dbHits + profile.children.reduce((acc, childProfile) => acc + sumDbHits(childProfile), 0);
 }
 
-suite("Cypher syntactic sugar", () => {
+group(import.meta, () => {
 
     test("doesn't change a basic string", () => {
         const query = C`MATCH (n) RETURN n`;
-        assert.equal(query.queryString, "MATCH (n) RETURN n");
-        assert.isEmpty(query.params);
+        assertEquals(query.queryString, "MATCH (n) RETURN n");
+        assertIsEmpty(query.params);
     });
 
     test("can wrap a basic string", () => {
         const query = C("MATCH (n) RETURN n");
-        assert.equal(query.queryString, "MATCH (n) RETURN n");
-        assert.isEmpty(query.params);
+        assertEquals(query.queryString, "MATCH (n) RETURN n");
+        assertIsEmpty(query.params);
     });
 
     test("Lazily interpolates VNodeType labels", () => {
@@ -30,10 +30,10 @@ suite("Cypher syntactic sugar", () => {
         // VNode type into a query string even while the variable's value it undefined (module is still loading), and
         // later when it's actually needed, we'll load the .label value from the fully loaded VNode type.
         const query = C`MATCH (p:${Person}) RETURN p.id`;
-        assert.isFalse(query.isCompiled);
-        assert.equal(query.queryString, "MATCH (p:TestPerson:VNode) RETURN p.id");
-        assert.isTrue(query.isCompiled);
-        assert.isEmpty(query.params);
+        assert(!query.isCompiled);
+        assertEquals(query.queryString, "MATCH (p:TestPerson:VNode) RETURN p.id");
+        assert(query.isCompiled);
+        assertIsEmpty(query.params);
     });
 
     test("Lazily interpolates VNodeTypeRelationship labels", () => {
@@ -41,15 +41,15 @@ suite("Cypher syntactic sugar", () => {
         // VNode type into a query string even while the variable's value it undefined (module is still loading), and
         // later when it's actually needed, we'll load the .label value from the fully loaded VNode type.
         const query = C`MATCH (p:${Person})-[:${Person.rel.FRIEND_OF}]->(friend:${Person})`;
-        assert.isFalse(query.isCompiled);
-        assert.equal(query.queryString, "MATCH (p:TestPerson:VNode)-[:FRIEND_OF]->(friend:TestPerson:VNode)");
-        assert.isTrue(query.isCompiled);
-        assert.isEmpty(query.params);
+        assert(!query.isCompiled);
+        assertEquals(query.queryString, "MATCH (p:TestPerson:VNode)-[:FRIEND_OF]->(friend:TestPerson:VNode)");
+        assert(query.isCompiled);
+        assertIsEmpty(query.params);
     });
 
     test("Doesn't interpolate a VNodeType as a value", () => {
         const query = C`MATCH (p:VNode) SET p.someField = ${Person} RETURN p.id`;
-        assert.throws(() => query.queryString, "Interpolating a VNodeType into a string is only supported for matching labels");
+        assertThrows(() => query.queryString, undefined, "Interpolating a VNodeType into a string is only supported for matching labels");
     });
 
     test("Interpolates values", () => {
@@ -57,8 +57,8 @@ suite("Cypher syntactic sugar", () => {
         const vnid = VNID("_52DMYoaBc3fGp528wZJSFS");
         const name = "Jessie"
         const query = C`MATCH (p:${Person} {id: ${vnid}}) SET p.name = ${name}`;
-        assert.equal(query.queryString, "MATCH (p:TestPerson:VNode {id: $p1}) SET p.name = $p2");
-        assert.deepEqual(query.params, {
+        assertEquals(query.queryString, "MATCH (p:TestPerson:VNode {id: $p1}) SET p.name = $p2");
+        assertEquals(query.params, {
             p1: vnid,
             p2: name,
         });
@@ -68,19 +68,19 @@ suite("Cypher syntactic sugar", () => {
         const vnid = VNID("_52DMYoaBc3fGp528wZJSFS");
         const name = "Jessie"
         const query = C`MATCH (p:${Person} {id: ${vnid}}) SET p.name = ${name}`;
-        assert.deepEqual(query.params, {
+        assertEquals(query.params, {
             p1: vnid,
             p2: name,
         });
-        assert.equal(query.queryString, "MATCH (p:TestPerson:VNode {id: $p1}) SET p.name = $p2");
+        assertEquals(query.queryString, "MATCH (p:TestPerson:VNode {id: $p1}) SET p.name = $p2");
     });
 
     test("Interpolates values as-is when C() is explicitly used.", () => {
         const vnid = VNID("_52DMYoaBc3fGp528wZJSFS");
         const label = "SomeLabel";
         const query = C`MATCH (p:${C(label)}:VNode {id: ${vnid}})`;
-        assert.equal(query.queryString, "MATCH (p:SomeLabel:VNode {id: $p1})");
-        assert.deepEqual(query.params, {p1: vnid});
+        assertEquals(query.queryString, "MATCH (p:SomeLabel:VNode {id: $p1})");
+        assertEquals(query.params, {p1: vnid});
     });
 
     test("Interpolates other CypherQuery instances", () => {
@@ -90,8 +90,8 @@ suite("Cypher syntactic sugar", () => {
 
         const name = "Alex";
         const outerClause = C`MATCH ${matchClause} SET p.name = ${name}`;
-        assert.equal(outerClause.queryString, "MATCH (p:TestPerson:VNode {id: $clause0_p1}) SET p.name = $p1");
-        assert.deepEqual(outerClause.params, {clause0_p1: vnid, p1: name});
+        assertEquals(outerClause.queryString, "MATCH (p:TestPerson:VNode {id: $clause0_p1}) SET p.name = $p1");
+        assertEquals(outerClause.params, {clause0_p1: vnid, p1: name});
     });
 
     test("Convert the special nodeVar HAS KEY $var syntax into appropriate lookups", () => {
@@ -105,21 +105,21 @@ suite("Cypher syntactic sugar", () => {
         `;
 
         const withVNID = makeQuery(vnid);
-        assert.equal(withVNID.queryString, `
+        assertEquals(withVNID.queryString, `
             MATCH (p:TestPerson:VNode)-[:FRIEND_OF]-(f:Friend), (p:VNode {id: $p2})
             RETURN p, f
         `);
-        assert.deepEqual(withVNID.params, {p2: vnid});
+        assertEquals(withVNID.params, {p2: vnid});
 
         const withSlugId = makeQuery(slugId);
-        assert.equal(withSlugId.queryString, `
+        assertEquals(withSlugId.queryString, `
             MATCH (p:TestPerson:VNode)-[:FRIEND_OF]-(f:Friend), (p:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $p2})
             RETURN p, f
         `);
-        assert.deepEqual(withSlugId.params, {p2: slugId});
+        assertEquals(withSlugId.params, {p2: slugId});
     });
 
-    suite("PROFILE with real data", () => {
+    group("PROFILE with real data", () => {
         configureTestData({loadTestProjectData: true, isolateTestWrites: false});
 
         test("HAS KEY lookups by VNID are efficient", async () => {
@@ -135,12 +135,12 @@ suite("Cypher syntactic sugar", () => {
             const hasKeyQuery = C`PROFILE MATCH (person:${Person}), person HAS KEY ${vnid} RETURN person`;
             const hasKeyResult = await testGraph.read(tx => tx.run(hasKeyQuery.queryString, hasKeyQuery.params));
             
-            assert.equal(
+            assertEquals(
                 // Make sure the database query complexity is the same:
                 sumDbHits(hasKeyResult.summary.profile),
                 sumDbHits(simpleResult.summary.profile),
             );
-            assert.equal(sumDbHits(hasKeyResult.summary.profile), 8);
+            assertEquals(sumDbHits(hasKeyResult.summary.profile), 8);
         });
     
         test("HAS KEY lookups by slugId are efficient", async () => {
@@ -155,12 +155,12 @@ suite("Cypher syntactic sugar", () => {
             const hasKeyQuery = C`PROFILE MATCH (person:${Person}), person HAS KEY ${slugId} RETURN person`;
             const hasKeyResult = await testGraph.read(tx => tx.run(hasKeyQuery.queryString, hasKeyQuery.params));
             
-            assert.equal(
+            assertEquals(
                 // Make sure the database query complexity is the same:
                 sumDbHits(hasKeyResult.summary.profile),
                 sumDbHits(simpleResult.summary.profile),
             );
-            assert.equal(sumDbHits(hasKeyResult.summary.profile), 11);  // 11 is the best we can do while supporting lookups on previous slugId values. Lower would be better.
+            assertEquals(sumDbHits(hasKeyResult.summary.profile), 11);  // 11 is the best we can do while supporting lookups on previous slugId values. Lower would be better.
         });
     });
 
@@ -171,11 +171,11 @@ suite("Cypher syntactic sugar", () => {
             MERGE (p:${Person} {id: ${vnid}})
             SET p.name = $name, p.username = toLower($name)
         `.withParams({name: "Alex"});
-        assert.equal(query.queryString, `
+        assertEquals(query.queryString, `
             MERGE (p:TestPerson:VNode {id: $p1})
             SET p.name = $name, p.username = toLower($name)
         `);
-        assert.deepEqual(query.params, {p1: vnid, name: "Alex"});
+        assertEquals(query.params, {p1: vnid, name: "Alex"});
     });
 
     test(".withParams() does not alter the original", () => {
@@ -183,14 +183,14 @@ suite("Cypher syntactic sugar", () => {
         const baseQuery = C`MATCH (p:${Person} {id: $vnid})`;
         const q1 = baseQuery.withParams({id: VNID("_1111111111111111111111")});
         const q2 = baseQuery.withParams({id: VNID("_2222222222222222222222")});
-        assert.deepEqual(q1.params, {id: VNID("_1111111111111111111111")});
-        assert.deepEqual(q2.params, {id: VNID("_2222222222222222222222")});
+        assertEquals(q1.params, {id: VNID("_1111111111111111111111")});
+        assertEquals(q2.params, {id: VNID("_2222222222222222222222")});
         // Now compile baseQuery then call withParams, to make sure withParams works on a compiled query:
-        assert.isFalse(baseQuery.isCompiled);
-        assert.isEmpty(baseQuery.params);
-        assert.isTrue(baseQuery.isCompiled);
+        assert(!baseQuery.isCompiled);
+        assertIsEmpty(baseQuery.params);
+        assert(baseQuery.isCompiled);
         const q3 = baseQuery.withParams({id: VNID("_3333333333333333333333")});
-        assert.deepEqual(q3.params, {id: VNID("_3333333333333333333333")});
+        assertEquals(q3.params, {id: VNID("_3333333333333333333333")});
     });
 
     test("Lets us use HAS KEY and .withParams() with no auto-parameters", () => {
@@ -198,8 +198,8 @@ suite("Cypher syntactic sugar", () => {
         // must also means that the param must be added before the query is compiled (compilation of HAS KEY requires
         // the param value to be known, to know if it's a VNID or slugId)
         const query = C`MATCH (vn:VNode), vn HAS KEY $customKeyArg`.withParams({customKeyArg: VNID("_1111111111111111111111")});
-        assert.equal(query.queryString, `MATCH (vn:VNode), (vn:VNode {id: $customKeyArg})`);
-        assert.deepEqual(query.params, {customKeyArg: VNID("_1111111111111111111111")});
+        assertEquals(query.queryString, `MATCH (vn:VNode), (vn:VNode {id: $customKeyArg})`);
+        assertEquals(query.params, {customKeyArg: VNID("_1111111111111111111111")});
     });
 
     test("C() can be used directly", () => {
@@ -208,8 +208,8 @@ suite("Cypher syntactic sugar", () => {
         const query = C("MATCH (vn:VNode), vn HAS KEY $customKeyArg").withParams({
             customKeyArg: VNID("_1111111111111111111111"),
         });
-        assert.equal(query.queryString, `MATCH (vn:VNode), (vn:VNode {id: $customKeyArg})`);
-        assert.deepEqual(query.params, {customKeyArg: VNID("_1111111111111111111111")});
+        assertEquals(query.queryString, `MATCH (vn:VNode), (vn:VNode {id: $customKeyArg})`);
+        assertEquals(query.params, {customKeyArg: VNID("_1111111111111111111111")});
     });
 
     test("C.int() can be used to force a value to use the Neo4j Integer type", async () => {
@@ -220,53 +220,53 @@ suite("Cypher syntactic sugar", () => {
 
         const defaultQuery = C`RETURN apoc.meta.type(${numValue}) AS numberType`;
         const defaultResult = await testGraph.read(tx => tx.run(defaultQuery.queryString, defaultQuery.params));
-        assert.equal(defaultResult.records[0].get("numberType"), "FLOAT");
+        assertEquals(defaultResult.records[0].get("numberType"), "FLOAT");
 
         const intQuery = C`RETURN apoc.meta.type(${C.int(numValue)}) AS numberType`;
         const intResult = await testGraph.read(tx => tx.run(intQuery.queryString, intQuery.params));
-        assert.equal(intResult.records[0].get("numberType"), "INTEGER");
+        assertEquals(intResult.records[0].get("numberType"), "INTEGER");
     });
 
     test("CypherQuery throws an error if passed invalid arguments", () => {
-        assert.throws(() => {
+        assertThrows(() => {
             new CypherQuery(["one string"], ["two", "args"]);
-        }, "expected params array to have length 1 less than strings array");
+        }, undefined, "expected params array to have length 1 less than strings array");
     });
 
     test("throws an error if passed multiple values for the same argument", () => {
-        assert.throws(() => {
+        assertThrows(() => {
             C`MATCH (p:${Person})`.withParams({foo: "bar"}).withParams({foo: "other"});
-        }, `Multiple values for query parameter "foo"`);
+        }, undefined, `Multiple values for query parameter "foo"`);
     });
 
     test("throws an error if using HAS KEY without a parameter", () => {
-        assert.throws(() => {
+        assertThrows(() => {
             C`MATCH (p:${Person}), p HAS KEY $something`.queryString;
-        }, `Expected a "something" parameter in the query for the p HAS KEY $something lookup.`);
+        }, undefined, `Expected a "something" parameter in the query for the p HAS KEY $something lookup.`);
     });
 
-    suite("return shape", () => {
+    group("return shape", () => {
 
         test(".givesShape() can store a return shape", () => {
             const baseQuery = C`MATCH (p:${Person}) RETURN p.id`;
 
             const withReturnShape = baseQuery.givesShape({"p.id": Field.VNID});
 
-            assert.deepStrictEqual(withReturnShape.returnShape, {"p.id": Field.VNID});
+            assertEquals(withReturnShape.returnShape, {"p.id": Field.VNID});
         });
 
         test(".RETURN() can store a return shape and generate the RETURN clause", () => {
             const query = C`MATCH (p:${Person})`.RETURN({"p.id": Field.VNID, "p.name": Field.String});
 
-            assert.equal(query.queryString, "MATCH (p:TestPerson:VNode)\nRETURN p.id, p.name");
-            assert.deepStrictEqual(query.returnShape, {"p.id": Field.VNID, "p.name": Field.String});
+            assertEquals(query.queryString, "MATCH (p:TestPerson:VNode)\nRETURN p.id, p.name");
+            assertEquals(query.returnShape, {"p.id": Field.VNID, "p.name": Field.String});
         });
 
         test(".RETURN({}) generates a RETURN null clause and an empty return shape", () => {
             const query = C`MATCH (p:${Person})`.RETURN({});
 
-            assert.equal(query.queryString, "MATCH (p:TestPerson:VNode)\nRETURN null");
-            assert.deepStrictEqual(query.returnShape, {});
+            assertEquals(query.queryString, "MATCH (p:TestPerson:VNode)\nRETURN null");
+            assertEquals(query.returnShape, {});
         });
     });
 });

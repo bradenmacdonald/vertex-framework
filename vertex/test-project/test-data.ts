@@ -9,14 +9,9 @@ let dataSnapshot: VertexTestDataSnapshot;
 /**
  * Create data that can be used for testing.
  * Test should not modify this data, but can create new data that points to this.
- * @param graph 
+ * @param graph The Vertex instance to use
  */
 export async function createTestData(graph: Vertex): Promise<void> {
-    try {
-    if (dataSnapshot !== undefined) {
-        await graph.resetDBToSnapshot(dataSnapshot);
-        return;
-    }
 
     await graph.runAsSystem(
         CreateMovieFranchise({slugId: "mcu", name: "Marvel Cinematic Universe"}),
@@ -71,9 +66,4 @@ export async function createTestData(graph: Vertex): Promise<void> {
         RecordFriends({personId: "scarlett-johansson", otherPersonId: "rdj"}),
         RecordFriends({personId: "kate-mckinnon", otherPersonId: "ilana-glazer"}),
     );
-    // Save a snapshot to make this faster next time:
-    dataSnapshot = await graph.snapshotDataForTesting();
-    } catch (err: unknown) {
-        log.error(`Error during createTestData: ${(err as any).stack ?? err}`);
-    }
 }

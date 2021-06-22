@@ -1,11 +1,10 @@
-import { suite, test, assert, assertRejects, configureTestData } from "../lib/intern-tests";
-import { convertNeo4jRecord } from "./cypher-return-shape";
-import { AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils";
-import { testGraph, Person } from "../test-project";
-import { Field, ResponseSchema, GetDataShape } from "../lib/types/field";
-import { VDate, VNID } from "..";
+import { group, test, assert, assertEquals, assertThrowsAsync, configureTestData, assertArrayIncludes } from "../lib/tests.ts";
+import { convertNeo4jRecord } from "./cypher-return-shape.ts";
+import { AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils.ts";
+import { testGraph, Person } from "../test-project/index.ts";
+import { VDate, VNID, Field, ResponseSchema, GetDataShape } from "../index.ts";
 
-suite("Cypher return shape specification", () => {
+group(import.meta, () => {
 
     // Note: this test suite deliberately avoids using any cypher syntactic sugar (C`...`) or pull() and just focuses
     // on testing the ReturnShape specification class itself, as well as convertNeo4jRecord()
@@ -18,88 +17,88 @@ suite("Cypher return shape specification", () => {
     test("basic test - a typed record with a VNID field.", async () => {
         const shape = ResponseSchema({value: Field.String});
         const results = await runAndConvert(`RETURN "_12345678" as value`, {}, shape);
-        assert.deepStrictEqual(results, [{value: VNID("_12345678")}]);
-        assert.typeOf(results[0].value, "string");
+        assertEquals(results, [{value: VNID("_12345678")}]);
+        assertEquals(typeof results[0].value, "string");
     });
     test("basic test - a typed record with an Int field.", async () => {
         const shape = ResponseSchema({value: Field.Int});
         const results = await runAndConvert(`RETURN 1234 as value`, {}, shape);
-        assert.deepStrictEqual(results, [{value: 1234}]);
-        assert.typeOf(results[0].value, "number");
+        assertEquals(results, [{value: 1234}]);
+        assertEquals(typeof results[0].value, "number");
     });
     test("basic test - a typed record with an BigInt field.", async () => {
         const number = 9_444_333_222_111_000n;
         const shape = ResponseSchema({value: Field.BigInt});
         const results = await runAndConvert(`RETURN $number as value`, {number, }, shape);
-        assert.deepStrictEqual(results, [{value: number}]);
-        assert.typeOf(results[0].value, "bigint");
+        assertEquals(results, [{value: number}]);
+        assertEquals(typeof results[0].value, "bigint");
     });
     test("basic test - a typed record with an Float field.", async () => {
         const number = 0.0625;  // This is a number that can be represented exactly in both binary and decimal floating point
         const shape = ResponseSchema({value: Field.Float});
         const results = await runAndConvert(`RETURN $number as value`, {number, }, shape);
-        assert.deepStrictEqual(results, [{value: number}]);
-        assert.typeOf(results[0].value, "number");
+        assertEquals(results, [{value: number}]);
+        assertEquals(typeof results[0].value, "number");
     });
     test("basic test - a typed record with a String field.", async () => {
         const shape = ResponseSchema({value: Field.String});
         const results = await runAndConvert(`RETURN "hello" as value`, {}, shape);
-        assert.deepStrictEqual(results, [{value: "hello"}]);
-        assert.typeOf(results[0].value, "string");
+        assertEquals(results, [{value: "hello"}]);
+        assertEquals(typeof results[0].value, "string");
     });
     test("basic test - a typed record with a String field (Unicode).", async () => {
         const hello = "안녕하세요";
         const shape = ResponseSchema({value: Field.String});
         const results = await runAndConvert(`RETURN $hello as value`, {hello}, shape);
-        assert.deepStrictEqual(results, [{value: hello}]);
-        assert.typeOf(results[0].value, "string");
+        assertEquals(results, [{value: hello}]);
+        assertEquals(typeof results[0].value, "string");
     });
     test("basic test - a typed record with a Slug field.", async () => {
         const shape = ResponseSchema({value: Field.Slug});
         const results = await runAndConvert(`RETURN "hello" as value`, {}, shape);
-        assert.deepStrictEqual(results, [{value: "hello"}]);
-        assert.typeOf(results[0].value, "string");
+        assertEquals(results, [{value: "hello"}]);
+        assertEquals(typeof results[0].value, "string");
     });
     test("basic test - a typed record with a Slug field (Unicode).", async () => {
         const hello = "안녕하세요";
         const shape = ResponseSchema({value: Field.Slug});
         const results = await runAndConvert(`RETURN $hello as value`, {hello}, shape);
-        assert.deepStrictEqual(results, [{value: hello}]);
-        assert.typeOf(results[0].value, "string");
+        assertEquals(results, [{value: hello}]);
+        assertEquals(typeof results[0].value, "string");
     });
     test("basic test - a typed record with a Boolean field.", async () => {
         const shape = ResponseSchema({value: Field.Boolean});
         const results = await runAndConvert(`RETURN true as value`, {}, shape);
-        assert.deepStrictEqual(results, [{value: true}]);
-        assert.typeOf(results[0].value, "boolean");
+        assertEquals(results, [{value: true}]);
+        assertEquals(typeof results[0].value, "boolean");
     });
     test("basic test - a typed record with a Date field.", async () => {
         const shape = ResponseSchema({value: Field.Date});
         const results = await runAndConvert(`RETURN date("2021-05-11") as value`, {}, shape);
-        assert.typeOf(results[0].value, "object");
-        assert.instanceOf(results[0].value, VDate);
-        assert.strictEqual(results[0].value.toString(), "2021-05-11");
+        assertEquals(typeof results[0].value, "object");
+        assert(results[0].value instanceof VDate);
+        assertEquals(results[0].value.toString(), "2021-05-11");
     });
     test("basic test - a typed record with a Date field, VDate object passed in to Neo4j", async () => {
         // This is similar to the previous test but tests that we can pass IN a date parameter as a VDate
         const shape = ResponseSchema({value: Field.Date});
         const results = await runAndConvert(`RETURN $dateObj as value`, {dateObj: VDate.fromString("2021-05-11")}, shape);
-        assert.typeOf(results[0].value, "object");
-        assert.instanceOf(results[0].value, VDate);
-        assert.strictEqual(results[0].value.toString(), "2021-05-11");
+        assertEquals(typeof results[0].value, "object");
+        assert(results[0].value instanceof VDate);
+        assertEquals(results[0].value.toString(), "2021-05-11");
     });
     test("basic test - a typed record with a DateTime field.", async () => {
         const dateStr = "2019-06-01T18:40:32.000Z";  // A unicode timestamp in UTC
         const shape = ResponseSchema({value: Field.DateTime});
         const results = await runAndConvert(`RETURN datetime($dateStr) as value`, {dateStr, }, shape);
-        assert.instanceOf(results[0].value, Date);
-        assert.strictEqual(results[0].value.toISOString(), dateStr);
+        assert(results[0].value instanceof Date);
+        assertEquals(results[0].value.toISOString(), dateStr);
     });
 
     test("basic test - a typed record with a list of numbers field and a boolean field.", async () => {
         const shape = ResponseSchema({boolField: Field.Boolean, listOfNumbers: Field.List(Field.Int)});
         const results = await runAndConvert(`RETURN true as boolField, [1, 2, 3] as listOfNumbers`, {}, shape);
-        assert.deepStrictEqual(results, [{
+        assertEquals(results, [{
             boolField: true,
             listOfNumbers: [1, 2, 3],
         }]);
@@ -121,7 +120,7 @@ suite("Cypher return shape specification", () => {
             ] AS row
             RETURN row.numberOrNull as numberOrNull, row.recordField as recordField
         `, {}, shape);
-        assert.deepStrictEqual(results, [
+        assertEquals(results, [
             {
                 numberOrNull: 123,
                 recordField: {val1: "one", val2: true},
@@ -145,7 +144,7 @@ suite("Cypher return shape specification", () => {
             ] AS row
             RETURN row.mapField as mapField
         `, {}, shape);
-        assert.deepStrictEqual(results, [
+        assertEquals(results, [
             {
                 mapField: {pi: [3,1,4,1,5,9,2], e: [2,7,1,8,2,8]},
             },
@@ -155,38 +154,40 @@ suite("Cypher return shape specification", () => {
         ]);
     });
 
-    suite("Convert Nodes to RawVNode", () => {
+    group("Convert Nodes to RawVNode", () => {
 
-        suite("test with real data", () => {
+        group("test with real data", () => {
             configureTestData({loadTestProjectData: true, isolateTestWrites: false});
 
             test("retrieve a Person VNode", async () => {
                 const shape = ResponseSchema({p: Field.VNode(Person)});
                 const results = await runAndConvert(`MATCH (p:TestPerson:VNode {slugId: $slugId}) RETURN p`, {slugId: "the-rock"}, shape);
-                assert.lengthOf(results, 1);
+                assertEquals(results.length, 1);
                 const theRock = results[0].p;
     
                 checkType<AssertPropertyPresent<typeof theRock, "name", string>>();
                 checkType<AssertPropertyAbsent<typeof theRock, "someOtherThing">>();
     
-                assert.strictEqual(theRock.name, "Dwayne Johnson");
-                assert.strictEqual(theRock.slugId, "the-rock");
-                assert.includeMembers(theRock._labels, ["TestPerson", "VNode"]);
+                assertEquals(theRock.name, "Dwayne Johnson");
+                assertEquals(theRock.slugId, "the-rock");
+                assertArrayIncludes(theRock._labels, ["TestPerson", "VNode"]);
             });
         });
 
         test("retrieving a non-node as a VNode should fail", async () => {
             const shape = ResponseSchema({p: Field.VNode(Person)});
-            await assertRejects(
-                runAndConvert(`RETURN false AS p`, {}, shape),
+            await assertThrowsAsync(
+                () => runAndConvert(`RETURN false AS p`, {}, shape),
+                undefined,
                 "Field p is of type boolean, not a VNode."
             );
         });
 
         test("retrieving a non-VNode as a VNode should fail", async () => {
             const shape = ResponseSchema({p: Field.VNode(Person)});
-            await assertRejects(
-                runAndConvert(`MATCH (s:SlugId) RETURN s AS p LIMIT 1`, {}, shape),
+            await assertThrowsAsync(
+                () => runAndConvert(`MATCH (s:SlugId) RETURN s AS p LIMIT 1`, {}, shape),
+                undefined,
                 "Field p is a node but is missing the VNode label"
             );
         });

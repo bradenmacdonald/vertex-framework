@@ -1,10 +1,10 @@
-import { C, VirtualPropType, VNodeType, VNodeTypeRef, isVNodeType, PropSchema } from "..";
-import { suite, test, assert, dedent } from "../lib/intern-tests";
-import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils";
+import { C, VirtualPropType, VNodeType, VNodeTypeRef, isVNodeType, PropSchema } from "../index.ts";
+import { group, test, assert, assertEquals, assertStrictEquals, assertThrows } from "../lib/tests.ts";
+import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils.ts";
 import {
     Movie,
     MovieRef,
-} from "../test-project";
+} from "../test-project/index.ts";
 
 // Forward reference to the type below
 const OtherVNTRef: typeof OtherVNT = VNodeTypeRef("OtherVNT");
@@ -32,10 +32,10 @@ export class OtherVNT extends VNodeType {
 // 2. OtherVNTRef, which is a forward reference to a VNode type that has NOT been fully loaded (we never called registerVNodeType())
 
 
-suite("VNodeRef", () => {
+group(import.meta, () => {
 
     test("a forward reference is an instance of VNodeType", () => {
-        assert.isTrue(isVNodeType(MovieRef));
+        assert(isVNodeType(MovieRef));
         // And typescript sees it as a VNodeType:
         checkType<AssertPropertyPresent<typeof MovieRef, "label", string>>();
         checkType<AssertPropertyPresent<typeof MovieRef, "properties", PropSchema>>();
@@ -54,14 +54,14 @@ suite("VNodeRef", () => {
         const test2 = C`MATCH (:${OtherVNTRef})-[:${OtherVNTRef.rel.SELF_RELATIONSHIP_WITH_REF}]->(:${OtherVNTRef})`;
         // Now compilation will fail, because that's when it attempts to evaluate these objects, and this VNodeType
         // has not been registered yet:
-        assert.throws(() => test1.queryString, "VNode definition with label OtherVNT has not been loaded.");
-        assert.throws(() => test2.queryString, "VNode definition with label OtherVNT has not been loaded.");
+        assertThrows(() => test1.queryString, undefined, "VNode definition with label OtherVNT has not been loaded.");
+        assertThrows(() => test2.queryString, undefined, "VNode definition with label OtherVNT has not been loaded.");
         // But we can use MovieRef because it has been registered:
         const test3 = C`MATCH (:${MovieRef})-[:${MovieRef.rel.FRANCHISE_IS}]->()`;
-        assert.equal(test3.queryString, "MATCH (:TestMovie:VNode)-[:FRANCHISE_IS]->()");
+        assertEquals(test3.queryString, "MATCH (:TestMovie:VNode)-[:FRANCHISE_IS]->()");
     });
 
     test("a forward reference acts like the VNode itself once loaded", () => {
-        assert.strictEqual(MovieRef.properties, Movie.properties);
+        assertStrictEquals(MovieRef.properties, Movie.properties);
     });
 });

@@ -8,8 +8,10 @@ await testGraph.reverseAllMigrations();
 // Apply pending migrations
 await testGraph.runMigrations();
 // Take a snapshot, for test isolation
-const dataSnapshot = await testGraph.snapshotDataForTesting();
+const baseSnapshot = await testGraph.snapshotDataForTesting();
+await createTestData(testGraph);
+const testProjectSnapshot = await testGraph.snapshotDataForTesting();
 await testGraph.shutdown();
 
-await Deno.writeTextFile("_vertex-tests-data.json", JSON.stringify(dataSnapshot));
+await Deno.writeTextFile("_vertex-tests-data.json", JSON.stringify({baseSnapshot, testProjectSnapshot}));
 log.info("Test setup complete");

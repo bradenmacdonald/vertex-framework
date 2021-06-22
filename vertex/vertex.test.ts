@@ -1,22 +1,22 @@
-import { suite, test, assert, dedent, configureTestData } from "./lib/intern-tests";
-import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "./lib/ts-utils";
-import { Person, testGraph } from "./test-project";
+import { group, test, assertEquals, configureTestData } from "./lib/tests.ts";
+import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "./lib/ts-utils.ts";
+import { Person, testGraph } from "./test-project/index.ts";
 
-import { VNID, SlugId } from ".";
+import { VNID, SlugId } from "./index.ts";
 
-suite("Vertex Core", () => {
+group("Vertex Core", () => {
 
     configureTestData({loadTestProjectData: true, isolateTestWrites: false});
 
-    suite("vnidForkey", () => {
+    group("vnidForkey", () => {
 
         test("can retrieve VNID from either key type", async () => {
             // First, check Chris Pratt's VNID
             const slugId: SlugId = "chris-pratt";
             const vnid: VNID = (await testGraph.pullOne(Person, p => p.id, {key: slugId})).id;
 
-            assert.strictEqual(await testGraph.vnidForKey(vnid), vnid);
-            assert.strictEqual(await testGraph.vnidForKey(slugId), vnid);
+            assertEquals(await testGraph.vnidForKey(vnid), vnid);
+            assertEquals(await testGraph.vnidForKey(slugId), vnid);
         });
     });
 });

@@ -68,7 +68,7 @@ export function convertNeo4jFieldValue<FD extends TypedField>(fieldName: string,
         ////////////////////////////////////////////////
         // Response field types
         case FieldType.VNode: {
-            const vnodeType = (fieldDeclaration as any as CompositeTypedField).schema;
+            const vnodeType = (fieldDeclaration as any).vnodeType;
             return neoNodeToRawVNode(fieldValue, vnodeType, fieldName) as any;
         }
         case FieldType.Node:

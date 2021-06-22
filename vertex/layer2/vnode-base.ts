@@ -86,8 +86,19 @@ export class _BaseVNodeType {
         // Validate properties:
         const newValues = validatePropSchema(this.properties, dbObject);
 
-
-
+        // Check if the validation cleaned/changed any of the values:
+        const valuesChangedDuringValidation: Record<string, any> = {}
+        for (const key in newValues) {
+            if (newValues[key] !== dbObject[key]) {
+                valuesChangedDuringValidation[key] = newValues[key];
+            }
+        }
+        if (Object.keys(valuesChangedDuringValidation).length > 0) {
+            await tx.queryOne(C`
+                MATCH (node:VNode {id: ${dbObject.id}})
+                SET node += ${valuesChangedDuringValidation}
+            `.RETURN({}));
+        }
 
         // Validate relationships:
         const relTypes = Object.keys(this.rel);
