@@ -46,7 +46,7 @@ export type VirtualPropsMixin<
     [propName in keyof VNT["virtualProperties"]]:
         VNT["virtualProperties"][propName] extends VirtualManyRelationshipProperty ?
             // For each x:many virtual property, add a method for requesting that virtual property:
-            <ThisRequest extends AnyDataRequest<any>, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
+            <ThisRequest extends AnyDataRequest<any>, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>>
             // This is the method:
             (this: ThisRequest,
                 subRequest: (buildSubrequest: BlankRequestSameMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]> & ProjectRelationshipProps<VNT["virtualProperties"][propName]["relationship"]>>) => SubSpec,
@@ -61,7 +61,7 @@ export type VirtualPropsMixin<
 
         : VNT["virtualProperties"][propName] extends VirtualOneRelationshipProperty ?
             // For each x:one virtual property, add a method for requesting that virtual property:
-            <ThisRequest extends AnyDataRequest<any>, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>, FlagType extends string|undefined = undefined>
+            <ThisRequest extends AnyDataRequest<any>, SubSpec extends BaseDataRequest<VPTarget<VNT["virtualProperties"][propName]>, any, any>>
             (this: ThisRequest, subRequest: (buildSubequest: BlankRequestSameMixins<ThisRequest, VPTarget<VNT["virtualProperties"][propName]>>) => SubSpec) => (
                 UpdateMixin<VNT, ThisRequest,
                     VirtualPropsMixin<VNT, includedVirtualProps>,
@@ -73,7 +73,7 @@ export type VirtualPropsMixin<
 
         : VNT["virtualProperties"][propName] extends VirtualCypherExpressionProperty ?
             // Add a method to include this [virtual property based on a cypher expression], optionally toggled via a flag:
-            <ThisRequest, FlagType extends string|undefined = undefined>
+            <ThisRequest>
             (this: ThisRequest) => (
                 UpdateMixin<VNT, ThisRequest,
                     VirtualPropsMixin<VNT, includedVirtualProps>,
@@ -89,21 +89,21 @@ export type VirtualPropsMixin<
 type RecursiveVirtualPropRequest<VNT extends VNodeTypeWithVirtualProps> = {
     [K in keyof VNT["virtualProperties"]]?: (
         VNT["virtualProperties"][K] extends VirtualManyRelationshipProperty ?
-            IncludedVirtualManyProp<VNT["virtualProperties"][K], any> :
+            IncludedVirtualManyProp<any> :
         VNT["virtualProperties"][K] extends VirtualOneRelationshipProperty ?
-            IncludedVirtualOneProp<VNT["virtualProperties"][K], any> :
+            IncludedVirtualOneProp<any> :
         VNT["virtualProperties"][K] extends VirtualCypherExpressionProperty ?
             IncludedVirtualCypherExpressionProp<VNT["virtualProperties"][K]["valueType"]> :
         never
     )
 }
 
-export interface IncludedVirtualManyProp<propType extends VirtualManyRelationshipProperty, Spec extends AnyDataRequest<VPTarget<propType>>> {
+export interface IncludedVirtualManyProp<Spec extends AnyDataRequest<BaseVNodeType>> {
     spec: Spec,
     type: "many",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 }
 
-export interface IncludedVirtualOneProp<propType extends VirtualOneRelationshipProperty, Spec extends AnyDataRequest<VPTarget<propType>>> {
+export interface IncludedVirtualOneProp<Spec extends AnyDataRequest<BaseVNodeType>> {
     spec: Spec,
     type: "one",  // This field doesn't really exist; it's just a hint to the type system so it can distinguish among the RecursiveVirtualPropRequest types
 }

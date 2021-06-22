@@ -45,10 +45,10 @@ export type DataResponse<Request extends AnyDataRequest<BaseVNodeType>> = (
                     keyof includedVirtualProps extends never ? unknown :  // This line makes types look nicer by hiding the "& {}" type when there are no included virtual props
                     {[virtualProp in keyof includedVirtualProps]: (
                         // A -to-many virtual property is included:
-                        includedVirtualProps[virtualProp] extends IncludedVirtualManyProp<any, infer Spec> ?
+                        includedVirtualProps[virtualProp] extends IncludedVirtualManyProp<infer Spec> ?
                             DataResponse<Spec>[]
                         // A -to-one virtual property is included:
-                        : includedVirtualProps[virtualProp] extends IncludedVirtualOneProp<any, infer Spec> ?
+                        : includedVirtualProps[virtualProp] extends IncludedVirtualOneProp<infer Spec> ?
                             // 1:1 relationships are currently always optional at the DB level, so this may be null
                             DataResponse<Spec> | null
                         // A cypher expression virtual property is included:
