@@ -3,13 +3,10 @@ import {
     defaultUpdateFor,
     defaultCreateFor,
     VNodeType,
-    VNodeTypeRef,
     VirtualPropType,
     Field,
 } from "../index.ts";
 
-// When necessary to avoid circular references, this pattern can be used to create a "Forward Reference" to a VNodeType:
-export const MovieRef: typeof Movie = VNodeTypeRef("TestMovie");
 import { MovieFranchise } from "./MovieFranchise.ts";
 
 
@@ -29,7 +26,7 @@ export class Movie extends VNodeType {
         }),
     };
     static defaultOrderBy = "@this.year DESC";
-    static rel = VNodeType.hasRelationshipsFromThisTo({
+    static rel = this.hasRelationshipsFromThisTo({
         /** This Movie is part of a franchise */
         FRANCHISE_IS: {
             to: [MovieFranchise],
@@ -37,7 +34,7 @@ export class Movie extends VNodeType {
             cardinality: VNodeType.Rel.ToOneOrNone,
         },
     });
-    static virtualProperties = VNodeType.hasVirtualProperties({
+    static virtualProperties = this.hasVirtualProperties({
         franchise: {
             type: VirtualPropType.OneRelationship,
             query: C`(@this)-[:${this.rel.FRANCHISE_IS}]->(@target:${MovieFranchise})`,

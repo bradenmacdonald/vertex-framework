@@ -8,7 +8,7 @@ import type { VirtualPropsMixin } from "./data-request-mixins.ts";
  * (i.e. computed by JavaScript code), and which have access to values from other raw and virtual properties.
  * 
  * Declare derived properties within a VNodeType class definition like this:
- *     static derivedProperties = Person.hasDerivedProperties({
+ *     static derivedProperties = this.hasDerivedProperties({
  *         propName,
  *     });
  *

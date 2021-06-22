@@ -22,10 +22,10 @@ class Manager extends Employee {
     static properties = {
         ...Employee.properties,
     };
-    static rel = {
+    static rel = this.hasRelationshipsFromThisTo({
         // A -to-many relationship:
         MANAGER_OF: { to: [Employee], properties: { since: Field.DateTime } }
-    };
+    });
 }
 
 /** A VNodeType for use in this test suite. */

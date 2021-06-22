@@ -21,7 +21,7 @@ class Employee extends VNodeType {
         slugId: Field.Slug,
     };
 
-    static virtualProperties = VNodeType.hasVirtualProperties({
+    static virtualProperties = this.hasVirtualProperties({
         createAction: {
             // Get the Action that originally created this employee
             type: VirtualPropType.OneRelationship,
@@ -30,7 +30,7 @@ class Employee extends VNodeType {
         },
     });
 
-    static derivedProperties = VNodeType.hasDerivedProperties({
+    static derivedProperties = this.hasDerivedProperties({
         yearsWithCompany,
     });
 }
@@ -52,7 +52,7 @@ class Executive extends Manager {
         ...Manager.properties,
     };
 
-    static readonly derivedProperties = VNodeType.hasDerivedProperties({
+    static readonly derivedProperties = this.hasDerivedProperties({
         ...Manager.derivedProperties,
         annualBonus,
     });

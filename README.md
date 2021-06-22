@@ -43,7 +43,7 @@ export class Person extends VNodeType {
         name: Joi.string().required(),
         dateOfBirth: Joi.date().iso(),
     };
-    static rel = VNodeType.hasRelationshipsFromThisTo({
+    static rel = this.hasRelationshipsFromThisTo({
         /** This Person acted in a given movie */
         ACTED_IN: {
             to: [Movie],
@@ -159,25 +159,25 @@ export class Person extends VNodeType {
 
     ... // label, properties, rel, defaultOrderBy as shown above
 
-    static virtualProperties = VNodeType.hasVirtualProperties({
+    static virtualProperties = this.hasVirtualProperties({
         // The movies that this person has acted in:
         movies: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[@rel:${Person.rel.ACTED_IN}]->(@target:${Movie})`,
-            relationship: Person.rel.ACTED_IN,
+            query: C`(@this)-[@rel:${this.rel.ACTED_IN}]->(@target:${Movie})`,
+            relationship: this.rel.ACTED_IN,
             target: Movie,
         },
         // Costars: people who have acted in the same movies as this person:
         costars: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[:${Person.rel.ACTED_IN}]->(:${Movie})<-[:${Person.rel.ACTED_IN}]-(@target:${Person})`,
-            target: Person,
+            query: C`(@this)-[:${this.rel.ACTED_IN}]->(:${Movie})<-[:${this.rel.ACTED_IN}]-(@target:${Person})`,
+            target: this,
         },
         // Friends of this person:
         friends: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[:${Person.rel.FRIEND_OF}]-(@target:${Person})`,
-            target: Person,
+            query: C`(@this)-[:${this.rel.FRIEND_OF}]-(@target:${Person})`,
+            target: this,
         },
         // Compute this person's age (using Cypher)
         age: {
@@ -187,7 +187,7 @@ export class Person extends VNodeType {
         }
     });
 
-    static derivedProperties = VNodeType.hasDerivedProperties({
+    static derivedProperties = this.hasDerivedProperties({
         numSameAgeFriends,
     });
 }
@@ -242,7 +242,7 @@ A note on **design goals for pull()**: pull() is designed to make common data re
 If your VNode type defines properties in its relationship schema, and then references that relationship in a virtual property:
 
 ```typescript
-    static rel = VNodeType.hasRelationshipsFromThisTo({
+    static rel = this.hasRelationshipsFromThisTo({
         ...
         ACTED_IN: {
             to: [Movie],
@@ -252,7 +252,7 @@ If your VNode type defines properties in its relationship schema, and then refer
             },
         },
     ...
-    static virtualProperties = VNodeType.hasVirtualProperties({
+    static virtualProperties = this.hasVirtualProperties({
         ...
         movies: {
             type: VirtualPropType.ManyRelationship,
@@ -320,7 +320,7 @@ To make this possible, you'll notice that the default Create action will give ea
 Also, when defining the properties, relationships, virtual properties, and derived properties of your subclass, if different from the parent class, you'll need to explicitly include the inherited ones, like this:
 
 ```typescript
-    static derivedProperties = VNodeType.hasDerivedProperties({
+    static derivedProperties = this.hasDerivedProperties({
         ...ParentClass.derivedProperties,  // <-- add this line
         numSameAgeFriends,
     });
@@ -385,7 +385,7 @@ import { MovieFranchise } from "./MovieFranchise";
 export class Movie extends VNodeType {
     static label = "Movie";
     ...
-    static rel = VNodeType.hasRelationshipsFromThisTo({
+    static rel = this.hasRelationshipsFromThisTo({
         /** This Movie is part of a franchise */
         FRANCHISE_IS: {
             to: [MovieFranchise],
@@ -393,10 +393,10 @@ export class Movie extends VNodeType {
             cardinality: VNodeType.Rel.ToOneOrNone,
         },
     });
-    static virtualProperties = VNodeType.hasVirtualProperties({
+    static virtualProperties = this.hasVirtualProperties({
         franchise: {
             type: VirtualPropType.OneRelationship,
-            query: C`(@this)-[:${Movie.rel.FRANCHISE_IS}]->(@target:${MovieFranchise})`,
+            query: C`(@this)-[:${this.rel.FRANCHISE_IS}]->(@target:${MovieFranchise})`,
             target: MovieFranchise,
         },
     });
@@ -414,7 +414,7 @@ import { MovieRef as Movie } from "./Movie";
 export class MovieFranchise extends VNodeType {
     static label = "MovieFranchise";
     ...
-    static virtualProperties = VNodeType.hasVirtualProperties({
+    static virtualProperties = this.hasVirtualProperties({
         movies: {
             type: VirtualPropType.ManyRelationship,
             query: C`(@this)<-[:${Movie.rel.FRANCHISE_IS}]-(@target:${Movie})`,

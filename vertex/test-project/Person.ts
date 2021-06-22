@@ -22,7 +22,7 @@ export class Person extends VNodeType {
         name: Field.String,
         dateOfBirth: Field.Date,
     };
-    static readonly rel = VNodeType.hasRelationshipsFromThisTo({
+    static readonly rel = this.hasRelationshipsFromThisTo({
         /** This Person acted in a given movie */
         ACTED_IN: {
             to: [Movie],
