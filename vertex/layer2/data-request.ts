@@ -60,7 +60,12 @@ export type AnyDataRequest<VNT extends BaseVNodeType> = BaseDataRequest<VNT, any
 /** A helper that mixins can use to update their state in a data request. */
 export type UpdateMixin<VNT extends BaseVNodeType, ThisRequest, CurrentMixin, NewMixin> = (
     ThisRequest extends BaseDataRequest<VNT, infer requestedProperties, CurrentMixin & RequiredMixin & infer Other> ?
-        BaseDataRequest<VNT, requestedProperties, NewMixin & RequiredMixin & Other>
+        (
+            BaseDataRequest<VNT, requestedProperties, NewMixin & RequiredMixin & Other> extends infer X ? X : never
+            //                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            // This "extends infer" seems like a no-op but prevents this type from becoming deeply recursive.
+            // Thanks to https://github.com/microsoft/TypeScript/issues/30188#issuecomment-478938437 for the tip
+        )
     : never
 );
 
