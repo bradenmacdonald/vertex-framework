@@ -10,8 +10,8 @@ import {
     Field,
     VirtualPropType,
     VNodeType,
-} from "..";
-import { suite, test, assert, before, after } from "../lib/intern-tests";
+} from "../index.ts";
+import { assert, assertEquals, group, test } from "../lib/tests.ts";
 
 /** A VNodeType for use in this test suite. */
 class Employee extends VNodeType {
@@ -86,17 +86,17 @@ function annualBonus(): DerivedProperty<number> { return DerivedProperty.make(
     data => { return 100_000; }
 );}
 
-suite(__filename, () => {
+group(import.meta, () => {
 
-    suite("VNodeType.hasDerivedProperties", () => {
+    group("VNodeType.hasDerivedProperties", () => {
 
         test("basic sanity check", () => {
-            assert.isFunction(Employee.derivedProperties.yearsWithCompany.dataSpec);
-            assert.isFunction(Employee.derivedProperties.yearsWithCompany.computeValue);
+            assert(typeof Employee.derivedProperties.yearsWithCompany.dataSpec === "function");
+            assert(typeof Employee.derivedProperties.yearsWithCompany.computeValue === "function");
         });
 
         test("can inherit derived properties", () => {
-            assert.strictEqual(
+            assertEquals(
                 Employee.derivedProperties.yearsWithCompany,
                 Executive.derivedProperties.yearsWithCompany,
             );

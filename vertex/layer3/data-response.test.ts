@@ -1,19 +1,19 @@
-import { suite, test } from "../lib/intern-tests";
+import { group, test } from "../lib/tests.ts";
 
-import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils";
-import type { BaseDataRequest, VNID, VDate } from "..";
-import { Person } from "../test-project";
-import type { DataResponse } from "./data-response";
-import { VNodeTypeWithVirtualProps } from "./vnode";
-import { ConditionalPropsMixin, VirtualPropsMixin } from "./data-request-mixins";
-import { BaseVNodeType } from "../layer2/vnode-base";
-import { RequiredMixin } from "../layer2/data-request";
+import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils.ts";
+import type { BaseDataRequest, VNID, VDate } from "../index.ts";
+import { Person } from "../test-project/index.ts";
+import type { DataResponse } from "./data-response.ts";
+import { VNodeTypeWithVirtualProps } from "./vnode.ts";
+import { ConditionalPropsMixin, VirtualPropsMixin } from "./data-request-mixins.ts";
+import { BaseVNodeType } from "../layer2/vnode-base.ts";
+import { RequiredMixin } from "../layer2/data-request.ts";
 
 
-suite("DataResponse", () => {
+group(import.meta, () => {
     // Compile-time tests of DataResponse typing
 
-    suite("Requests with only raw properties and conditional/flagged raw properties", () => {
+    group("Requests with only raw properties and conditional/flagged raw properties", () => {
 
         // A helper function to create a typed DataRequest that supports raw properties and conditional (flagged) raw properties.
         // This does not include the mixins to support virtual or derived properties.
@@ -56,7 +56,7 @@ suite("DataResponse", () => {
         });
     });
 
-    suite("Requests with raw properties, conditional/flagged raw properties, and virtual properties", () => {
+    group("Requests with raw properties, conditional/flagged raw properties, and virtual properties", () => {
 
         // A helper function to create a typed DataRequest that supports raw properties and virtual properties.
         // This does not include the mixins to support derived properties.

@@ -1,4 +1,5 @@
-import {test as baseTest, group as baseGroup, afterAll, afterEach, beforeAll, beforeEach} from "https://deno.land/x/hooked@v0.1.0/mod.ts";
+// import {test as baseTest, group as baseGroup, afterAll, afterEach, beforeAll, beforeEach} from "https://deno.land/x/hooked@v0.1.0/mod.ts";
+import {test as baseTest, group as baseGroup, afterAll, afterEach, beforeAll, beforeEach} from "./tests-hooked.ts";
 export * from "https://deno.land/std@0.99.0/testing/asserts.ts";
 
 import { log } from "./log.ts"
