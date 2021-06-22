@@ -10,7 +10,7 @@ export const emptyObj = Object.freeze({});
 const relTypeKey = Symbol("relTypeKey");
 
 export interface PropSchemaWithId extends PropSchema {
-    id: PropertyTypedField<FieldType.VNID, false, VNID>;
+    id: PropertyTypedField<FieldType.VNID, false>;
 }
 
 export interface RelationshipsSchema {

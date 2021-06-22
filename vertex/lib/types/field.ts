@@ -91,21 +91,33 @@ export type PropertyFieldType = (
     | FieldType.AnyPrimitive
 );
 
+type GetPrimitiveValueType<FT extends PropertyFieldType> = 
+    FT extends FieldType.VNID ? VNID :
+    FT extends FieldType.Int ? number :
+    FT extends FieldType.BigInt ? bigint :
+    FT extends FieldType.Float ? number :
+    FT extends FieldType.String ? string :
+    FT extends FieldType.Slug ? string :
+    FT extends FieldType.Boolean ? boolean :
+    FT extends FieldType.Date ? VDate :
+    FT extends FieldType.DateTime ? Date :
+    FT extends FieldType.AnyPrimitive ? PrimitiveValue :
+    never;
+
 
 export interface PropertyTypedField<
     FT extends PropertyFieldType = PropertyFieldType,
     Nullable extends boolean = boolean,
-    PVT extends PrimitiveValue = PrimitiveValue
 > extends TypedField<FT, Nullable> {
-    readonly baseValidator: Validator<PVT>;  // The base validator is always called, and is called after any custom validators
-    readonly customValidator?: Validator<PVT>;  // Custom validators
+    readonly baseValidator: Validator<GetPrimitiveValueType<FT>>;  // The base validator is always called, and is called after any custom validators
+    readonly customValidator?: Validator<GetPrimitiveValueType<FT>>;  // Custom validators
 }
 
 /**
  * Properties Schema (usually for a VNodeType, but also can be used to define properties on a relationship)
  */
 export interface PropSchema {
-    [K: string]: PropertyTypedField<PropertyFieldType, boolean, any>;
+    [K: string]: PropertyTypedField<PropertyFieldType, boolean>;
 }
 
 // This helper function is used to declare variables with appropriate typing as "RS extends ResponseSchema" and not just "ResponseSchema"
@@ -172,7 +184,7 @@ interface AnyVNodeType {
     properties: PropSchemaWithId;
 }
 interface PropSchemaWithId extends PropSchema {
-    id: PropertyTypedField<FieldType.VNID, false, VNID>;
+    id: PropertyTypedField<FieldType.VNID, false>;
 }
 
 interface VNodeTypedField<Nullable extends boolean, VNT extends AnyVNodeType> extends TypedField<FieldType.VNode, Nullable> {
@@ -199,40 +211,40 @@ export function ResponseSchema<RS extends ResponseSchema>(rs: RS): RS { return r
 // Constrcut the "Field" object that contains all the basic field types and lets you construct complex types:
 
 
-export interface _PropertyTypedFieldConstructor<FT extends PropertyFieldType, Nullable extends boolean, PVT extends PrimitiveValue>
-    extends PropertyTypedField<FT, Nullable, PVT>
+export interface _PropertyTypedFieldConstructor<FT extends PropertyFieldType, Nullable extends boolean>
+    extends PropertyTypedField<FT, Nullable>
 {
     /** Add a custom validator for this field's value. Note that custom validators are not called if the value is null. */
-    Check: (customValidator: TypedValidator<PVT>) => PropertyTypedField<FT, Nullable, PVT>
+    Check: (customValidator: TypedValidator<GetPrimitiveValueType<FT>>) => PropertyTypedField<FT, Nullable>
 }
 
 // These aliases are only defined to provide much nicer-looking types in the IDE (e.g. VS Code).
-export type _VNIDField = _PropertyTypedFieldConstructor<FieldType.VNID, false, VNID>;
-export type _NullableVNIDField = _PropertyTypedFieldConstructor<FieldType.VNID, true, VNID>;
-export type _IntField = _PropertyTypedFieldConstructor<FieldType.Int, false, number>;
-export type _NullableIntField = _PropertyTypedFieldConstructor<FieldType.Int, true, number>;
-export type _StringField = _PropertyTypedFieldConstructor<FieldType.String, false, string>;
-export type _NullableStringField = _PropertyTypedFieldConstructor<FieldType.String, true, string>;
-export type _SlugField = _PropertyTypedFieldConstructor<FieldType.Slug, false, string>;
-export type _NullableSlugField = _PropertyTypedFieldConstructor<FieldType.Slug, true, string>;
-export type _BooleanField = _PropertyTypedFieldConstructor<FieldType.Boolean, false, boolean>;
-export type _NullableBooleanField = _PropertyTypedFieldConstructor<FieldType.Boolean, true, boolean>;
+export type _VNIDField = _PropertyTypedFieldConstructor<FieldType.VNID, false>;
+export type _NullableVNIDField = _PropertyTypedFieldConstructor<FieldType.VNID, true>;
+export type _IntField = _PropertyTypedFieldConstructor<FieldType.Int, false>;
+export type _NullableIntField = _PropertyTypedFieldConstructor<FieldType.Int, true>;
+export type _StringField = _PropertyTypedFieldConstructor<FieldType.String, false>;
+export type _NullableStringField = _PropertyTypedFieldConstructor<FieldType.String, true>;
+export type _SlugField = _PropertyTypedFieldConstructor<FieldType.Slug, false>;
+export type _NullableSlugField = _PropertyTypedFieldConstructor<FieldType.Slug, true>;
+export type _BooleanField = _PropertyTypedFieldConstructor<FieldType.Boolean, false>;
+export type _NullableBooleanField = _PropertyTypedFieldConstructor<FieldType.Boolean, true>;
 
 
 /** Helper function used below to build the global "Field" constant object, which holds TypedField instances */
-function makePropertyField<FT extends PropertyFieldType, Nullable extends boolean, PVT extends PrimitiveValue>(
+function makePropertyField<FT extends PropertyFieldType, Nullable extends boolean>(
     type: FT,
     nullable: Nullable,
-    baseValidator: Validator<PVT>,  // The base validator is always called, and is called last
-    defaultValidator?: Validator<PVT>,  // The default validator, which can be completely overridden and replaced with a custom validator
-    customValidator?: Validator<PVT>,  // A custom validator to add to this field. It will override any "default validator" but can be chained with multiple custom validators.
-): _PropertyTypedFieldConstructor<FT, Nullable, PVT> {
+    baseValidator: Validator<GetPrimitiveValueType<FT>>,  // The base validator is always called, and is called last
+    defaultValidator?: Validator<GetPrimitiveValueType<FT>>,  // The default validator, which can be completely overridden and replaced with a custom validator
+    customValidator?: Validator<GetPrimitiveValueType<FT>>,  // A custom validator to add to this field. It will override any "default validator" but can be chained with multiple custom validators.
+): _PropertyTypedFieldConstructor<FT, Nullable> {
     return {
         type,
         nullable,
         baseValidator,
         customValidator: customValidator ?? defaultValidator,
-        Check: (newCustomValidator: TypedValidator<PVT>) => makePropertyField(type, nullable, baseValidator, defaultValidator, (_value: unknown) => {
+        Check: (newCustomValidator: TypedValidator<GetPrimitiveValueType<FT>>) => makePropertyField(type, nullable, baseValidator, defaultValidator, (_value: unknown) => {
             let value = baseValidator(_value);
             if (customValidator && customValidator !== defaultValidator) {
                 value = customValidator(value);
@@ -340,7 +352,7 @@ export const Field = Object.freeze({
  */
 export type GetDataType<FieldSpec extends TypedField> = (
     (FieldSpec extends TypedField<any, true> ? null : never) | (
-        FieldSpec extends PropertyTypedField<any, any, infer PrimitiveValueType> ? PrimitiveValueType :
+        FieldSpec extends PropertyTypedField<infer FT, any> ? GetPrimitiveValueType<FT> :
 
         FieldSpec extends ResponseRecordTypedField<any, infer Schema> ? { [K in keyof Schema]: GetDataType<Schema[K]> } :  // Works for Generic record or response record
         FieldSpec extends ResponseMapTypedField<any, infer Schema> ? { [K: string]: GetDataType<Schema> } :  // Works for Generic map or response map
@@ -371,7 +383,7 @@ export type GetDataShape<Schema extends ResponseSchema> = {
  * @param value The value to validate
  * @returns The validated value
  */
-export function validateValue<FD extends PropertyTypedField<any, any, any>>(fieldType: FD, value: any): GetDataType<FD> {
+export function validateValue<FD extends PropertyTypedField<any, any>>(fieldType: FD, value: any): GetDataType<FD> {
     if (value === null) {
         // Skip validators if the value is null, but make sure null is a valid value:
         if (!fieldType.nullable) {
