@@ -114,16 +114,16 @@ group(import.meta, () => {
             await assertThrowsAsync(() => testGraph.runAsSystem(
                 // deno-lint-ignore no-explicit-any
                 CreateAstroBody({slugId: 17 as any, mass: 15}),
-            ), undefined, `Not a string`);  // TODO: should say: "slugId" must be a string
+            ), undefined, `Field "slugId" is invalid: Not a string`);
             // slugId cannot contain spaces:
             await assertThrowsAsync(() => testGraph.runAsSystem(
                 CreateAstroBody({slugId: "this slugId has spaces", mass: 123}),
-            ), undefined, `not a valid slug`);
+            ), undefined, `Field "slugId" is invalid: "this slugId has spaces" is not a valid slug`);
             // required props missing:
             await assertThrowsAsync(() => testGraph.runAsSystem(
                 // deno-lint-ignore no-explicit-any
                 CreateAstroBody({} as any),
-            ), undefined, `Value is not allowed to be null`);  //`"slugId" must be a string. "mass" must be a number`);
+            ), undefined, `Field "slugId" is invalid: Value is not allowed to be null`);
         });
 
         test("sets all required labels for VNodeTypes with inherited labels", async () => {

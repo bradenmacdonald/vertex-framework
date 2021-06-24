@@ -420,7 +420,17 @@ export function validatePropSchema<PS extends PropSchema>(propSchema: PS, value:
 
     for (const key in propSchema) {
         const fieldType = propSchema[key];
-        newValue[key] = validateValue(fieldType, value[key]);
+        try {
+            newValue[key] = validateValue(fieldType, value[key]);
+        } catch (validationError: unknown) {
+            if (validationError instanceof Error) {
+                const prefix = validationError.name === "Error" ? "" : `${validationError.name}: `;
+                throw new Error(`${prefix}Field "${key}" is invalid: ${validationError.message}`);
+            } else {
+                throw new Error(`Unexpected error: ${typeof validationError} ${validationError}`);
+            }
+            //throw validationError;
+        }
     }
 
     return newValue;

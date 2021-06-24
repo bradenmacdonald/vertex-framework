@@ -192,14 +192,14 @@ group("action runner", () => {
                 GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: 123456}})
             ),
             undefined,
-            `Not a string`,  // TODO: should be: "name" must be a string
+            `Field "name" is invalid: Not a string`,
         );
         await assertThrowsAsync(
             () => testGraph.runAsSystem(
                 GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: "foo"}})
             ),
             undefined,
-            `Value is not allowed to be null`, // TODO: `"mass" must be a number`,
+            `Field "mass" is invalid: Value is not allowed to be null`,
         );
     });
 

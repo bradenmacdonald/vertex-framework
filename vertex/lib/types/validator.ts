@@ -135,7 +135,7 @@ const slugRegex = /^[-\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]+
 export const validateSlug: Validator<string> = (_value) => {
     const value = validateString(_value);
     if (!slugRegex.test(value)) {
-        throw new Error(`${value} is not a valid slug (cannot contain spaces or other special characters other than '-')`);
+        throw new Error(`"${value}" is not a valid slug (cannot contain spaces or other special characters other than '-')`);
     }
     return value;
 }
