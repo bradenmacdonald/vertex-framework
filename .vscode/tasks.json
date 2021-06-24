@@ -24,15 +24,15 @@
         {
             "label": "Lint",
             "type": "shell",
-            "command": "docker-compose",
-            "args": ["exec", "tester", "npm", "run", "lint"],
+            "command": "deno",
+            "args": ["lint"],
             "problemMatcher": []
         },
         {
             "label": "Run test suite",
             "type": "shell",
-            "command": "docker-compose",
-            "args": ["exec", "tester", "npm", "test"],
+            "command": "deno",
+            "args": ["test", "--allow-read", "--allow-net"],
             "problemMatcher": []
         },
         {
