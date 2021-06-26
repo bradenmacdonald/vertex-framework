@@ -24,8 +24,8 @@ export abstract class VNodeType extends BaseVNodeType {
     static readonly derivedProperties: DerivedPropsSchema = emptyObj;
 
     /** Completely optional helper method to declare a VNodeType's "rel" (relationships) property with correct typing. */
-    static hasRelationshipsFromThisTo<Rels extends RelationshipsSchema>(relationships: Rels): Rels {
-        return relationships;
+    static hasRelationshipsFromThisTo<Rels extends RelationshipsSchema>(relationships: Deferrable<Rels>): Rels {
+        return deferrable(relationships);
     }
 
     /** Completely optional helper method to declare a VNodeType's "virtualProperties" with correct typing. */

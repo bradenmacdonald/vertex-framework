@@ -1,6 +1,6 @@
 // Copied from https://deno.land/x/hooked@v0.1.0/mod.ts
 // With a bugfix to wrap the inner test case in a try {} finally {}
-// The author's other similar JS libraries are MIT licensed so presumably htis one is too.
+// The author's other similar JS libraries are MIT licensed so presumably this one is too.
 interface Hooks {
     beforeAll: Array<() => void | Promise<void>>;
     beforeEach: Array<() => void | Promise<void>>;

@@ -3,6 +3,7 @@ import { Field, FieldType, GetDataShape, PropSchema, validatePropSchema, Propert
 import { C } from "./cypher-sugar.ts";
 import { convertNeo4jFieldValue } from "./cypher-return-shape.ts";
 import { VNID } from "../lib/key.ts";
+import { applyLazilyToDeferrable } from "../lib/deferrable.ts";
 
 // An empty object that can be used as a default value for read-only properties
 export const emptyObj = Object.freeze({});
@@ -185,31 +186,35 @@ export class _BaseVNodeType {
             throw new Error(`If a VNode declares a slugId property, it must be of type Field.Slug.`);
         }
 
-        // Check for annoying circular references that TypeScript can't catch:
-        Object.entries(vnt.rel).forEach(([relName, rel]) => {
-            rel.to.forEach((targetVNT, idx) => {
-                if (targetVNT === undefined) {
-                    throw new Error(`Circular reference in ${vnt.name} definition: relationship ${vnt.name}.rel.${relName}.to[${idx}] is undefined.`);
-                }
+        // We need to apply some cleanups and validation and annotation to the .rels property. BUT that property may be
+        // "deferred" (wrapped in a proxy object and lazily evaluated when accessed) in order to avoid circular imports.
+        // So use this helper function to do the cleanup/validation at the last second, when .rels is first accessed.
+        applyLazilyToDeferrable(vnt.rel, (rels => {
+            // Check for annoying circular references that TypeScript can't catch:
+            Object.entries(rels).forEach(([relName, rel]) => {
+                rel.to.forEach((targetVNT, idx) => {
+                    if (targetVNT === undefined) {
+                        throw new Error(`Circular reference in ${vnt.name} definition: relationship ${vnt.name}.rel.${relName}.to[${idx}] is undefined.`);
+                    }
+                });
             });
-        });
 
-        // Store the "type" (name/label) of each relationship in its definition, so that when parts of the code
-        // reference a relationship like SomeVNT.rel.FOO_BAR, we can get the name "FOO_BAR" from that value, even though
-        // the name was only declared as the key, and is not part of the FOO_BAR value.
-        for (const relationshipType of Object.keys(vnt.rel)) {
-            const relDeclaration = vnt.rel[relationshipType];
-            if (relDeclaration[relTypeKey] !== undefined && relDeclaration[relTypeKey] != relationshipType) {
-                // This is a very obscure edge case error, but if someone is saying something like
-                // rel = { FOO: SomeOtherVNodeType.rel.BAR } then we need to flag that we can't share the same
-                // relationship declaration and call it both FOO and BAR.
-                throw new Error(`The relationship ${vnt.name}.${relationshipType} is also declared somewhere else as type ${relDeclaration[relTypeKey]}.`);
+            // Store the "type" (name/label) of each relationship in its definition, so that when parts of the code
+            // reference a relationship like SomeVNT.rel.FOO_BAR, we can get the name "FOO_BAR" from that value, even though
+            // the name was only declared as the key, and is not part of the FOO_BAR value.
+            for (const relationshipType of Object.keys(vnt.rel)) {
+                const relDeclaration = vnt.rel[relationshipType];
+                if (relDeclaration[relTypeKey] !== undefined && relDeclaration[relTypeKey] != relationshipType) {
+                    // This is a very obscure edge case error, but if someone is saying something like
+                    // rel = { FOO: SomeOtherVNodeType.rel.BAR } then we need to flag that we can't share the same
+                    // relationship declaration and call it both FOO and BAR.
+                    throw new Error(`The relationship ${vnt.name}.${relationshipType} is also declared somewhere else as type ${relDeclaration[relTypeKey]}.`);
+                }
+                relDeclaration[relTypeKey] = relationshipType;
             }
-            relDeclaration[relTypeKey] = relationshipType;
-        }
+        }));
 
-        // Freeze, register, and return the VNodeType:
-        //vnt = Object.freeze(vnt);
+        // Register the VNodeType:
         registerVNodeType(vnt);
     }
 
