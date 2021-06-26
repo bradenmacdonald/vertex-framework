@@ -1,7 +1,7 @@
 import { Vertex } from "../index.ts";
 
 export const testGraph = new Vertex({
-    neo4jUrl: "bolt://localhost:7777",
+    neo4jUrl: Deno.env.get("NEO4J_URL") ?? "bolt://localhost:7777",
     neo4jUser: "neo4j",
     neo4jPassword: "vertex",
     debugLogging: true,

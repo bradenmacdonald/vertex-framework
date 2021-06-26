@@ -6,14 +6,15 @@ variables:
   # We need APOC functionality like triggers:
   NEO4JLABS_PLUGINS: '["apoc"]'
   NEO4J_apoc_trigger_enabled: "true"
+  NEO4J_URL: bolt://neo4j
 
 test:
   stage: test
   services:
     - neo4j:4.2
   script:
-    - deno run --allow-net --allow-write vertex/lib/test-setup.ts
-    - deno test --allow-net --allow-read
+    - deno run --allow-net --allow-env --allow-write vertex/lib/test-setup.ts
+    - deno test --allow-net --allow-env --allow-read
 
 lint:
   stage: test

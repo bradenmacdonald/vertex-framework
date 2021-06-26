@@ -68,7 +68,7 @@ let dataStr: string;
 try {
     dataStr = await Deno.readTextFile("_vertex-tests-data.json");
 } catch {
-    log.error("Please run 'deno run --allow-net --allow-write vertex/lib/test-setup.ts'");
+    log.error("Please run 'deno run --allow-env --allow-net --allow-write vertex/lib/test-setup.ts'");
     Deno.exit(1);
 }
 const {baseSnapshot, testProjectSnapshot} = JSON.parse(dataStr) as {[K: string]: VertexTestDataSnapshot};
