@@ -202,8 +202,8 @@ export class _BaseVNodeType {
             // Store the "type" (name/label) of each relationship in its definition, so that when parts of the code
             // reference a relationship like SomeVNT.rel.FOO_BAR, we can get the name "FOO_BAR" from that value, even though
             // the name was only declared as the key, and is not part of the FOO_BAR value.
-            for (const relationshipType of Object.keys(vnt.rel)) {
-                const relDeclaration = vnt.rel[relationshipType];
+            for (const relationshipType of Object.keys(rels)) {
+                const relDeclaration = rels[relationshipType];
                 if (relDeclaration[relTypeKey] !== undefined && relDeclaration[relTypeKey] != relationshipType) {
                     // This is a very obscure edge case error, but if someone is saying something like
                     // rel = { FOO: SomeOtherVNodeType.rel.BAR } then we need to flag that we can't share the same
