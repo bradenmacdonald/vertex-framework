@@ -1,68 +1,21 @@
-image: node:16
+image: denoland/deno:alpine-1.11.2
 
 variables:
   # Set default neo4j password to "vertex"
   NEO4J_AUTH: neo4j/vertex
   # We need APOC functionality like triggers:
   NEO4JLABS_PLUGINS: '["apoc"]'
-  # Enable automatic UUID creation on nodes:
-  NEO4J_apoc_uuid_enabled: "true"
   NEO4J_apoc_trigger_enabled: "true"
-
-
-# Cache modules in between jobs
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - .npm/
-
-before_script:
-  - npm ci --cache .npm --prefer-offline
 
 test:
   stage: test
   services:
     - neo4j:4.2
   script:
-    - npm run test
+    - deno run --allow-net --allow-write vertex/lib/test-setup.ts
+    - deno test --allow-net --allow-read
 
 lint:
   stage: test
   script:
-    - npm run lint
-
-build:
-  # This is considered a test because it ensures that the build happens correctly, but doesn't (yet) do anything with the result
-  stage: test
-  script:
-    - npm run build
-    - mv dist dist-cached
-  artifacts:
-    paths:
-      - dist-cached/
-
-publish:
-  stage: deploy
-  only:
-    refs:
-      - main
-  before_script:
-    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
-    - eval $(ssh-agent -s)
-    - ssh-add <(echo "$GIT_SSH_PRIV_KEY")
-    - mkdir -p ~/.ssh
-    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts
-  script:
-    - git config user.name "GitLab CI Bot"
-    - git config user.email "team@technotes.org"
-    # Since "origin" is configured using https, we need to add a new remote to be able to push:
-    - git remote add gitlab git@gitlab.com:${CI_PROJECT_PATH}.git
-    - git fetch gitlab
-    - git checkout -b dist gitlab/dist
-    - git merge gitlab/main --no-ff -m "Update distribution with main"
-    - rm -rf dist
-    - mv dist-cached dist
-    - rm -f dist/.gitignore
-    - git add dist
-    - git commit --amend --no-edit
-    - git push gitlab dist:dist
+    - deno lint

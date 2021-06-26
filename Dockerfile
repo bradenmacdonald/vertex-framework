@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine-1.11.0
+FROM denoland/deno:alpine-1.11.2
 
 # Set the working directory to /testenv
 WORKDIR /testenv
