@@ -8,6 +8,7 @@ import {
     SYSTEM_VNID,
     GenericCypherAction,
     Field,
+    EmptyResultError,
 } from "../index.ts";
 
 @VNodeType.declare
@@ -228,7 +229,7 @@ group("action runner", () => {
             cypher: C`MATCH (p:${Planet} {id: ${id}}) REMOVE p:VNode SET p:DeletedVNode`,
             modifiedNodes: [id],
         }));
-        await assertThrowsAsync(() => getPlanetName(), undefined, "Expected a single result, got 0");
+        await assertThrowsAsync(() => getPlanetName(), EmptyResultError);
     });
 
     test("An action cannot mark a node as both deleted and not deleted.", async () => {

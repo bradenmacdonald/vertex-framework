@@ -118,7 +118,7 @@ group(import.meta, () => {
             // slugId cannot contain spaces:
             await assertThrowsAsync(() => testGraph.runAsSystem(
                 CreateAstroBody({slugId: "this slugId has spaces", mass: 123}),
-            ), undefined, `Field "slugId" is invalid: "this slugId has spaces" is not a valid slug`);
+            ), undefined, `Field "slugId" is invalid: Not a valid slug (cannot contain spaces or other special characters other than '-')`);
             // required props missing:
             await assertThrowsAsync(() => testGraph.runAsSystem(
                 // deno-lint-ignore no-explicit-any

@@ -32,7 +32,8 @@ export {
     GenericSchema,
     ResponseSchema,
     validateValue,
-    validatePropSchema
+    validatePropSchema,
+    FieldValidationError,
 } from "./lib/types/field.ts";
 export type {
     TypedField,
@@ -75,6 +76,10 @@ export type {
     BaseDataRequest,
     RequestVNodeRawProperties
 } from "./layer2/data-request.ts";
+export {
+    EmptyResultError,
+    TooManyResultsError,
+} from "./layer2/query.ts";
 
 //// Layer 3 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

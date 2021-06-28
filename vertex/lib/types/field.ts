@@ -404,6 +404,17 @@ export function validateValue<FD extends PropertyTypedField<any, any>>(fieldType
     return value;
 }
 
+export class FieldValidationError extends Error {
+    readonly field: string;
+    readonly innerMessage: string;
+
+    constructor(field: string, message: string) {
+        super(`Field "${field}" is invalid: ${message}`);
+        this.name = "FieldValidationError";
+        this.field = field;
+        this.innerMessage = message;
+    }
+}
 
 /**
  * Validate that a collection of values matches the given schema. Returns an object with "cleaned" property values or
@@ -424,8 +435,7 @@ export function validatePropSchema<PS extends PropSchema>(propSchema: PS, value:
             newValue[key] = validateValue(fieldType, value[key]);
         } catch (validationError: unknown) {
             if (validationError instanceof Error) {
-                const prefix = validationError.name === "Error" ? "" : `${validationError.name}: `;
-                throw new Error(`${prefix}Field "${key}" is invalid: ${validationError.message}`);
+                throw new FieldValidationError(key, validationError.message);
             } else {
                 throw new Error(`Unexpected error: ${typeof validationError} ${validationError}`);
             }

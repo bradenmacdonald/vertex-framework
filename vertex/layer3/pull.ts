@@ -21,6 +21,7 @@ import {
 import { DerivedProperty } from "./derived-props.ts";
 import { DataRequestFilter, FilteredRequest } from "./data-request-filtered.ts";
 import { convertNeo4jFieldValue } from "../layer2/cypher-return-shape.ts";
+import { EmptyResultError, TooManyResultsError } from "../layer2/query.ts";
 
 type PullMixins<VNT extends VNodeType> = ConditionalPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT> & RequiredMixin;
 // This alias seems to confuse TypeScript 4.2:
@@ -403,8 +404,10 @@ export function pullOne<Request extends AnyDataRequest<any>>(
 export async function pullOne(tx: WrappedTransaction, arg1: any, arg2?: any, arg3?: any): Promise<any> {
     const result = await pull(tx, arg1, arg2, arg3);
 
-    if (result.length !== 1) {
-        throw new Error(`Expected a single result, got ${result.length}`);
+    if (result.length === 0) {
+        throw new EmptyResultError();
+    } else if (result.length !== 1) {
+        throw new TooManyResultsError(`Expected a single result, got ${result.length}`);
     }
 
     return result[0];
