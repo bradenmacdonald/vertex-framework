@@ -1,13 +1,13 @@
-import { ActionRequest, getActionDefinition, ActionResult, Action } from "./action";
-import { VNID } from "../lib/types/vnid";
-import { SYSTEM_VNID } from "./schema";
-import { log } from "../lib/log";
-import { getVNodeType } from "../layer2/vnode-base";
-import { VertexCore } from "../vertex-interface";
-import { neoNodeToRawVNode } from "../layer2/cypher-return-shape";
-import { C } from "../layer2/cypher-sugar";
-import { Field, Node } from "../lib/types/field";
-import { UndoAction } from "./action-generic";
+import { ActionRequest, getActionDefinition, ActionResult, Action } from "./action.ts";
+import { VNID } from "../lib/types/vnid.ts";
+import { SYSTEM_VNID } from "./schema.ts";
+import { log } from "../lib/log.ts";
+import { getVNodeType } from "../layer2/vnode-base.ts";
+import { VertexCore } from "../vertex-interface.ts";
+import { neoNodeToRawVNode } from "../layer2/cypher-return-shape.ts";
+import { C } from "../layer2/cypher-sugar.ts";
+import { Field, Node } from "../lib/types/field.ts";
+import { UndoAction } from "./action-generic.ts";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
@@ -29,6 +29,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
 
         // First, apply the action:
         let modifiedNodeIds: VNID[];
+        // deno-lint-ignore no-explicit-any
         let resultData: any;
         let description: string;
         try {
@@ -132,7 +133,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
     // Calculate how long it took to commit the transaction too
     const commitMs = (new Date()).getTime() - startTime.getTime() - tookMs;
 
-    log(`${description} (${type} took ${tookMs} ms + ${commitMs} ms)`); // TODO: a way for actions to describe themselves verbosely
+    log.info(`${description} (${type} took ${tookMs} ms + ${commitMs} ms)`); // TODO: a way for actions to describe themselves verbosely
 
     result.actionId = actionId;
     result.actionDescription = description;

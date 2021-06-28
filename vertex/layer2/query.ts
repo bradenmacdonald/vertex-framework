@@ -1,6 +1,18 @@
-import type { WrappedTransaction } from "../transaction";
-import { convertNeo4jRecord } from "./cypher-return-shape";
-import { CypherQuery, CypherQueryWithReturnShape, QueryResponse } from "./cypher-sugar";
+// deno-lint-ignore-file no-explicit-any
+import type { WrappedTransaction } from "../transaction.ts";
+import { convertNeo4jRecord } from "./cypher-return-shape.ts";
+import { CypherQuery, CypherQueryWithReturnShape, QueryResponse } from "./cypher-sugar.ts";
+
+/**
+ * When used with pullOne() or queryOne(), this exception will be raised if there are zero results returned.
+ */
+ export class EmptyResultError extends Error {
+    constructor() { super("Expected a single result, but got none."); }
+}
+/**
+ * When used with pullOne() or queryOne(), this exception will be raised if there are more than one result(s) returned.
+ */
+export class TooManyResultsError extends Error {}
 
 /**
  * Run a query on the Neo4j graph database and return its result.
@@ -25,8 +37,10 @@ export async function query<CQ extends CypherQuery>(cypherQuery: CQ, tx: Wrapped
  */
 export async function queryOne<CQ extends CypherQuery>(cypherQuery: CQ, tx: WrappedTransaction): Promise<QueryResponse<CQ>> {
     const result = await query(cypherQuery, tx);
-    if (result.length !== 1) {
-        throw new Error(`Expected a single result, got ${result.length}`);
+    if (result.length === 0) {
+        throw new EmptyResultError();
+    } else if (result.length !== 1) {
+        throw new TooManyResultsError(`Expected a single result, got ${result.length}`);
     }
     return result[0] as any;
 }

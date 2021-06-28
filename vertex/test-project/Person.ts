@@ -7,8 +7,8 @@ import {
     VirtualPropType,
     VNodeType,
     DerivedProperty,
-} from "../";
-import { Movie } from "./Movie";
+} from "../index.ts";
+import { Movie } from "./Movie.ts";
 
 /**
  * A Person VNode type
@@ -22,7 +22,7 @@ export class Person extends VNodeType {
         name: Field.String,
         dateOfBirth: Field.Date,
     };
-    static readonly rel = VNodeType.hasRelationshipsFromThisTo({
+    static readonly rel = this.hasRelationshipsFromThisTo({
         /** This Person acted in a given movie */
         ACTED_IN: {
             to: [Movie],
@@ -32,35 +32,35 @@ export class Person extends VNodeType {
         },
         /** This Person is a friend of the given person (non-directed relationship) */
         FRIEND_OF: {
-            to: [Person],
+            to: [this],
             properties: {},
             cardinality: VNodeType.Rel.ToManyUnique,
         },
     });
-    static virtualProperties = VNodeType.hasVirtualProperties({
+    static virtualProperties = this.hasVirtualProperties({
         movies: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[@rel:${Person.rel.ACTED_IN}]->(@target:${Movie})`,
-            relationship: Person.rel.ACTED_IN,
+            query: C`(@this)-[@rel:${this.rel.ACTED_IN}]->(@target:${Movie})`,
+            relationship: this.rel.ACTED_IN,
             target: Movie,
         },
         moviesOrderedByRole: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[@rel:${Person.rel.ACTED_IN}]->(@target:${Movie})`,
-            relationship: Person.rel.ACTED_IN,
+            query: C`(@this)-[@rel:${this.rel.ACTED_IN}]->(@target:${Movie})`,
+            relationship: this.rel.ACTED_IN,
             target: Movie,
             defaultOrderBy: "@rel.role",  // Just to test ordering a Many virtual property based on a property of the relationship; ordering by movie year (as happens by default) makes more sense
         },
         costars: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[:${Person.rel.ACTED_IN}]->(:${Movie})<-[:${Person.rel.ACTED_IN}]-(@target:${Person})`,
-            target: Person,
+            query: C`(@this)-[:${this.rel.ACTED_IN}]->(:${Movie})<-[:${this.rel.ACTED_IN}]-(@target:${this})`,
+            target: this,
             // TODO: Support making this DISTINCT
         },
         friends: {
             type: VirtualPropType.ManyRelationship,
-            query: C`(@this)-[:${Person.rel.FRIEND_OF}]-(@target:${Person})`,
-            target: Person,
+            query: C`(@this)-[:${this.rel.FRIEND_OF}]-(@target:${this})`,
+            target: this,
         },
         age: {
             type: VirtualPropType.CypherExpression,
@@ -70,7 +70,7 @@ export class Person extends VNodeType {
     });
     static defaultOrderBy = "@this.name";
 
-    static derivedProperties = Person.hasDerivedProperties({
+    static derivedProperties = this.hasDerivedProperties({
         ageJS,
         numFriends,
     });

@@ -1,6 +1,4 @@
-import { Date as Neo4jDate, isDate as isNeo4jDate } from "neo4j-driver-lite";
-
-export { Neo4jDate, isNeo4jDate };
+import { Neo4j } from "../../deps.ts";
 
 const DAYS_PER_MONTH = Object.freeze([
     /* Jan */ 31,    undefined, /* Mar */ 31, /* Apr */ 30, /* May */ 31, /* Jun */ 30,
@@ -25,7 +23,7 @@ function isLeapYear(year: number): boolean {
  * 2) Has a fromString() method to de-serialize from an ISO 8601 string, as you would expect
  * 3) Rejects invalid dates like "February 31"
  */
-export class VDate extends Neo4jDate<number> {
+export class VDate extends Neo4j.Date<number> {
 
     constructor(y: number, m: number, d: number) {
         super(y, m, d);
@@ -59,9 +57,9 @@ export class VDate extends Neo4jDate<number> {
         }
         return new VDate(year, month, day);
     }
-    static fromNeo4jDate(date: Neo4jDate<bigint|number>): VDate {
-        const isUsingBigInt = (d: Neo4jDate<bigint|number>): d is Neo4jDate<bigint> => typeof d.year === "bigint";
-        const isUsingNumber = (d: Neo4jDate<bigint|number>): d is Neo4jDate<number> => typeof d.year === "number";
+    static fromNeo4jDate(date: Neo4j.Date<bigint|number>): VDate {
+        const isUsingBigInt = (d: Neo4j.Date<bigint|number>): d is Neo4j.Date<bigint> => typeof d.year === "bigint";
+        const isUsingNumber = (d: Neo4j.Date<bigint|number>): d is Neo4j.Date<number> => typeof d.year === "number";
         if (isUsingBigInt(date)) {
             return new VDate(Number(date.year), Number(date.month), Number(date.day));
         } else if (isUsingNumber(date)) {
@@ -69,14 +67,14 @@ export class VDate extends Neo4jDate<number> {
         }
         throw new Error(`Unknown Neo4j date type (${date}) or using unsupported integer type.`);
     }
-    static fromStandardDate(standardDate: Date): VDate { return this.fromNeo4jDate(Neo4jDate.fromStandardDate(standardDate)); }
+    static fromStandardDate(standardDate: Date): VDate { return this.fromNeo4jDate(Neo4j.Date.fromStandardDate(standardDate)); }
 
     public toJSON(): string { return this.toString(); }
 
     /**
      * Parse a template string literal, e.g. const VD = VDate.parseTemplateLiteral; const date1 = VD`2016-01-01`;
      */
-    public static parseTemplateLiteral(strings: TemplateStringsArray, ...keys: any[]): VDate {
+    public static parseTemplateLiteral(strings: TemplateStringsArray, ...keys: unknown[]): VDate {
         return VDate.fromString(String.raw(strings, ...keys));
     }
 }

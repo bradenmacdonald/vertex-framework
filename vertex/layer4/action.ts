@@ -1,15 +1,16 @@
+// deno-lint-ignore-file no-explicit-any ban-types
 /**
  * Vertex Framework uses the command pattern, where all operations that can change the site's content in any way
  * (other than data/schema migrations) are described as "actions" (a.k.a. mutations) that take the current state and
  * transform it to another state. A generic UndoAction is provided which can be used to undo any action, making it easy
  * to revert edits, undo changes, etc.
  */
-import { VNID } from "../lib/types/vnid";
-import { BaseVNodeType, RawVNode, ValidationError } from "../layer2/vnode-base";
-import { WrappedTransaction } from "../transaction";
-import { C } from "../layer2/cypher-sugar";
-import { VNodeType } from "../layer3/vnode";
-import { Field } from "../lib/types/field";
+import { VNID } from "../lib/types/vnid.ts";
+import { BaseVNodeType, RawVNode } from "../layer2/vnode-base.ts";
+import { WrappedTransaction } from "../transaction.ts";
+import { C } from "../layer2/cypher-sugar.ts";
+import { VNodeType } from "../layer3/vnode.ts";
+import { Field } from "../lib/types/field.ts";
 
 
 /**
@@ -32,7 +33,7 @@ export type ActionRequest<Parameters extends Record<string, any> = any, ResultDa
  * The data returned by an action implementation's apply() method.
  * For example, when creating a new user, this returns the user's VNID.
  */
-interface ApplyResult<ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
+interface ApplyResult<ResultData extends Record<string, any> = {}> {
     /**
      * Any result data that the action wants to pass back.
      */
@@ -56,7 +57,7 @@ export type ActionResult<T extends ActionRequest> = (
 
 
 /** Base class for an Action, defining the interface that all actions must adhere to. */
-export interface ActionDefinition<ActionType extends string = string, Parameters extends Record<string, any> = any, ResultData extends Record<string, any> = {}> {  // eslint-disable-line @typescript-eslint/ban-types
+export interface ActionDefinition<ActionType extends string = string, Parameters extends Record<string, any> = any, ResultData extends Record<string, any> = {}> {
     readonly type: ActionType;
 
     // Generate the ActionData for this action:
@@ -131,7 +132,7 @@ export class Action extends VNodeType {
         },
         /** This Action reverted another one */
         REVERTED: {
-            to: [Action],
+            to: [this],
             cardinality: VNodeType.Rel.ToOneOrNone,
         },
     });
@@ -139,13 +140,13 @@ export class Action extends VNodeType {
     static readonly virtualProperties = VNodeType.hasVirtualProperties({
         revertedBy: {
             type: "one-relationship",
-            query: C`(@target:${Action})-[:${Action.rel.REVERTED}]->(@this)`,
-            target: Action,
+            query: C`(@target:${this})-[:${this.rel.REVERTED}]->(@this)`,
+            target: this,
         },
         revertedAction: {
             type: "one-relationship",
-            query: C`(@this)-[:${Action.rel.REVERTED}]->(@target:${Action})`,
-            target: Action,
+            query: C`(@this)-[:${this.rel.REVERTED}]->(@target:${this})`,
+            target: this,
         },
     });
     static readonly derivedProperties = {};

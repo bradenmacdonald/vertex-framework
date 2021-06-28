@@ -1,5 +1,5 @@
-import { VNID, VNodeKey } from "./lib/key";
-import { WrappedTransaction } from "./transaction";
+import { VNID, VNodeKey } from "./lib/key.ts";
+import { WrappedTransaction } from "./transaction.ts";
 
 /**
  * Definition of the core methods of the Vertex class, so that we can avoid circular imports.
@@ -9,7 +9,7 @@ export interface VertexCore {
     read<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
     isTriggerInstalled(name: string): Promise<boolean>;
     _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
-    _restrictedAllowWritesWithoutAction(someCode: () => Promise<any>): Promise<void>;
+    _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<void>;
     vnidForKey(key: VNodeKey): Promise<VNID>;
 
     snapshotDataForTesting(): Promise<VertexTestDataSnapshot>;
@@ -26,7 +26,9 @@ export interface VertexCore {
 type dbWriteType = <T>(code: (tx: WrappedTransaction) => Promise<T>) => Promise<T>;
 
 export interface Migration {
+    // deno-lint-ignore no-explicit-any
     forward: (dbWrite: dbWriteType) => Promise<any>;
+    // deno-lint-ignore no-explicit-any
     backward: (dbWrite: dbWriteType) => Promise<any>;
     dependsOn: string[];
 }

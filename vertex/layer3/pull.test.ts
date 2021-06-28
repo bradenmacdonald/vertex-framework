@@ -1,28 +1,30 @@
-import { suite, test, assert, dedent, configureTestData } from "../lib/intern-tests";
+// deno-lint-ignore-file no-explicit-any camelcase
+import { group, test, configureTestData, assert, assertEquals, assertStrictEquals } from "../lib/tests.ts";
+import { dedent } from "../lib/dedent.ts";
 
-import { buildCypherQuery as _buildCypherQuery, newDataRequest } from "./pull";
-import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils";
-import { testGraph, Person, Movie } from "../test-project";
-import { C, VNID, BaseDataRequest, DataRequestFilter, VDate } from "..";
-import { FilteredRequest } from "./data-request-filtered";
+import { buildCypherQuery as _buildCypherQuery, newDataRequest } from "./pull.ts";
+import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils.ts";
+import { testGraph, Person, Movie } from "../test-project/index.ts";
+import { C, VNID, BaseDataRequest, DataRequestFilter, VDate } from "../index.ts";
+import { FilteredRequest } from "./data-request-filtered.ts";
 
 function buildCypherQuery(request: BaseDataRequest<any, any, any>, filter?: DataRequestFilter): ReturnType<typeof _buildCypherQuery> {
     return _buildCypherQuery(new FilteredRequest(request, filter ?? {}));
 }
 
 
-suite("pull", () => {
+group(import.meta, () => {
 
     configureTestData({loadTestProjectData: true, isolateTestWrites: false});
 
-    suite("simple queries", () => {
+    group("simple queries", () => {
 
-        suite("Person allProps request (no filter - get all people)", () => {
+        group("Person allProps request (no filter - get all people)", () => {
             const request = newDataRequest(Person).allProps;
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request);
 
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)
                     
                     RETURN _node.id AS id, _node.slugId AS slugId, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
@@ -33,10 +35,10 @@ suite("pull", () => {
         
                 // Note: request should be sorted by name by default, so Chris Pratt comes first
                 const firstPerson = people[0];
-                assert.typeOf(firstPerson.id, "string")
-                assert.equal(firstPerson.slugId, "chris-pratt");
-                assert.equal(firstPerson.name, "Chris Pratt");
-                assert.equal(firstPerson.dateOfBirth.toString(), "1979-06-21");
+                assertEquals(typeof firstPerson.id, "string")
+                assertEquals(firstPerson.slugId, "chris-pratt");
+                assertEquals(firstPerson.name, "Chris Pratt");
+                assertEquals(firstPerson.dateOfBirth.toString(), "1979-06-21");
                 checkType<AssertPropertyPresent<typeof firstPerson, "id", VNID>>();
                 checkType<AssertPropertyPresent<typeof firstPerson, "slugId", string>>();
                 checkType<AssertPropertyPresent<typeof firstPerson, "name", string>>();
@@ -44,7 +46,7 @@ suite("pull", () => {
             });
         });
 
-        suite("Partial Person request", () => {
+        group("Partial Person request", () => {
             // This data request tests conditional fields and excluded fields
             const partialPersonRequest = (newDataRequest(Person)
                 .name
@@ -52,7 +54,7 @@ suite("pull", () => {
             );
             test("buildCypherQuery - get all, DOB flag off", () => {
                 const query = buildCypherQuery(partialPersonRequest);
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)
                     
                     RETURN _node.name AS name ORDER BY _node.name
@@ -60,7 +62,7 @@ suite("pull", () => {
             });
             test("buildCypherQuery - get all, DOB flag on", () => {
                 const query = buildCypherQuery(partialPersonRequest, {flags: ["includeDOB"]});
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)
                     
                     RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
@@ -71,14 +73,14 @@ suite("pull", () => {
 
                 // Note: request should be sorted by name by default, so Chris Pratt comes first
                 const firstPerson = people[0];
-                assert.equal(firstPerson.name, "Chris Pratt");
+                assertEquals(firstPerson.name, "Chris Pratt");
                 checkType<AssertPropertyPresent<typeof firstPerson, "name", string>>();
                 // dateOfBirth was not requested due to the missing flag (only known at runtime, not compile time)
-                assert.equal(firstPerson.dateOfBirth, undefined);
+                assertEquals(firstPerson.dateOfBirth, undefined);
 
                 checkType<AssertPropertyOptional<typeof firstPerson, "dateOfBirth", VDate>>();
                 // VNID was explicitly not requested, so should be undefined:
-                assert.equal((firstPerson as any).id, undefined);
+                assertEquals((firstPerson as any).id, undefined);
                 checkType<AssertPropertyAbsent<typeof firstPerson, "id">>();
             });
             test("pull - get all, DOB flag on", async () => {
@@ -86,13 +88,13 @@ suite("pull", () => {
         
                 // Note: request should be sorted by name by default, so Chris Pratt comes first
                 const firstPerson = people[0];
-                assert.equal(firstPerson.name, "Chris Pratt");
+                assertEquals(firstPerson.name, "Chris Pratt");
                 checkType<AssertPropertyPresent<typeof firstPerson, "name", string>>();
                 // dateOfBirth was requested using a flag (only known at runtime, not compile time)
-                assert.equal(firstPerson.dateOfBirth?.toString(), "1979-06-21");
+                assertEquals(firstPerson.dateOfBirth?.toString(), "1979-06-21");
                 checkType<AssertPropertyOptional<typeof firstPerson, "dateOfBirth", VDate>>();
                 // VNID was explicitly not requested, so should be undefined:
-                assert.equal((firstPerson as any).id, undefined);
+                assertEquals((firstPerson as any).id, undefined);
                 checkType<AssertPropertyAbsent<typeof firstPerson, "id">>();
             });
             test("pull - with name filter", async () => {
@@ -101,28 +103,28 @@ suite("pull", () => {
                     where: C`@this.name STARTS WITH ${nameStart}`,
                 });
 
-                assert.equal(people[0].name, "Karen Gillan");
-                assert.equal(people[1].name, "Kate McKinnon");
+                assertEquals(people[0].name, "Karen Gillan");
+                assertEquals(people[1].name, "Kate McKinnon");
             });
             test("Partial Person request with sorting (oldest first)", async () => {
                 const peopleOldestFirst = await testGraph.pull(partialPersonRequest, {
                     orderBy: "@this.dateOfBirth",
                     // Test ordering by a field that's not included in the response.
                 });
-                assert.equal(peopleOldestFirst[0].name, "Robert Downey Jr.");
-                assert.equal(peopleOldestFirst[0].dateOfBirth, undefined);  // Disabled by lack of flag
+                assertEquals(peopleOldestFirst[0].name, "Robert Downey Jr.");
+                assertEquals(peopleOldestFirst[0].dateOfBirth, undefined);  // Disabled by lack of flag
             });
             test("Partial Person request with sorting (youngest first)", async () => {
                 const peopleYoungestFirst = await testGraph.pull(partialPersonRequest, {
                     orderBy: "@this.dateOfBirth DESC",
                     flags: ["includeDOB"],
                 });
-                assert.equal(peopleYoungestFirst[0].name, "Karen Gillan");
-                assert.equal(peopleYoungestFirst[0].dateOfBirth?.toString(), "1987-11-28");
+                assertEquals(peopleYoungestFirst[0].name, "Karen Gillan");
+                assertEquals(peopleYoungestFirst[0].dateOfBirth?.toString(), "1987-11-28");
             });
         });
 
-        suite("Basic Person request", () => {
+        group("Basic Person request", () => {
             // This DataRequest gets some raw properties of Person, with no virtual properties
             const basicPersonRequest = (newDataRequest(Person)
                 .id
@@ -132,58 +134,58 @@ suite("pull", () => {
             test("buildCypherQuery - match by VNID", () => {
                 const query = buildCypherQuery(basicPersonRequest, {key: "_12345"});
 
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestPerson:VNode {id: $_nodeVNID})
                     
                     RETURN _node.id AS id, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
                 `);
-                assert.equal(query.params._nodeVNID, "_12345");
+                assertEquals(query.params._nodeVNID, "_12345");
             });
             test("buildCypherQuery - matching with WHERE filter", () => {
                 const query = buildCypherQuery(basicPersonRequest, {where: C`@this.name = ${"Dwayne Johnson"}`});
 
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)
                     WHERE _node.name = $whereParam1
                     
                     RETURN _node.id AS id, _node.name AS name, _node.dateOfBirth AS dateOfBirth ORDER BY _node.name
                 `);
-                assert.equal(query.params.whereParam1, "Dwayne Johnson");
+                assertEquals(query.params.whereParam1, "Dwayne Johnson");
             });
         });
 
-        suite("Movie request, keyed by slugId", () => {
+        group("Movie request, keyed by slugId", () => {
             const request = newDataRequest(Movie).slugId.title.year;
             const filter: DataRequestFilter = {key: "jumanji-2"};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestMovie:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
                     
                     RETURN _node.slugId AS slugId, _node.title AS title, _node.year AS year ORDER BY _node.year DESC
                 `);
-                assert.equal(query.params._nodeSlugId, "jumanji-2");
+                assertEquals(query.params._nodeSlugId, "jumanji-2");
             });
             test("pull", async () => {
                 const result = await testGraph.pullOne(request, filter);
-                assert.equal(result.title, "Jumanji: The Next Level");
+                assertEquals(result.title, "Jumanji: The Next Level");
                 checkType<AssertPropertyPresent<typeof result, "title", string>>();
-                assert.equal(result.year, 2019);
+                assertEquals(result.year, 2019);
                 checkType<AssertPropertyPresent<typeof result, "year", number>>();
             });
         });
     });
 
-    suite("Queries including virtual properties", () => {
+    group("Queries including virtual properties", () => {
 
         // Test a to-many virtual property/relationship:
-        suite("Get all Chris Pratt Movies", () => {
+        group("Get all Chris Pratt Movies", () => {
             const request = newDataRequest(Person).movies(m => m.title.year);
             const filter: DataRequestFilter = {key: "chris-pratt", };
             test("buildCypherQuery", () => {
                 // This test covers the situation where we're not including any raw (non-virtual) properties from the main node (_node)
                 const query = buildCypherQuery(request, filter);
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
 
                     OPTIONAL MATCH _path1 = (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
@@ -192,15 +194,15 @@ suite("pull", () => {
 
                     RETURN _movies1 AS movies ORDER BY _node.name
                 `);
-                assert.equal(query.params._nodeSlugId, "chris-pratt");
+                assertEquals(query.params._nodeSlugId, "chris-pratt");
             });
             test("pull", async () => {
                 // This test covers the situation where we're not including any raw (non-virtual) properties from the main node (_node)
                 const chrisPratt = await testGraph.pullOne(request, filter);
-                assert.equal(chrisPratt.movies.length, 3);
+                assertEquals(chrisPratt.movies.length, 3);
                 // Movies should be sorted newest first by default, so the first movie should be the newest one:
                 const firstTitle = chrisPratt.movies[0].title;
-                assert.equal(firstTitle, "Avengers: Infinity War");
+                assertEquals(firstTitle, "Avengers: Infinity War");
                 checkType<AssertEqual<typeof firstTitle, string>>();
             });
             test("pull - alternate syntax", async () => {
@@ -209,11 +211,11 @@ suite("pull", () => {
                     .movies(m => m.slugId.title),
                     filter,
                 );
-                assert.equal(chrisPratt.name, "Chris Pratt");
-                assert.equal(chrisPratt.movies.length, 3);
+                assertEquals(chrisPratt.name, "Chris Pratt");
+                assertEquals(chrisPratt.movies.length, 3);
                 // Movies should be sorted newest first by default, so the first movie should be the newest one:
                 const firstTitle = chrisPratt.movies[0].title;
-                assert.equal(firstTitle, "Avengers: Infinity War");
+                assertEquals(firstTitle, "Avengers: Infinity War");
                 checkType<AssertEqual<typeof firstTitle, string>>();
             });
         });
@@ -233,17 +235,12 @@ suite("pull", () => {
             ;
             const filter: DataRequestFilter = {key: "rdj", };
 
-            assert.deepStrictEqual(
+            assertEquals(
                 buildCypherQuery(request, filter),
                 buildCypherQuery(mergedRequest, filter),
             );
-            assert.deepStrictEqual(
+            assertEquals(
                 await testGraph.pullOne(request, filter),
-                // TODO - FIXME - this used to work but a recent refactor is breaking the typescript types. * * * * * *
-                // It should still work at runtime; the compile-time type is just wrong. It's not a big deal as users
-                // won't generally be explicitly requesting a virtual property twice as in this example.
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
                 await testGraph.pullOne(mergedRequest, filter),
             );
         });
@@ -255,22 +252,22 @@ suite("pull", () => {
                 .movies(m => m.title.year.role())
             , {key: "rdj", });
 
-            assert.equal(rdj.movies.length, 2);
-            assert.equal(rdj.movies[0].title, "Avengers: Infinity War");
-            assert.equal(rdj.movies[0].role, "Tony Stark / Iron Man");  // "role" is a property stored on the relationship
+            assertEquals(rdj.movies.length, 2);
+            assertEquals(rdj.movies[0].title, "Avengers: Infinity War");
+            assertEquals(rdj.movies[0].role, "Tony Stark / Iron Man");  // "role" is a property stored on the relationship
             const infinityWar = rdj.movies[0];
             // We don't really enforce relationship properties or know when they're nullable so assume they can always be null:
             checkType<AssertPropertyPresent<typeof infinityWar, "role", string|null>>();
-            assert.equal(rdj.movies[1].title, "Tropic Thunder");
-            assert.equal(rdj.movies[1].role, "Kirk Lazarus");
+            assertEquals(rdj.movies[1].title, "Tropic Thunder");
+            assertEquals(rdj.movies[1].role, "Kirk Lazarus");
         });
 
-        suite("Test ordering a to-many virtual property by a relationship property", async () => {
+        group("Test ordering a to-many virtual property by a relationship property", () => {
             const request = newDataRequest(Person).name.moviesOrderedByRole(m => m.title.year.role())
             const filter: DataRequestFilter = {key: "rdj", };
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
 
                     OPTIONAL MATCH _path1 = (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
@@ -283,24 +280,24 @@ suite("pull", () => {
             });
             test("pull", async () => {
                 const rdj = await testGraph.pullOne(request, filter);
-                assert.equal(rdj.moviesOrderedByRole.length, 2);
+                assertEquals(rdj.moviesOrderedByRole.length, 2);
                 // Kirk Lazarus comes before Tony Stark:
-                assert.equal(rdj.moviesOrderedByRole[0].title, "Tropic Thunder");
-                assert.equal(rdj.moviesOrderedByRole[0].role, "Kirk Lazarus");
-                assert.equal(rdj.moviesOrderedByRole[1].title, "Avengers: Infinity War");
-                assert.equal(rdj.moviesOrderedByRole[1].role, "Tony Stark / Iron Man");
+                assertEquals(rdj.moviesOrderedByRole[0].title, "Tropic Thunder");
+                assertEquals(rdj.moviesOrderedByRole[0].role, "Kirk Lazarus");
+                assertEquals(rdj.moviesOrderedByRole[1].title, "Avengers: Infinity War");
+                assertEquals(rdj.moviesOrderedByRole[1].role, "Tony Stark / Iron Man");
                 // Compare this to the previous test case for the role prop, where the order was different.
             });
         });
 
         // Test a to-one virtual property/relationship:
-        suite("Get a movie's franchise", () => {
+        group("Get a movie's franchise", () => {
             const request = newDataRequest(Movie).title.franchise(f => f.name);
             // This filter will match two movies: "Avengers: Infinity War" (MCU franchise) and "The Spy Who Dumped Me" (no franchise)
             const filter: DataRequestFilter = {where: C`@this.year = 2018`};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestMovie:VNode)
                     WHERE _node.year = 2018
                     
@@ -316,23 +313,23 @@ suite("pull", () => {
             });
             test("pull", async () => {
                 const movies2018 = await testGraph.pull(request, filter);
-                assert.equal(movies2018.length, 2);
+                assertEquals(movies2018.length, 2);
                 // Movies are sorted only by year, so we don't know the order of movies that are in the same year:
                 const infinityWar = movies2018.find(m => m.title === "Avengers: Infinity War");
-                assert.isDefined(infinityWar);
-                assert.equal(infinityWar?.franchise?.name, "Marvel Cinematic Universe");
+                assert(infinityWar !== undefined);
+                assertEquals(infinityWar?.franchise?.name, "Marvel Cinematic Universe");
                 const spyDumpedMe = movies2018.find(m => m.title === "The Spy Who Dumped Me");
-                assert.isDefined(spyDumpedMe);
-                assert.equal(spyDumpedMe?.franchise, undefined);
+                assert(spyDumpedMe !== undefined);
+                assertStrictEquals(spyDumpedMe?.franchise, null);
             });
         });
 
-        suite("Test a to-one virtual property/relationship with a circular reference:", () => {
+        group("Test a to-one virtual property/relationship with a circular reference:", () => {
             const request = newDataRequest(Movie).title.franchise(f => f.name.movies(m => m.title));
             const filter: DataRequestFilter = {key: "infinity-war"};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestMovie:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
                     
                     CALL {
@@ -351,18 +348,18 @@ suite("pull", () => {
             });
             test("pull", async () => {
                 const infinityWar = await testGraph.pullOne(request, filter);
-                assert.equal(infinityWar.franchise?.name, "Marvel Cinematic Universe");
-                assert.equal(infinityWar.franchise?.movies[0].title, "Avengers: Infinity War");
+                assertEquals(infinityWar.franchise?.name, "Marvel Cinematic Universe");
+                assertEquals(infinityWar.franchise?.movies[0].title, "Avengers: Infinity War");
             });
         });
 
-        suite("Cypher expression: get a person's age", () => {
+        group("Cypher expression: get a person's age", () => {
             // This tests the "age" virtual property, which computes the Person's age within Neo4j and returns it
             const request = newDataRequest(Person).name.dateOfBirth.age();
             const filter: DataRequestFilter = {key: "chris-pratt"};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
                     WITH _node, (duration.between(_node.dateOfBirth, date()).years) AS _age1
 
@@ -380,11 +377,11 @@ suite("pull", () => {
                     return age;
                 }
                 checkType<AssertEqual<typeof chrisPratt["age"], number>>();
-                assert.equal(chrisPratt.age, getAge(chrisPratt.dateOfBirth));
+                assertEquals(chrisPratt.age, getAge(chrisPratt.dateOfBirth));
             });
         })
 
-        suite("deep pull", () => {
+        group("deep pull", () => {
             // Build a horribly deep query:
             // For every person, find their friends, then find their friend's costars, then their costar's movies and friends' movies
             const request = (newDataRequest(Person)
@@ -399,7 +396,7 @@ suite("pull", () => {
             );
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, {});
-                assert.equal(query.query, dedent`
+                assertEquals(query.query, dedent`
                     MATCH (_node:TestPerson:VNode)
 
                     OPTIONAL MATCH _path1 = (_node)-[:FRIEND_OF]-(_person1:TestPerson:VNode)
@@ -429,16 +426,16 @@ suite("pull", () => {
                 // Test this horrible query, using Scarlett Johansson as a starting point:
                 const result = await testGraph.pullOne(request, {key: "scarlett-johansson"});
                 // Scarlett Johansson is friends with Robert Downey Jr. and Karen Gillan; results sorted alphabetically by name
-                assert.deepEqual(result.friends.map(f => f.name), ["Karen Gillan", "Robert Downey Jr."]);
+                assertEquals(result.friends.map(f => f.name), ["Karen Gillan", "Robert Downey Jr."]);
                 // Robert Downey Jr.'s co-stars are Chris Pratt, Scarlett Johansson, and Karen Gillan
                 const sj_friends_rdj_costars = result.friends[1].costars;
-                assert.deepEqual(sj_friends_rdj_costars.map(costar => costar.name), ["Chris Pratt", "Karen Gillan", "Scarlett Johansson"]);
+                assertEquals(sj_friends_rdj_costars.map(costar => costar.name), ["Chris Pratt", "Karen Gillan", "Scarlett Johansson"]);
                 // Karen Gillan's friends are Dwayne Johnson and Scarlett Johansson:
                 const sj_friends_rdj_costars_kg_friends = sj_friends_rdj_costars[1].friends;
-                assert.deepEqual(sj_friends_rdj_costars_kg_friends.map(f => f.name), ["Dwayne Johnson", "Scarlett Johansson"]);
+                assertEquals(sj_friends_rdj_costars_kg_friends.map(f => f.name), ["Dwayne Johnson", "Scarlett Johansson"]);
                 // The Rock's movies (in reverse chronological order) are Jumanji: The Next Level, Jumanji: Welcome to the Jungle, Jem and the Holograms
                 const sj_friends_rdj_costars_kg_friends_dj_movies = sj_friends_rdj_costars_kg_friends[0].movies;
-                assert.deepEqual(
+                assertEquals(
                     sj_friends_rdj_costars_kg_friends_dj_movies.map(m => m.title),
                     ["Jumanji: The Next Level", "Jumanji: Welcome to the Jungle", "Jem and the Holograms"],
                 );
@@ -448,7 +445,7 @@ suite("pull", () => {
                 // And, stepping back a level, Karen Gillan's movies (in reverse chronological order) are
                 // "Jumanji: The Next Level", "Avengers: Infinity War", "Jumanji: Welcome to the Jungle", "Guardians of the Galaxy"
                 const sj_friends_rdj_costars_kg_movies = sj_friends_rdj_costars[1].movies;
-                assert.deepEqual(
+                assertEquals(
                     sj_friends_rdj_costars_kg_movies.map(m => m.title),
                     ["Jumanji: The Next Level", "Avengers: Infinity War", "Jumanji: Welcome to the Jungle", "Guardians of the Galaxy"],
                 );
@@ -459,13 +456,13 @@ suite("pull", () => {
         });
     });
 
-    suite("Queries including derived properties", () => {
+    group("Queries including derived properties", () => {
         test("Compute a property in JavaScript, using data from a raw property and virtual property that are explicitly fetched.", async () => {
             const chrisPratt = await testGraph.pullOne(Person, p => p.dateOfBirth.age().ageJS(), {key: "chris-pratt"});
-            assert.strictEqual(chrisPratt.age, chrisPratt.ageJS.ageJS);
-            assert.strictEqual(chrisPratt.age, chrisPratt.ageJS.ageNeo);
-            assert.isAtLeast(chrisPratt.ageJS.ageJS, 40);
-            assert.isAtMost(chrisPratt.ageJS.ageJS, 70);
+            assertEquals(chrisPratt.age, chrisPratt.ageJS.ageJS);
+            assertEquals(chrisPratt.age, chrisPratt.ageJS.ageNeo);
+            assert(chrisPratt.ageJS.ageJS >= 40);
+            assert(chrisPratt.ageJS.ageJS <= 70);
             // Check typing:
             checkType<AssertPropertyPresent<typeof chrisPratt.ageJS, "ageJS", number>>();
             checkType<AssertPropertyPresent<typeof chrisPratt.ageJS, "ageNeo", number>>();
@@ -474,16 +471,16 @@ suite("pull", () => {
         test("Compute a property in JavaScript, using data from a raw property and virtual property that are NOT explicitly fetched.", async () => {
             const age = (await testGraph.pullOne(Person, p => p.age(), {key: "chris-pratt"})).age;
             const chrisPratt = await testGraph.pullOne(Person, p => p.ageJS(), {key: "chris-pratt"});
-            assert.strictEqual(age, chrisPratt.ageJS.ageJS);
-            assert.isAtLeast(chrisPratt.ageJS.ageJS, 40);
-            assert.isAtMost(chrisPratt.ageJS.ageJS, 70);
+            assertEquals(age, chrisPratt.ageJS.ageJS);
+            assert(chrisPratt.ageJS.ageJS >= 40);
+            assert(chrisPratt.ageJS.ageJS <= 70);
             // Dependencies used in the calculation but not explicitly requested should be excluded from the final result:
-            assert.isUndefined((chrisPratt as any).dateOfBirth);
-            assert.isUndefined((chrisPratt as any).age);
+            assertStrictEquals((chrisPratt as any).dateOfBirth, undefined);
+            assertStrictEquals((chrisPratt as any).age, undefined);
         });
     });
 
-    suite("Deep conditional properties of all types", () => {
+    group("Deep conditional properties of all types", () => {
 
         const request = (newDataRequest(Person)
             .id
@@ -516,20 +513,20 @@ suite("pull", () => {
 
         test("no flags set", async () => {
             const chrisPratt = await testGraph.pullOne(request, {key: "chris-pratt"});
-            assert.isString(chrisPratt.id);
-            assert.isUndefined(chrisPratt.name);
-            assert.isUndefined(chrisPratt.numFriends);
-            assert.isUndefined(chrisPratt.friends);
-            assert.isUndefined(chrisPratt.costars);
+            assertEquals(typeof chrisPratt.id, "string");
+            assertStrictEquals(chrisPratt.name, undefined);
+            assertStrictEquals(chrisPratt.numFriends, undefined);
+            assertStrictEquals(chrisPratt.friends, undefined);
+            assertStrictEquals(chrisPratt.costars, undefined);
             // Request 2:
             const chrisPratt2 = await testGraph.pullOne(request2, {key: "chris-pratt"});
-            assert.isString(chrisPratt2.id);
-            assert.isUndefined(chrisPratt2.name);
-            assert.isUndefined(chrisPratt2.numFriends);
+            assertEquals(typeof chrisPratt2.id, "string");
+            assertStrictEquals(chrisPratt2.name, undefined);
+            assertStrictEquals(chrisPratt2.numFriends, undefined);
             // An empty object is returned for each friend and costar, because we included their virtual properties
             // but only conditionally included the properties of the friends and costars:
-            assert.deepStrictEqual(chrisPratt2.friends, [ {} ]);
-            assert.deepStrictEqual(chrisPratt2.costars, [ {}, {}, {}, {}, {} ]);
+            assertEquals(chrisPratt2.friends, [ {} ]);
+            assertEquals(chrisPratt2.costars, [ {}, {}, {}, {}, {} ]);
         });
 
         test("namesFlag set", async () => {
@@ -545,8 +542,8 @@ suite("pull", () => {
 
             {
                 const chrisPratt = await testGraph.pullOne(request, filter);
-                assert.isString(chrisPratt.id);
-                assert.strictEqual(chrisPratt.name, "Chris Pratt");
+                assertEquals(typeof chrisPratt.id, "string");
+                assertEquals(chrisPratt.name, "Chris Pratt");
                 // TODO / NOTE: Currently, the typing of "friends" in request 1 is
                 //     friends?: {name: string}&{numFriends: number}
                 // which is incorrect. However, representing the true type in TypeScript would get very complex; it
@@ -556,16 +553,16 @@ suite("pull", () => {
                 //     friends?: {name?: string; numFriends?: number}
                 // But solving for this edge case is likely not worth the trouble, especially since rewriting the data
                 // request into the format of "request2" solves the typing problem.
-                assert.deepStrictEqual(chrisPratt.friends, friendsExpected as any);
-                assert.deepStrictEqual(chrisPratt.costars, costarsExpected as any);
+                assertEquals(chrisPratt.friends, friendsExpected as any);
+                assertEquals(chrisPratt.costars, costarsExpected as any);
             }
 
             {
                 const chrisPratt = await testGraph.pullOne(request2, filter);
-                assert.isString(chrisPratt.id);
-                assert.strictEqual(chrisPratt.name, "Chris Pratt");
-                assert.deepStrictEqual(chrisPratt.friends, friendsExpected);
-                assert.deepStrictEqual(chrisPratt.costars, costarsExpected);
+                assertEquals(typeof chrisPratt.id, "string");
+                assertEquals(chrisPratt.name, "Chris Pratt");
+                assertEquals(chrisPratt.friends, friendsExpected);
+                assertEquals(chrisPratt.costars, costarsExpected);
             }
         });
 
@@ -583,25 +580,25 @@ suite("pull", () => {
 
             {
                 const chrisPratt = await testGraph.pullOne(request, filter);
-                assert.isString(chrisPratt.id);
-                assert.strictEqual(chrisPratt.name, "Chris Pratt");
-                assert.strictEqual(chrisPratt.numFriends, 1);
-                assert.deepStrictEqual(chrisPratt.friends, friendsExpected);
-                assert.deepStrictEqual(chrisPratt.costars, costarsExpected);
+                assertEquals(typeof chrisPratt.id, "string");
+                assertStrictEquals(chrisPratt.name, "Chris Pratt");
+                assertStrictEquals(chrisPratt.numFriends, 1);
+                assertEquals(chrisPratt.friends, friendsExpected);
+                assertEquals(chrisPratt.costars, costarsExpected);
             }
 
             {
                 const chrisPratt = await testGraph.pullOne(request2, filter);
-                assert.isString(chrisPratt.id);
-                assert.strictEqual(chrisPratt.name, "Chris Pratt");
-                assert.strictEqual(chrisPratt.numFriends, 1);
-                assert.deepStrictEqual(chrisPratt.friends, friendsExpected);
-                assert.deepStrictEqual(chrisPratt.costars, costarsExpected);
+                assertEquals(typeof chrisPratt.id, "string");
+                assertStrictEquals(chrisPratt.name, "Chris Pratt");
+                assertStrictEquals(chrisPratt.numFriends, 1);
+                assertEquals(chrisPratt.friends, friendsExpected);
+                assertEquals(chrisPratt.costars, costarsExpected);
             }
         });
     });
 
-    suite("Type safety check", () => {
+    group("Type safety check", () => {
         test("Virtual properties have to be called", async () => {
             if (Math.floor(1.0) == 2) {  // This is a compile time test, so we don't need to run any code.
                 // @ts-expect-error Requesting p.age must be done as p.age() since it's a virtual property

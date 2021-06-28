@@ -1,7 +1,10 @@
-import { suite, test, assert } from "../intern-tests";
-import { AssertEqual, checkType } from "../ts-utils";
-import { VNID } from "./vnid";
-import { VDate, Neo4jDate } from "./vdate";
+import { group, test, assert, assertEquals, assertStrictEquals, assertThrows } from "../tests.ts";
+import { AssertEqual, checkType } from "../ts-utils.ts";
+import { VNID } from "./vnid.ts";
+import { VDate } from "./vdate.ts";
+import { Person } from "../../test-project/index.ts";
+import { RawVNode } from "../../layer2/vnode-base.ts";
+import { Neo4j } from "../../deps.ts";
 import {
     Field,
     FieldType,
@@ -16,111 +19,132 @@ import {
     Path,
     PrimitiveValue,
     GenericValue,
-} from "./field";
-import { Person } from "../../test-project";
-import { RawVNode } from "../../layer2/vnode-base";
+} from "./field.ts";
 
-suite(__filename, () => {
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Validators, to test validation:
 
-    suite("Property Field type declarations", () => {
+// For testing Check() functionality, we use computed_types, which is designed to be compatible.
+import * as check from "https://denoporter.sirjosh.workers.dev/v1/deno.land/x/computed_types@v1.9.0/src/index.ts";
+// Also this custom check
+const disallowValue = <T>(disallowedValue: T) => {
+    return (value: T) => {
+        if (value === disallowedValue) { throw new Error("That value is disallowed."); }
+        return value;
+    }
+};
+const validateAllowedValues = (...values: unknown[]) => {
+    return <T>(value: T): T => {
+        if (values.includes(value)) {
+            return value;
+        }
+        throw new Error(`Value "${value}" is not one of the allowed values.`);
+    }
+}
 
-        suite("VNID", () => {
+
+
+group(import.meta, () => {
+
+    group("Property Field type declarations", () => {
+
+        group("VNID", () => {
 
             test("Basic field", () => {
                 const fieldDeclaration = Field.VNID;
-                assert.equal(fieldDeclaration.type, FieldType.VNID);
-                assert.equal(fieldDeclaration.nullable, false);
+                assertEquals(fieldDeclaration.type, FieldType.VNID);
+                assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, "_0");
                 checkType<AssertEqual<typeof value1, VNID>>();
-                assert.throws(() => { validateValue(fieldDeclaration, 123); });
-                assert.throws(() => { validateValue(fieldDeclaration, "_not a vnid"); });
-                assert.throws(() => { validateValue(fieldDeclaration, null); });
+                assertThrows(() => { validateValue(fieldDeclaration, 123); });
+                assertThrows(() => { validateValue(fieldDeclaration, "_not a vnid"); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
             });
     
             test("NullOr.", () => {
                 const fieldDeclaration = Field.NullOr.VNID;
-                assert.equal(fieldDeclaration.type, FieldType.VNID);
-                assert.equal(fieldDeclaration.nullable, true);
+                assertEquals(fieldDeclaration.type, FieldType.VNID);
+                assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, "_0");
                 checkType<AssertEqual<typeof value1, VNID|null>>();
-                const value2 = validateValue(fieldDeclaration, null);
-                assert.throws(() => { validateValue(fieldDeclaration, 123); });
-                assert.throws(() => { validateValue(fieldDeclaration, "_not a vnid"); });
+                validateValue(fieldDeclaration, null);
+                assertThrows(() => { validateValue(fieldDeclaration, 123); });
+                assertThrows(() => { validateValue(fieldDeclaration, "_not a vnid"); });
             });
     
             test(".Check(...)", () => {
                 // Add a custom check, in this case disallowing a specific value
-                const fieldDeclaration = Field.VNID.Check(v => v.disallow("_0"));
+                const fieldDeclaration = Field.VNID.Check(disallowValue(VNID("_0")));
                 const value1 = validateValue(fieldDeclaration, "_3DF8hceEobPFSS26FKl733");
                 checkType<AssertEqual<typeof value1, VNID>>();
-                assert.throws(() => { validateValue(fieldDeclaration, "_0"); });
-                assert.throws(() => { validateValue(fieldDeclaration, "_not a vnid"); });
+                assertThrows(() => { validateValue(fieldDeclaration, "_0"); });
+                assertThrows(() => { validateValue(fieldDeclaration, "_not a vnid"); });
             });
     
             test("NullOr. ... .Check(...)", () => {
                 // Add a custom check, in this case disallowing a specific value
-                const fieldDeclaration = Field.NullOr.VNID.Check(v => v.disallow("_0"));
+                const fieldDeclaration = Field.NullOr.VNID.Check(disallowValue(VNID("_0")));
                 const value1 = validateValue(fieldDeclaration, "_3DF8hceEobPFSS26FKl733");
                 checkType<AssertEqual<typeof value1, VNID|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
                 checkType<AssertEqual<typeof value2, VNID|null>>();
-                assert.throws(() => { validateValue(fieldDeclaration, "_0"); });
-                assert.throws(() => { validateValue(fieldDeclaration, "_not a vnid"); });
+                assertThrows(() => { validateValue(fieldDeclaration, "_0"); });
+                assertThrows(() => { validateValue(fieldDeclaration, "_not a vnid"); });
             });
         });
 
-        suite("Int", () => {
+        group("Int", () => {
 
             test("Basic field", () => {
                 const fieldDeclaration = Field.Int;
-                assert.equal(fieldDeclaration.type, FieldType.Int);
-                assert.equal(fieldDeclaration.nullable, false);
+                assertEquals(fieldDeclaration.type, FieldType.Int);
+                assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, 1234);
                 checkType<AssertEqual<typeof value1, number>>();
-                assert.typeOf(value1, "number")
+                assertEquals(typeof value1, "number");
                 validateValue(fieldDeclaration, -35);
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
-                assert.throws(() => { validateValue(fieldDeclaration, null); });
+                assertThrows(() => { validateValue(fieldDeclaration, "50"); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
             });
     
             test("NullOr.", () => {
                 const fieldDeclaration = Field.NullOr.Int;
-                assert.equal(fieldDeclaration.type, FieldType.Int);
-                assert.equal(fieldDeclaration.nullable, true);
+                assertEquals(fieldDeclaration.type, FieldType.Int);
+                assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, 1234);
                 checkType<AssertEqual<typeof value1, number|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
-                assert.strictEqual(value2, null);
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
-                assert.throws(() => { validateValue(fieldDeclaration, {}); });
-                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+                assertStrictEquals(value2, null);
+                assertThrows(() => { validateValue(fieldDeclaration, "50"); });
+                assertThrows(() => { validateValue(fieldDeclaration, {}); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
             });
     
             test(".Check(...)", () => {
                 // Add a custom check, in this case a range
-                const fieldDeclaration = Field.Int.Check(v => v.min(10).max(100));
+                const fieldDeclaration = Field.Int.Check(check.number.min(10).max(100));
                 validateValue(fieldDeclaration, 50);
-                assert.throws(() => { validateValue(fieldDeclaration, 0); });
-                assert.throws(() => { validateValue(fieldDeclaration, 300); });
+                assertThrows(() => { validateValue(fieldDeclaration, 0); });
+                assertThrows(() => { validateValue(fieldDeclaration, 300); });
             });
     
             test("NullOr. ... .Check(...)", () => {
                 // Add a custom check, in this case a range
-                const fieldDeclaration = Field.NullOr.Int.Check(v => v.min(10).max(100));
+                const fieldDeclaration = Field.NullOr.Int.Check(check.number.min(10).max(100));
                 const value1 = validateValue(fieldDeclaration, 50);
                 checkType<AssertEqual<typeof value1, number|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
                 checkType<AssertEqual<typeof value2, number|null>>();
-                assert.throws(() => { validateValue(fieldDeclaration, 0); });
-                assert.throws(() => { validateValue(fieldDeclaration, 300); });
+                assertThrows(() => { validateValue(fieldDeclaration, 0); });
+                assertThrows(() => { validateValue(fieldDeclaration, 300); });
             });
         });
 
-        suite("BigInt", () => {
+        group("BigInt", () => {
 
             // For testing bigints, here is a number that cannot be represented using the normal JavaScript Number type:
             const aHugeNumber = 9_444_333_222_111_000n;
@@ -128,146 +152,148 @@ suite(__filename, () => {
 
             test("Basic field", () => {
                 const fieldDeclaration = Field.BigInt;
-                assert.equal(fieldDeclaration.type, FieldType.BigInt);
-                assert.equal(fieldDeclaration.nullable, false);
+                assertEquals(fieldDeclaration.type, FieldType.BigInt);
+                assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, aHugeNumber);
                 checkType<AssertEqual<typeof value1, bigint>>();
-                assert.typeOf(value1, "bigint");
-                assert.strictEqual(value1, aHugeNumber);  // Ensure that validation has preserved the value.
+                assertEquals(typeof value1, "bigint");
+                assertStrictEquals(value1, aHugeNumber);  // Ensure that validation has preserved the value.
 
                 // Note that numbers and strings will not be auto-converted:
-                assert.throws(() => { validateValue(fieldDeclaration, 50); });
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
+                assertThrows(() => { validateValue(fieldDeclaration, 50); });
+                assertThrows(() => { validateValue(fieldDeclaration, "50"); });
                 // And confirm that null is invalid:
-                assert.throws(() => { validateValue(fieldDeclaration, null); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
             });
     
             test("NullOr.", () => {
                 const fieldDeclaration = Field.NullOr.BigInt;
-                assert.equal(fieldDeclaration.type, FieldType.BigInt);
-                assert.equal(fieldDeclaration.nullable, true);
+                assertEquals(fieldDeclaration.type, FieldType.BigInt);
+                assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, null);
-                assert.strictEqual(value1, null);
-                assert.throws(() => { validateValue(fieldDeclaration, 50); });
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
-                assert.throws(() => { validateValue(fieldDeclaration, {}); });
-                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+                assertStrictEquals(value1, null);
+                assertThrows(() => { validateValue(fieldDeclaration, 50); });
+                assertThrows(() => { validateValue(fieldDeclaration, "50"); });
+                assertThrows(() => { validateValue(fieldDeclaration, {}); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
             });
 
             test("64-bit range", () => {
                 // This number is too big to be represented as a 64-bit integer in Neo4j:
-                assert.throws(() => { validateValue(Field.BigInt, 666_555_444_333_222_111_000n); })
+                assertThrows(() => { validateValue(Field.BigInt, 666_555_444_333_222_111_000n); })
                 // And this one is too small:
-                assert.throws(() => { validateValue(Field.BigInt, -666_555_444_333_222_111_000n); })
+                assertThrows(() => { validateValue(Field.BigInt, -666_555_444_333_222_111_000n); })
             });
     
             test(".Check(...)", () => {
                 // Add a custom check, in this case a disallowed value (note: min() and max() don't work with BigInt)
-                const fieldDeclaration = Field.BigInt.Check(v => v.disallow(0n));
+                const fieldDeclaration = Field.BigInt.Check(disallowValue(0n));
                 validateValue(fieldDeclaration, 50n);
-                assert.throws(() => { validateValue(fieldDeclaration, 0n); });
+                assertThrows(() => { validateValue(fieldDeclaration, 0n); });
             });
         });
 
-        suite("Float", () => {
+        group("Float", () => {
 
             test("Basic field", () => {
                 const fieldDeclaration = Field.Float;
-                assert.equal(fieldDeclaration.type, FieldType.Float);
-                assert.equal(fieldDeclaration.nullable, false);
+                assertEquals(fieldDeclaration.type, FieldType.Float);
+                assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, Math.PI);
                 checkType<AssertEqual<typeof value1, number>>();
-                assert.typeOf(value1, "number");
-                assert.strictEqual(value1, Math.PI);  // Ensure that validation has preserved the value.
+                assert(typeof value1, "number");
+                assertStrictEquals(value1, Math.PI);  // Ensure that validation has preserved the value.
 
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
-                assert.throws(() => { validateValue(fieldDeclaration, null); });
+                assertThrows(() => { validateValue(fieldDeclaration, "50"); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
             });
     
             test("NullOr.", () => {
                 const fieldDeclaration = Field.NullOr.Float;
-                assert.equal(fieldDeclaration.type, FieldType.Float);
-                assert.equal(fieldDeclaration.nullable, true);
+                assertEquals(fieldDeclaration.type, FieldType.Float);
+                assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, 1234.5678);
                 checkType<AssertEqual<typeof value1, number|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
-                assert.strictEqual(value2, null);
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
-                assert.throws(() => { validateValue(fieldDeclaration, {}); });
-                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+                assertStrictEquals(value2, null);
+                assertThrows(() => { validateValue(fieldDeclaration, "50"); });
+                assertThrows(() => { validateValue(fieldDeclaration, {}); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
             });
     
             test(".Check(...)", () => {
                 // Add a custom check, in this case a limited range of values:
-                const fieldDeclaration = Field.Float.Check(v => v.min(3.1).max(3.8));
+                const fieldDeclaration = Field.Float.Check(check.number.min(3.1).max(3.8));
                 validateValue(fieldDeclaration, Math.PI);
-                assert.throws(() => { validateValue(fieldDeclaration, 2.5); });
+                assertThrows(() => { validateValue(fieldDeclaration, 2.5); });
             });
         });
 
-        suite("String", () => {
+        group("String", () => {
 
             test("Basic field", () => {
                 const fieldDeclaration = Field.String;
-                assert.equal(fieldDeclaration.type, FieldType.String);
-                assert.equal(fieldDeclaration.nullable, false);
+                assertEquals(fieldDeclaration.type, FieldType.String);
+                assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, "Hello 世界");
                 checkType<AssertEqual<typeof value1, string>>();
-                assert.typeOf(value1, "string");
-                assert.strictEqual(value1, "Hello 世界");  // Ensure that validation has preserved the value.
+                assertEquals(typeof value1, "string");
+                assertStrictEquals(value1, "Hello 世界");  // Ensure that validation has preserved the value.
 
-                assert.throws(() => { validateValue(fieldDeclaration, 50); });
-                assert.throws(() => { validateValue(fieldDeclaration, null); });
+                assertThrows(() => { validateValue(fieldDeclaration, 50); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
             });
     
             test("NullOr.", () => {
                 const fieldDeclaration = Field.NullOr.String;
-                assert.equal(fieldDeclaration.type, FieldType.String);
-                assert.equal(fieldDeclaration.nullable, true);
+                assertEquals(fieldDeclaration.type, FieldType.String);
+                assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, "Hello 世界");
                 checkType<AssertEqual<typeof value1, string|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
-                assert.strictEqual(value2, null);
-                assert.throws(() => { validateValue(fieldDeclaration, 50); });
-                assert.throws(() => { validateValue(fieldDeclaration, {}); });
-                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+                assertStrictEquals(value2, null);
+                assertThrows(() => { validateValue(fieldDeclaration, 50); });
+                assertThrows(() => { validateValue(fieldDeclaration, {}); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
             });
 
             test("Length limit defaults to 1,000 but can be changed", () => {
+                // Test the default limit of 1,000:
                 validateValue(Field.String, "a".repeat(1_000));
-                assert.throws(() => { validateValue(Field.String, "a".repeat(1_001)); });
-                const customLengthField = Field.String.Check(s => s.max(10_000));
+                assertThrows(() => { validateValue(Field.String, "a".repeat(1_001)); });
+                // Test raising the limit to 10,000:
+                const customLengthField = Field.String.Check(check.string.max(10_000));
                 validateValue(customLengthField, "a".repeat(2_000));
-                assert.throws(() => { validateValue(customLengthField, "a".repeat(20_000)); });
+                assertThrows(() => { validateValue(customLengthField, "a".repeat(20_000)); });
             });
     
             test(".Check(...)", () => {
                 // Add a custom check, in this case an email address validator:
-                const fieldDeclaration = Field.String.Check(v => v.email());
+                const fieldDeclaration = Field.String.Check(Field.validators.email);
                 validateValue(fieldDeclaration, "example@example.com");
-                assert.throws(() => { validateValue(fieldDeclaration, "not an email"); });
+                assertThrows(() => { validateValue(fieldDeclaration, "not an email"); });
             });
         });
 
-        suite("Slug", () => {
+        group("Slug", () => {
 
             test("Basic field", () => {
                 const fieldDeclaration = Field.Slug;
-                assert.equal(fieldDeclaration.type, FieldType.Slug);
-                assert.equal(fieldDeclaration.nullable, false);
+                assertEquals(fieldDeclaration.type, FieldType.Slug);
+                assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, "a-slug");
                 checkType<AssertEqual<typeof value1, string>>();
-                assert.typeOf(value1, "string");
-                assert.strictEqual(value1, "a-slug");  // Ensure that validation has preserved the value.
+                assertEquals(typeof value1, "string");
+                assertStrictEquals(value1, "a-slug");  // Ensure that validation has preserved the value.
                 // These should all be valid:
-                const check = (str: string): void => assert.strictEqual(validateValue(fieldDeclaration, str), str);
+                const check = (str: string) => assertEquals(validateValue(fieldDeclaration, str), str);
                 check("CAPITALS");
                 check("many-long-words");
                 check("Solární-panel");
@@ -275,204 +301,204 @@ suite(__filename, () => {
                 check("солнечная-панель")
                 check("لوحة-شمسية");
 
-                assert.throws(() => { validateValue(fieldDeclaration, "spaces between words"); });
-                assert.throws(() => { validateValue(fieldDeclaration, "under_score"); });
-                assert.throws(() => { validateValue(fieldDeclaration, null); });
+                assertThrows(() => { validateValue(fieldDeclaration, "spaces between words"); });
+                assertThrows(() => { validateValue(fieldDeclaration, "under_score"); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
             });
     
             test("NullOr.", () => {
                 const fieldDeclaration = Field.NullOr.Slug;
-                assert.equal(fieldDeclaration.type, FieldType.Slug);
-                assert.equal(fieldDeclaration.nullable, true);
+                assertEquals(fieldDeclaration.type, FieldType.Slug);
+                assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, "a-slug");
                 checkType<AssertEqual<typeof value1, string|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
-                assert.strictEqual(value2, null);
-                assert.throws(() => { validateValue(fieldDeclaration, "under_score"); });
-                assert.throws(() => { validateValue(fieldDeclaration, {}); });
-                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+                assertStrictEquals(value2, null);
+                assertThrows(() => { validateValue(fieldDeclaration, "under_score"); });
+                assertThrows(() => { validateValue(fieldDeclaration, {}); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
             });
 
             test("Length limit defaults to 60 but can be increased", () => {
                 validateValue(Field.Slug, "a".repeat(60));
-                assert.throws(() => { validateValue(Field.Slug, "a".repeat(61)); });
-                const customLengthField = Field.Slug.Check(s => s.max(100));
+                assertThrows(() => { validateValue(Field.Slug, "a".repeat(61)); });
+                const customLengthField = Field.Slug.Check(check.string.max(100));
                 validateValue(customLengthField, "a".repeat(100));
-                assert.throws(() => { validateValue(customLengthField, "a".repeat(200)); });
+                assertThrows(() => { validateValue(customLengthField, "a".repeat(200)); });
             });
     
             test(".Check(...)", () => {
                 // Add a custom check, in this case that the slug must be lowercase:
-                const fieldDeclaration = Field.Slug.Check(v => v.lowercase());
+                const fieldDeclaration = Field.Slug.Check(check.string.toLowerCase());
                 validateValue(fieldDeclaration, "lowercase-slug");
-                assert.throws(() => { validateValue(fieldDeclaration, "Capital-Slug"); });
+                assertEquals(validateValue(fieldDeclaration, "Capital-Slug"), "capital-slug");
             });
         });
 
-        suite("Boolean", () => {
+        group("Boolean", () => {
 
             test("Basic field", () => {
                 const fieldDeclaration = Field.Boolean;
-                assert.equal(fieldDeclaration.type, FieldType.Boolean);
-                assert.equal(fieldDeclaration.nullable, false);
+                assertEquals(fieldDeclaration.type, FieldType.Boolean);
+                assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, true);
                 checkType<AssertEqual<typeof value1, boolean>>();
-                assert.typeOf(value1, "boolean");
-                assert.strictEqual(value1, true);  // Ensure that validation has preserved the value.
+                assertEquals(typeof value1, "boolean");
+                assertStrictEquals(value1, true);  // Ensure that validation has preserved the value.
 
-                assert.throws(() => { validateValue(fieldDeclaration, "true"); });
-                assert.throws(() => { validateValue(fieldDeclaration, null); });
+                assertThrows(() => { validateValue(fieldDeclaration, "true"); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
             });
     
             test("NullOr.", () => {
                 const fieldDeclaration = Field.NullOr.Boolean;
-                assert.equal(fieldDeclaration.type, FieldType.Boolean);
-                assert.equal(fieldDeclaration.nullable, true);
+                assertEquals(fieldDeclaration.type, FieldType.Boolean);
+                assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, true);
                 checkType<AssertEqual<typeof value1, boolean|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
-                assert.strictEqual(value2, null);
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
-                assert.throws(() => { validateValue(fieldDeclaration, {}); });
-                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+                assertStrictEquals(value2, null);
+                assertThrows(() => { validateValue(fieldDeclaration, "50"); });
+                assertThrows(() => { validateValue(fieldDeclaration, {}); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
             });
 
             // Not many checks worth doing for a single boolean value, so we don't test .Check()
         });
 
-        suite("Date", () => {
+        group("Date", () => {
             const stringDate = "2021-06-01";
 
             test("Basic field", () => {
                 const fieldDeclaration = Field.Date;
-                assert.equal(fieldDeclaration.type, FieldType.Date);
-                assert.equal(fieldDeclaration.nullable, false);
+                assertEquals(fieldDeclaration.type, FieldType.Date);
+                assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, VDate.fromString(stringDate));
                 checkType<AssertEqual<typeof value1, VDate>>();
-                assert.typeOf(value1, "object");
-                assert.instanceOf(value1, VDate);
-                assert.strictEqual(value1.toString(), stringDate);
+                assertEquals(typeof value1, "object");
+                assert(value1 instanceof VDate);
+                assertStrictEquals(value1.toString(), stringDate);
                 // Also, Neo4j dates are allowed:
-                assert.equal(validateValue(fieldDeclaration, new Neo4jDate<number>(2021, 6, 1)).toString(), "2021-06-01");
+                assertEquals(validateValue(fieldDeclaration, new Neo4j.Date<number>(2021, 6, 1)).toString(), "2021-06-01");
 
                 // We do not auto-convert string values to VDate, because that could hide an issue where some date
                 // property values in the database are stored as strings while others are stored as dates.
-                assert.throws(() => { validateValue(fieldDeclaration, stringDate); });
+                assertThrows(() => { validateValue(fieldDeclaration, stringDate); });
                 // JavaScript Date objects are not allowed, due to timezone issues
                 // e.g. on my system, new Date("2021-03-01").toString() gives "Feb 28 2021..."
-                assert.throws(() => { validateValue(fieldDeclaration, new Date()); });
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
-                assert.throws(() => { validateValue(fieldDeclaration, null); });
+                assertThrows(() => { validateValue(fieldDeclaration, new Date()); });
+                assertThrows(() => { validateValue(fieldDeclaration, "50"); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
             });
     
             test("NullOr.", () => {
                 const fieldDeclaration = Field.NullOr.Date;
-                assert.equal(fieldDeclaration.type, FieldType.Date);
-                assert.equal(fieldDeclaration.nullable, true);
+                assertEquals(fieldDeclaration.type, FieldType.Date);
+                assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, VDate.fromString(stringDate));
                 checkType<AssertEqual<typeof value1, VDate|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
-                assert.strictEqual(value2, null);
-                assert.throws(() => { validateValue(fieldDeclaration, stringDate); });
-                assert.throws(() => { validateValue(fieldDeclaration, {}); });
-                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+                assertStrictEquals(value2, null);
+                assertThrows(() => { validateValue(fieldDeclaration, stringDate); });
+                assertThrows(() => { validateValue(fieldDeclaration, {}); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
             });
     
             // Date values don't really support useful custom .Check() operations at the moment.
         });
 
-        suite("DateTime", () => {
+        group("DateTime", () => {
             const stringDate = "2021-05-10T00:10:41.079Z";
             const dateValue = new Date(stringDate);
-            assert.strictEqual(dateValue.toISOString(), stringDate);  // Validate round-trip parsing
+            assertEquals(dateValue.toISOString(), stringDate);  // Validate round-trip parsing
 
             test("Basic field", () => {
                 const fieldDeclaration = Field.DateTime;
-                assert.equal(fieldDeclaration.type, FieldType.DateTime);
-                assert.equal(fieldDeclaration.nullable, false);
+                assertEquals(fieldDeclaration.type, FieldType.DateTime);
+                assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, dateValue);
                 checkType<AssertEqual<typeof value1, Date>>();
-                assert.instanceOf(value1, Date);
-                assert.strictEqual(value1.toISOString(), stringDate);
+                assert(value1 instanceof Date);
+                assertStrictEquals(value1.toISOString(), stringDate);
                 // Note, Joi does not allow strings as datetimes - parse them first:
-                assert.throws(() => { validateValue(fieldDeclaration, stringDate); });
+                assertThrows(() => { validateValue(fieldDeclaration, stringDate); });
 
                 // And non-dates are of course not allowed:
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
-                assert.throws(() => { validateValue(fieldDeclaration, null); });
+                assertThrows(() => { validateValue(fieldDeclaration, "50"); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
             });
     
             test("NullOr.", () => {
                 const fieldDeclaration = Field.NullOr.DateTime;
-                assert.equal(fieldDeclaration.type, FieldType.DateTime);
-                assert.equal(fieldDeclaration.nullable, true);
+                assertEquals(fieldDeclaration.type, FieldType.DateTime);
+                assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, dateValue);
                 checkType<AssertEqual<typeof value1, Date|null>>();
                 const value2 = validateValue(fieldDeclaration, null);
-                assert.strictEqual(value2, null);
-                assert.throws(() => { validateValue(fieldDeclaration, "50"); });
-                assert.throws(() => { validateValue(fieldDeclaration, {}); });
-                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
+                assertStrictEquals(value2, null);
+                assertThrows(() => { validateValue(fieldDeclaration, "50"); });
+                assertThrows(() => { validateValue(fieldDeclaration, {}); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
             });
 
             test(".Check(...)", () => {
                 // Add a custom check, in this case that the date falls in the year 2021:
-                const fieldDeclaration = Field.DateTime.Check(v => v.greater("2021-01-01").less("2022-01-01"));
+                const fieldDeclaration = Field.DateTime.Check(check.DateType.min(new Date("2021-01-01")).max(new Date("2022-01-01")));
                 validateValue(fieldDeclaration, new Date("2021-05-06"));
-                assert.throws(() => { validateValue(fieldDeclaration, new Date("2024-05-06")); });
-                assert.throws(() => { validateValue(fieldDeclaration, new Date("2020-02-03")); });
+                assertThrows(() => { validateValue(fieldDeclaration, new Date("2024-05-06")); });
+                assertThrows(() => { validateValue(fieldDeclaration, new Date("2020-02-03")); });
             });
         });
 
-        suite("AnyPrimitive", () => {
+        group("AnyPrimitive", () => {
 
             test("Basic field", () => {
                 const fieldDeclaration = Field.AnyPrimitive;
-                assert.equal(fieldDeclaration.type, FieldType.AnyPrimitive);
+                assertEquals(fieldDeclaration.type, FieldType.AnyPrimitive);
     
                 const value1 = validateValue(fieldDeclaration, 12345);
                 checkType<AssertEqual<typeof value1, PrimitiveValue>>();
-                assert.strictEqual(value1, 12345);
+                assertStrictEquals(value1, 12345);
                 // That was a number, check that other primitive types are supported:
-                assert.strictEqual(validateValue(fieldDeclaration, null), null);
-                assert.strictEqual(validateValue(fieldDeclaration, 999_888_777_666_555_444_333n), 999_888_777_666_555_444_333n);
-                assert.strictEqual(validateValue(fieldDeclaration, "string"), "string");
-                assert.strictEqual(validateValue(fieldDeclaration, true), true);
-                assert.strictEqual(validateValue(fieldDeclaration, VDate.fromString("2021-05-14"))?.toString(), "2021-05-14");
+                assertStrictEquals(validateValue(fieldDeclaration, null), null);
+                assertStrictEquals(validateValue(fieldDeclaration, 999_888_777_666_555_444_333n), 999_888_777_666_555_444_333n);
+                assertStrictEquals(validateValue(fieldDeclaration, "string"), "string");
+                assertStrictEquals(validateValue(fieldDeclaration, true), true);
+                assertStrictEquals(validateValue(fieldDeclaration, VDate.fromString("2021-05-14"))?.toString(), "2021-05-14");
                 const someDate = new Date();
                 const dateValueOut = validateValue(fieldDeclaration, someDate);
-                assert.instanceOf(dateValueOut, Date);
-                assert.strictEqual((dateValueOut as Date).toISOString(), someDate.toISOString());
+                assert(dateValueOut instanceof Date);
+                assertEquals((dateValueOut as Date).toISOString(), someDate.toISOString());
                 
                 // And non-primitive values are of course not allowed:
-                assert.throws(() => { validateValue(fieldDeclaration, {foo: "bar"}); });
-                assert.throws(() => { validateValue(fieldDeclaration, undefined); });
-                assert.throws(() => { validateValue(fieldDeclaration, [1,2,3]); });
-                assert.throws(() => { validateValue(fieldDeclaration, Math); });
+                assertThrows(() => { validateValue(fieldDeclaration, {foo: "bar"}); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
+                assertThrows(() => { validateValue(fieldDeclaration, [1,2,3]); });
+                assertThrows(() => { validateValue(fieldDeclaration, Math); });
             });
 
             test(".Check(...)", () => {
                 // Add a custom check, in this case restricting it to a set of integers and null:
-                const fieldDeclaration = Field.AnyPrimitive.Check(v => v.valid(1,2,3,4,5,null));
+                const fieldDeclaration = Field.AnyPrimitive.Check(validateAllowedValues(1,2,3,4,5,null));
                 validateValue(fieldDeclaration, 3);
                 validateValue(fieldDeclaration, null);
-                assert.throws(() => { validateValue(fieldDeclaration, "5"); });  // string, not allowed
-                assert.throws(() => { validateValue(fieldDeclaration, 10); });
+                assertThrows(() => { validateValue(fieldDeclaration, "5"); });  // string, not allowed
+                assertThrows(() => { validateValue(fieldDeclaration, 10); });
             });
         });
 
-        suite("validatePropSchema", () => {
+        group("validatePropSchema", () => {
             const buildingSchema: PropSchema = {
                 name: Field.String,
-                numHomes: Field.Int.Check(n => n.min(1)),  // How many homes/apartments are in this building
-                numOccupiedHomes: Field.Int.Check(n => n.min(0).max(Field.Check.ref("numHomes"))),
+                numHomes: Field.Int.Check(check.number.min(1)),  // How many homes/apartments are in this building
+                numOccupiedHomes: Field.Int.Check(check.number.min(0).max(100/* reference to numHomes not supported */)),
             };
 
             test("Accepts a valid value", () => {
@@ -484,31 +510,21 @@ suite(__filename, () => {
             });
 
             test("Rejects an invalid value", () => {
-                assert.throws(() => {
+                assertThrows(() => {
                     validatePropSchema(buildingSchema, {
                         name: "Imaginary Building",
                         numHomes: 0,
                         numOccupiedHomes: -50,
                     });
-                }, `"numHomes" must be greater than or equal to 1`);
-            });
-
-            test("Rejects an invalid value using Joi reference", () => {
-                assert.throws(() => {
-                    validatePropSchema(buildingSchema, {
-                        name: "SuperOccupied Terrace",
-                        numHomes: 40,
-                        numOccupiedHomes: 50,  // Invalid since it's larger than homes
-                    });
-                }, `"numOccupiedHomes" must be less than or equal to ref:numHomes`);
+                }, undefined, `Expect value to be greater or equal than 1 (actual: 0)`);
             });
         });
     });
 
-    suite("Property vs Generic vs Response Schemas", () => {
+    group("Property vs Generic vs Response Schemas", () => {
 
         test("Property Schemas can hold only property typed values", () => {
-            const valid = PropSchema({
+            const _valid = PropSchema({
                 fieldId: Field.VNID,
                 fieldNullId: Field.NullOr.VNID,
                 fieldInt: Field.Int,
@@ -539,7 +555,7 @@ suite(__filename, () => {
         });
 
         test("Generic Schemas can hold property typed values and composite types, but not response types", () => {
-            const valid = GenericSchema({
+            const _valid = GenericSchema({
                 fieldId: Field.VNID,
                 fieldNullId: Field.NullOr.VNID,
                 fieldInt: Field.Int,
@@ -568,7 +584,7 @@ suite(__filename, () => {
         });
 
         test("Response Schemas can hold property typed values and composite types and response types", () => {
-            const valid = ResponseSchema({
+            const _valid = ResponseSchema({
                 fieldId: Field.VNID,
                 fieldNullId: Field.NullOr.VNID,
                 fieldInt: Field.Int,
@@ -593,7 +609,7 @@ suite(__filename, () => {
         });
     });
 
-    suite("ResponseSchema and GetDataShape", () => {
+    group("ResponseSchema and GetDataShape", () => {
 
         // Basic property field types:
         test("VNID", () => {
@@ -741,6 +757,7 @@ suite(__filename, () => {
         });
         test("Any", () => {
             const shape = ResponseSchema({someUnknownValue: Field.Any});
+            // deno-lint-ignore no-explicit-any
             checkType<AssertEqual<GetDataShape<typeof shape>, {someUnknownValue: any}>>();
         });
     });

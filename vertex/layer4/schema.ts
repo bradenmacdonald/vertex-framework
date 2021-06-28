@@ -1,8 +1,8 @@
 /**
  * The core database Schema for Actions in a Vertex Framework Application
  */
-import { Migration } from "../vertex-interface";
-import { VNID } from "../lib/types/vnid";
+import { Migration } from "../vertex-interface.ts";
+import { VNID } from "../lib/types/vnid.ts";
 
 // The VNID of the system user.
 export const SYSTEM_VNID: VNID = VNID("_0");

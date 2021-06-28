@@ -1,5 +1,0 @@
-{
-    "suites": "./vertex/**/*.test.ts",
-    "environments": ["node"],
-    "coverage": ["./vertex/**/*.ts", "!./vertex/**/*.test.ts"]
-}

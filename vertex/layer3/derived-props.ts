@@ -1,14 +1,15 @@
-import type { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
-import type { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request";
-import type { DataResponse } from "./data-response";
-import type { VirtualPropsMixin } from "./data-request-mixins";
+// deno-lint-ignore-file no-explicit-any
+import type { VNodeType, VNodeTypeWithVirtualProps } from "./vnode.ts";
+import type { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request.ts";
+import type { DataResponse } from "./data-response.ts";
+import type { VirtualPropsMixin } from "./data-request-mixins.ts";
 
 /**
  * Derived properties are a special type of virtual property which gets computed with the help of some callback function
  * (i.e. computed by JavaScript code), and which have access to values from other raw and virtual properties.
  * 
  * Declare derived properties within a VNodeType class definition like this:
- *     static derivedProperties = Person.hasDerivedProperties({
+ *     static derivedProperties = this.hasDerivedProperties({
  *         propName,
  *     });
  *

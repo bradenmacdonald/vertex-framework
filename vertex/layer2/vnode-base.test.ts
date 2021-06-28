@@ -1,28 +1,9 @@
 import {
     VNodeType,
     Field,
-} from "..";
-import { suite, test, assert } from "../lib/intern-tests";
-import { getAllLabels, getRelationshipType } from "./vnode-base";
-
-
-suite("BaseVNodeType", () => {
-    test("registerVNodeType", () => {
-
-        class SomeVNT extends VNodeType {
-            static readonly label = "SomeVNT";
-            static readonly properties = {
-                ...VNodeType.properties,
-            };
-        }
-
-        VNodeType.declare(SomeVNT);
-        assert.throws(() => {
-            VNodeType.declare(SomeVNT);
-        }, "Duplicate VNodeType label: SomeVNT");
-    });
-});
-
+} from "../index.ts";
+import { group, test, assertEquals, assertStrictEquals, assertThrows } from "../lib/tests.ts";
+import { getAllLabels, getRelationshipType } from "./vnode-base.ts";
 
 /** A VNodeType for use in this test suite. */
 @VNodeType.declare
@@ -41,10 +22,10 @@ class Manager extends Employee {
     static properties = {
         ...Employee.properties,
     };
-    static rel = {
+    static rel = this.hasRelationshipsFromThisTo({
         // A -to-many relationship:
         MANAGER_OF: { to: [Employee], properties: { since: Field.DateTime } }
-    };
+    });
 }
 
 /** A VNodeType for use in this test suite. */
@@ -61,38 +42,56 @@ class Executive extends Manager {
     };
 }
 
-suite(__filename, () => {
+group(import.meta, () => {
 
-    suite("getAllLabels", () => {
+
+    group("BaseVNodeType", () => {
+        test("VNodeType.declare", () => {
+
+            class SomeVNT extends VNodeType {
+                static readonly label = "SomeVNT";
+                static readonly properties = {
+                    ...VNodeType.properties,
+                };
+            }
+
+            VNodeType.declare(SomeVNT);
+            assertThrows(() => {
+                VNodeType.declare(SomeVNT);
+            }, undefined, "Duplicate VNodeType label: SomeVNT");
+        });
+    });
+
+    group("getAllLabels", () => {
 
         test("Employee", () => {
-            assert.sameOrderedMembers(getAllLabels(Employee), ["Employee", "VNode"]);
+            assertEquals(getAllLabels(Employee), ["Employee", "VNode"]);
         });
 
         test("Manager", () => {
-            assert.sameOrderedMembers(getAllLabels(Manager), ["Manager", "Employee", "VNode"]);
+            assertEquals(getAllLabels(Manager), ["Manager", "Employee", "VNode"]);
         });
 
         test("Executive", () => {
             // Note: these should be in order, base class last.
-            assert.sameOrderedMembers(getAllLabels(Executive), ["Executive", "Manager", "Employee", "VNode"]);
+            assertEquals(getAllLabels(Executive), ["Executive", "Manager", "Employee", "VNode"]);
         });
     });
 
-    suite("VNodeType.rel relationship declarations", () => {
+    group("VNodeType.rel relationship declarations", () => {
 
         test("basic sanity check", () => {
-            assert.strictEqual(getRelationshipType(Manager.rel.MANAGER_OF), "MANAGER_OF");
-            assert.deepStrictEqual(Manager.rel.MANAGER_OF.to, [Employee]);
+            assertStrictEquals(getRelationshipType(Manager.rel.MANAGER_OF), "MANAGER_OF");
+            assertEquals(Manager.rel.MANAGER_OF.to, [Employee]);
         });
 
         test("can inherit relationship properties", () => {
             // Inherited relationship:
-            assert.deepStrictEqual(Manager.rel.MANAGER_OF, Executive.rel.MANAGER_OF);
-            assert.deepStrictEqual(Executive.rel.MANAGER_OF.to, [Employee]);
+            assertEquals(Manager.rel.MANAGER_OF, Executive.rel.MANAGER_OF);
+            assertEquals(Executive.rel.MANAGER_OF.to, [Employee]);
             // New relationship:
-            assert.strictEqual(getRelationshipType(Executive.rel.HAS_ASSISTANT), "HAS_ASSISTANT");
-            assert.deepStrictEqual(Executive.rel.HAS_ASSISTANT.to, [Employee]);
+            assertStrictEquals(getRelationshipType(Executive.rel.HAS_ASSISTANT), "HAS_ASSISTANT");
+            assertEquals(Executive.rel.HAS_ASSISTANT.to, [Employee]);
         });
     });
 });

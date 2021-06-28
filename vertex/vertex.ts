@@ -1,16 +1,17 @@
-import neo4j, { Driver } from "neo4j-driver-lite";
-import { ActionRequest, ActionResult } from "./layer4/action";
-import { runAction } from "./layer4/action-runner";
-import { log } from "./lib/log";
-import { looksLikeVNID, VNID } from "./lib/types/vnid";
-import { PullNoTx, PullOneNoTx } from "./layer3/pull";
-import { migrations as coreMigrations } from "./layer2/schema";
-import { migrations as actionMigrations, SYSTEM_VNID } from "./layer4/schema";
-import { WrappedTransaction } from "./transaction";
-import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface";
-import { VNodeKey } from "./lib/key";
-import { C } from "./layer2/cypher-sugar";
-import { Field } from "./lib/types/field";
+// deno-lint-ignore-file no-explicit-any
+import { neo4j, Neo4j } from "./deps.ts";
+import { ActionRequest, ActionResult } from "./layer4/action.ts";
+import { runAction } from "./layer4/action-runner.ts";
+import { log } from "./lib/log.ts";
+import { looksLikeVNID, VNID } from "./lib/types/vnid.ts";
+import { PullNoTx, PullOneNoTx } from "./layer3/pull.ts";
+import { migrations as coreMigrations } from "./layer2/schema.ts";
+import { migrations as actionMigrations, SYSTEM_VNID } from "./layer4/schema.ts";
+import { WrappedTransaction } from "./transaction.ts";
+import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface.ts";
+import { VNodeKey } from "./lib/key.ts";
+import { C } from "./layer2/cypher-sugar.ts";
+import { Field } from "./lib/types/field.ts";
 
 
 export interface InitArgs {
@@ -22,7 +23,7 @@ export interface InitArgs {
 }
 
 export class Vertex implements VertexCore {
-    private readonly driver: Driver;
+    private readonly driver: Neo4j.Driver;
     public readonly migrations: {[name: string]: Migration};
 
     constructor(config: InitArgs) {
@@ -35,7 +36,7 @@ export class Vertex implements VertexCore {
     }
 
     /** Await this when your application prepares to shut down */
-    public async shutdown(): Promise<void> {
+    public shutdown(): Promise<void> {
         return this.driver.close();
     }
 
@@ -85,7 +86,7 @@ export class Vertex implements VertexCore {
      * @param action The action to run
      * @param otherActions Additional actions to run, if desired.
      */
-    public async runAsSystem<T extends ActionRequest>(action: T, ...otherActions: ActionRequest[]): Promise<ActionResult<T>> {
+    public runAsSystem<T extends ActionRequest>(action: T, ...otherActions: ActionRequest[]): Promise<ActionResult<T>> {
         return this.runAs(SYSTEM_VNID, action, ...otherActions);
     }
 
@@ -96,7 +97,7 @@ export class Vertex implements VertexCore {
         if (looksLikeVNID(key)) {
             return key;
         }
-        return this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": Field.VNID}))).then(result => result["vn.id"]);
+        return await this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": Field.VNID}))).then(result => result["vn.id"]);
     }
 
     /**
@@ -125,7 +126,7 @@ export class Vertex implements VertexCore {
      * we don't use Actions, so we need to pause the trigger during migrations or the trigger
      * will throw an exception and prevent the migration transactions from committing.
      */
-    public async _restrictedAllowWritesWithoutAction(someCode: () => Promise<any>): Promise<void> {
+    public async _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<void> {
         try {
             if (await this.isTriggerInstalled("trackActionChanges")) {
                 await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.pause("trackActionChanges")`));
@@ -235,7 +236,7 @@ export class Vertex implements VertexCore {
                     }
                 });
                 // Apply the migration
-                log(`Applying migration "${migrationId}"`);
+                log.info(`Applying migration "${migrationId}"`);
                 await this._restrictedAllowWritesWithoutAction(async () => {
                     await migration.forward(dbWrite);
                     await dbWrite(tx =>
@@ -250,7 +251,7 @@ export class Vertex implements VertexCore {
                 appliedMigrationIds.add(migrationId);
             }
         }
-        log.success("Migrations applied.");
+        log.info("Migrations applied.");
     }
 
     public async reverseMigration(id: string): Promise<void> {
@@ -265,7 +266,7 @@ export class Vertex implements VertexCore {
             throw new Error(`Cannot reverse migration "${id}": another migration, ${blockers.records[0].get("id")} depends on it.`);
         }
         // Reverse the migration
-        log(`Reversing migration "${id}"`);
+        log.info(`Reversing migration "${id}"`);
         await this._restrictedAllowWritesWithoutAction(async () => {
             await migration.backward(dbWrite);
             await dbWrite(tx => tx.run(`MATCH (m:Migration {id: $id}) DETACH DELETE m`, {id, }));
@@ -285,7 +286,7 @@ export class Vertex implements VertexCore {
             }
             await this.reverseMigration(id);
         }
-        log.success("Migrations reset.");
+        log.info("Migrations reset.");
     }
 
 }

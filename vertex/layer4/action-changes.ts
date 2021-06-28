@@ -1,12 +1,11 @@
-import { DateTime } from "neo4j-driver-lite";
-import { C } from "../layer2/cypher-sugar";
-import { VNID } from "../lib/key";
-import { Field } from "../lib/types/field";
-import { Neo4jDate } from "../lib/types/vdate";
-import { WrappedTransaction } from "../transaction";
-import { Action } from "./action";
+import { Neo4j } from "../deps.ts";
+import { C } from "../layer2/cypher-sugar.ts";
+import { VNID } from "../lib/key.ts";
+import { Field } from "../lib/types/field.ts";
+import { WrappedTransaction } from "../transaction.ts";
+import { Action } from "./action.ts";
 
-type RawPropertyValue = string|bigint|number|boolean|Neo4jDate|DateTime;
+type RawPropertyValue = string|bigint|number|boolean|Neo4j.Date|Neo4j.DateTime;
 
 export interface ActionChangeSet {
     createdNodes: {

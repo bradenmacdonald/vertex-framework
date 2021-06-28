@@ -8,7 +8,7 @@
  *  :SlugId - label for SlugId nodes, used to allow looking up a VNode by its current _or_ past slugId values
  *  :User:VNode - label for the User VNode type; must exist and be a VNode but details are up to the application
  */
-import { Migration } from "../vertex-interface";
+import { Migration } from "../vertex-interface.ts";
 
 export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
     // ES6 objects preserve string key order, so these migrations don't need numbers, only string IDs.

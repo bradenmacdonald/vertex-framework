@@ -1,6 +1,7 @@
-import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType, RelationshipsSchema } from "../layer2/vnode-base";
-import { CleanDerivedProps, DerivedProperty, DerivedPropsSchema, DerivedPropsSchemaCleaned } from "./derived-props";
-import type { VirtualPropsSchema } from "./virtual-props";
+import { BaseVNodeType, emptyObj, getVNodeType as baseGetVNodeType, RelationshipsSchema } from "../layer2/vnode-base.ts";
+import { CleanDerivedProps, DerivedProperty, DerivedPropsSchema } from "./derived-props.ts";
+import type { VirtualPropsSchema } from "./virtual-props.ts";
+import { deferrable, Deferrable } from "../lib/deferrable.ts";
 
 
 // In some parts of the code, it's necessary to refer to a type that has virtual props but not derived props:
@@ -23,13 +24,13 @@ export abstract class VNodeType extends BaseVNodeType {
     static readonly derivedProperties: DerivedPropsSchema = emptyObj;
 
     /** Completely optional helper method to declare a VNodeType's "rel" (relationships) property with correct typing. */
-    static hasRelationshipsFromThisTo<Rels extends RelationshipsSchema>(relationships: Rels): Rels {
-        return relationships;
+    static hasRelationshipsFromThisTo<Rels extends RelationshipsSchema>(relationships: Deferrable<Rels>): Rels {
+        return deferrable(relationships);
     }
 
     /** Completely optional helper method to declare a VNodeType's "virtualProperties" with correct typing. */
-    static hasVirtualProperties<VPS extends VirtualPropsSchema>(props: VPS): VPS {
-        return props;
+    static hasVirtualProperties<VPS extends VirtualPropsSchema>(props: Deferrable<VPS>): VPS {
+        return deferrable(props);
     }
 
     /** Completely optional helper method to declare a VNodeType's "derivedProperties" with correct typing */
@@ -38,6 +39,7 @@ export abstract class VNodeType extends BaseVNodeType {
         // @VNodeType.declare that changes the type of this, converting any derived props that are functions to the
         // DerivedProperty instances that they return. In practice that takes effect at class declaration time so it's
         // convenient to let TypeScript know about the type now; otherwise TypeScript won't know.
+        // deno-lint-ignore no-explicit-any
         return props as any;
     }
 
@@ -68,8 +70,8 @@ export abstract class VNodeType extends BaseVNodeType {
 }
 
 /** Helper function to check if some object is a VNodeType */
-export function isVNodeType(obj: any): obj is VNodeType {
-    return Object.prototype.isPrototypeOf.call(VNodeType, obj);
+export function isVNodeType(obj: unknown): obj is VNodeType {
+    return typeof obj === "function" && Object.prototype.isPrototypeOf.call(VNodeType, obj);
 }
 
 /** Extend "getVNodeType" to include layer 3 type definition */

@@ -9,17 +9,38 @@
 export {
     VDate,
     VD,
-} from "./lib/types/vdate";
+} from "./lib/types/vdate.ts";
 
 export {
     VNID,
     isVNID,
-} from "./lib/types/vnid";
+} from "./lib/types/vnid.ts";
 
-export {
+export type {
     SlugId,
     VNodeKey,
-} from "./lib/key";
+} from "./lib/key.ts";
+
+export {
+    Field,
+    FieldType,
+    PropSchema,
+    GenericSchema,
+    ResponseSchema,
+    validateValue,
+    validatePropSchema,
+    FieldValidationError,
+} from "./lib/types/field.ts";
+export type {
+    TypedField,
+    ResponseFieldType,
+    GetDataType,
+    GetDataShape,
+    // Neo4j types:
+    Node,
+    Relationship,
+    Path,
+} from "./lib/types/field.ts";
 
 //// Layer 1 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -29,121 +50,119 @@ export {
 //// Layer 2 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
-    Field,
-    TypedField,
-    FieldType,
-    ResponseFieldType,
-    PropSchema,
-    GenericSchema,
-    ResponseSchema,
-    GetDataType,
-    GetDataShape,
-    validateValue,
-    validatePropSchema,
-    // Neo4j types:
-    Node,
-    Relationship,
-    Path,
-} from "./lib/types/field";
-
-export {
     C,
     CypherQuery,
-} from "./layer2/cypher-sugar";
+} from "./layer2/cypher-sugar.ts";
 
 export {
     InvalidNodeLabel,
     PublicValidationError,
-    RawVNode,
     // BaseVNodeType - internal use only: we use VNodeType (from layer 4) in its place
-    RelationshipDeclaration,
     ValidationError,
     //getVNodeType - redefined in layer 4
     //isBaseVNodeType - internal use only
-} from "./layer2/vnode-base";
+} from "./layer2/vnode-base.ts";
+export type {
+    RawVNode,
+    RelationshipDeclaration,
+} from "./layer2/vnode-base.ts";
 
 export {
     VNodeTypeRef,
-} from "./layer2/vnode-ref";
+} from "./layer2/vnode-ref.ts";
 
 export {
+    getRequestedRawProperties
+} from "./layer2/data-request.ts";
+export type {
     AnyDataRequest,
     BaseDataRequest,
-    RequestVNodeRawProperties,
-    getRequestedRawProperties,
-} from "./layer2/data-request";
+    RequestVNodeRawProperties
+} from "./layer2/data-request.ts";
+export {
+    EmptyResultError,
+    TooManyResultsError,
+} from "./layer2/query.ts";
 
 //// Layer 3 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
+    VirtualPropType
+} from "./layer3/virtual-props.ts";
+export type {
     VirtualManyRelationshipProperty,
     VirtualOneRelationshipProperty,
     VirtualCypherExpressionProperty,
-    VirtualPropType,
     VirtualPropertyDefinition,
-    VirtualPropsSchema,
-} from "./layer3/virtual-props";
+    VirtualPropsSchema
+} from "./layer3/virtual-props.ts";
 
 export {
     DerivedProperty,
+} from "./layer3/derived-props.ts";
+export type {
     DerivedPropertyFactory,
-} from "./layer3/derived-props";
+} from "./layer3/derived-props.ts";
 
 export {
     VNodeType,
     isVNodeType,
     getVNodeType,
-} from "./layer3/vnode";
+} from "./layer3/vnode.ts";
 
-export {
+export type {
     DataRequestFilter,
-} from "./layer3/data-request-filtered";
+} from "./layer3/data-request-filtered.ts";
 
 export {
     newDataRequest,
     subclassDataRequest,
-} from "./layer3/pull";
+} from "./layer3/pull.ts";
 
 //// Layer 4 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
     Action,
+    defineAction,
+} from "./layer4/action.ts";
+export type {
     ActionRequest,
     ActionDefinition,
     ActionResult,
-    defineAction,
-} from "./layer4/action";
+} from "./layer4/action.ts";
 
 export {
     defaultCreateFor,
     defaultDeleteFor,
     defaultUpdateFor,
-} from "./layer4/action-templates";
+} from "./layer4/action-templates.ts";
 
 export {
     GenericCypherAction,
     UndoAction,
-} from "./layer4/action-generic";
+} from "./layer4/action-generic.ts";
 
 export {
     getActionChanges,
+} from "./layer4/action-changes.ts";
+export type {
     ActionChangeSet,
-} from "./layer4/action-changes";
+} from "./layer4/action-changes.ts";
 
 export {
     SYSTEM_VNID
-} from "./layer4/schema";
+} from "./layer4/schema.ts";
 
 //// High Level ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export {
     WrappedTransaction,
-} from "./transaction";
+} from "./transaction.ts";
 
 export {
     Vertex,
-} from "./vertex";
+} from "./vertex.ts";
 
-export {
+export type {
     VertexTestDataSnapshot
-} from "./vertex-interface";
+} from "./vertex-interface.ts";

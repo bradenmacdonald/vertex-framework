@@ -1,8 +1,8 @@
 import {
     isVNodeType,
     VNodeType,
-} from "..";
-import { suite, test, assert } from "../lib/intern-tests";
+} from "../index.ts";
+import { group, test, assertStrictEquals } from "../lib/tests.ts";
 
 /** A VNode type that exists just within this file, for very basic tests */
 class SomeVNT extends VNodeType {
@@ -20,15 +20,15 @@ class NonVNT {
 }
 
 
-suite("VNodeType", () => {
+group("VNodeType", () => {
 
     test("isVNodeType", () => {
         // This is a VNodeType:
-        assert.isTrue(isVNodeType(SomeVNT));
+        assertStrictEquals(isVNodeType(SomeVNT), true);
         // These things are not VNodeTypes:
-        assert.isFalse(isVNodeType({label: "Test", properties: {}}));
-        assert.isFalse(isVNodeType(undefined));
-        assert.isFalse(isVNodeType(true));
-        assert.isFalse(isVNodeType(NonVNT));
+        assertStrictEquals(isVNodeType({label: "Test", properties: {}}), false);
+        assertStrictEquals(isVNodeType(undefined), false);
+        assertStrictEquals(isVNodeType(true), false);
+        assertStrictEquals(isVNodeType(NonVNT), false);
     });
 });

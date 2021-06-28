@@ -1,10 +1,10 @@
 /**
  * Syntactic sugar for writing Cypher queries.
  */
-import { Record as Neo4jRecord } from "neo4j-driver-lite";
-import { looksLikeVNID } from "../lib/types/vnid";
-import { GetDataShape, ResponseSchema } from "../lib/types/field";
-import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from "./vnode-base";
+import { Neo4j } from "../deps.ts";
+import { looksLikeVNID } from "../lib/types/vnid.ts";
+import { GetDataShape, ResponseSchema } from "../lib/types/field.ts";
+import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from "./vnode-base.ts";
 
 /**
  * Wrapper around a cypher statement/query string, with optional parameters.
@@ -47,11 +47,11 @@ import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from 
  */
 export class CypherQuery {
     #strings: ReadonlyArray<string>;  // An array of strings, representing the "parts" of the overall query, with a param between each part
-    #paramsArray: ReadonlyArray<any>;  // The parameters that get interpolated between the strings of #strings
-    #paramsCompiled: Record<string, any>;  // This hold params after compile() happens, but it also holds custom parameters explicitly added via withParams()
+    #paramsArray: ReadonlyArray<unknown>;  // The parameters that get interpolated between the strings of #strings
+    #paramsCompiled: Record<string, unknown>;  // This hold params after compile() happens, but it also holds custom parameters explicitly added via withParams()
     #isCompiled: boolean;
 
-    constructor(strings: ReadonlyArray<string>, params: ReadonlyArray<any>) {
+    constructor(strings: ReadonlyArray<string>, params: ReadonlyArray<unknown>) {
         this.#strings = strings;
         this.#paramsArray = params;
         this.#paramsCompiled = {};
@@ -128,14 +128,14 @@ export class CypherQuery {
         return this.#strings[0];
     }
 
-    get params(): Record<string, any> {
+    get params(): Record<string, unknown> {
         if (!this.isCompiled) {
             this.compile();
         }
         return this.#paramsCompiled;
     }
 
-    private saveParameter(paramName: string, value: any): void {
+    private saveParameter(paramName: string, value: unknown): void {
         if (paramName in this.#paramsCompiled) {
             throw new Error(`Multiple values for query parameter "${paramName}"`);
         }
@@ -152,7 +152,7 @@ export class CypherQuery {
     }
 
     /** Add custom parameters (values for "$variables" in the cypher query) to a copy of this query */
-    public withParams(extraParams: Readonly<Record<string, any>>): CypherQuery {
+    public withParams(extraParams: Readonly<Record<string, unknown>>): CypherQuery {
         const copy = this.clone();
         for (const paramName in extraParams) {
             copy.saveParameter(paramName, extraParams[paramName]);
@@ -192,7 +192,7 @@ export class CypherQuery {
  */
 export class CypherQueryWithReturnShape<RS extends ResponseSchema> extends CypherQuery {
     #shape: Readonly<RS>;
-    constructor(strings: ReadonlyArray<string>, params: ReadonlyArray<any>, shape: RS) {
+    constructor(strings: ReadonlyArray<string>, params: ReadonlyArray<unknown>, shape: RS) {
         super(strings, params);
         this.#shape = shape;
     }
@@ -204,12 +204,12 @@ export class CypherQueryWithReturnShape<RS extends ResponseSchema> extends Cyphe
 // Get what the expected response shape of a query is, if known. Meant only for use with query() and queryOne()
 export type QueryResponse<CQ extends CypherQuery> = (
     CQ extends CypherQueryWithReturnShape<infer RS> ? GetDataShape<RS> :
-    CQ extends CypherQuery ? Neo4jRecord :
+    CQ extends CypherQuery ? Neo4j.Record :
     never
 );
 
 /** Tagged template string helper function - write C`cypher here` */
-function C(strings: TemplateStringsArray|string, ...params: any[]): CypherQuery {
+function C(strings: TemplateStringsArray|string, ...params: unknown[]): CypherQuery {
     if (typeof strings === "string") {
         return new CypherQuery([strings], params);
     }
@@ -232,7 +232,7 @@ export {C};
  *  MATCH (node:Label)..., node HAS KEY $key
  * is used to lookup nodes by a variable $key, where $key can be _either_ a VNID or primary key
  */
-export function replaceHasKey(cypherQuery: string, params: Readonly<Record<string, any>>): string {
+export function replaceHasKey(cypherQuery: string, params: Readonly<Record<string, unknown>>): string {
     return cypherQuery.replace(/(,\s+)(\w+) HAS KEY \$(\w+)/gm, (_, commaWhitespace, nodeVariable, keyParamName) => {
         const keyValue = params[keyParamName];
         if (typeof keyValue !== "string") {

@@ -10,8 +10,8 @@ import {
     Field,
     VirtualPropType,
     VNodeType,
-} from "..";
-import { suite, test, assert, before, after } from "../lib/intern-tests";
+} from "../index.ts";
+import { assert, assertEquals, group, test } from "../lib/tests.ts";
 
 /** A VNodeType for use in this test suite. */
 class Employee extends VNodeType {
@@ -21,7 +21,7 @@ class Employee extends VNodeType {
         slugId: Field.Slug,
     };
 
-    static virtualProperties = VNodeType.hasVirtualProperties({
+    static virtualProperties = this.hasVirtualProperties({
         createAction: {
             // Get the Action that originally created this employee
             type: VirtualPropType.OneRelationship,
@@ -30,7 +30,7 @@ class Employee extends VNodeType {
         },
     });
 
-    static derivedProperties = VNodeType.hasDerivedProperties({
+    static derivedProperties = this.hasDerivedProperties({
         yearsWithCompany,
     });
 }
@@ -52,7 +52,7 @@ class Executive extends Manager {
         ...Manager.properties,
     };
 
-    static readonly derivedProperties = VNodeType.hasDerivedProperties({
+    static readonly derivedProperties = this.hasDerivedProperties({
         ...Manager.derivedProperties,
         annualBonus,
     });
@@ -83,20 +83,20 @@ function yearsWithCompany(): DerivedProperty<number|null> { return DerivedProper
 function annualBonus(): DerivedProperty<number> { return DerivedProperty.make(
     Executive,
     e => e,
-    data => { return 100_000; }
+    _data => { return 100_000; }
 );}
 
-suite(__filename, () => {
+group(import.meta, () => {
 
-    suite("VNodeType.hasDerivedProperties", () => {
+    group("VNodeType.hasDerivedProperties", () => {
 
         test("basic sanity check", () => {
-            assert.isFunction(Employee.derivedProperties.yearsWithCompany.dataSpec);
-            assert.isFunction(Employee.derivedProperties.yearsWithCompany.computeValue);
+            assert(typeof Employee.derivedProperties.yearsWithCompany.dataSpec === "function");
+            assert(typeof Employee.derivedProperties.yearsWithCompany.computeValue === "function");
         });
 
         test("can inherit derived properties", () => {
-            assert.strictEqual(
+            assertEquals(
                 Employee.derivedProperties.yearsWithCompany,
                 Executive.derivedProperties.yearsWithCompany,
             );

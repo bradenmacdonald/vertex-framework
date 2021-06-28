@@ -1,10 +1,10 @@
-import { C } from "../layer2/cypher-sugar";
-import { WrappedTransaction } from "../transaction";
-import { RelationshipDeclaration, getRelationshipType } from "../layer2/vnode-base";
-import { VNodeType } from "../layer3/vnode";
-import { log, stringify } from "../lib/log";
-import { VNodeKey, VNID } from "../lib/key";
-import { Field, GetDataType, PropSchema } from "../lib/types/field";
+import { C } from "../layer2/cypher-sugar.ts";
+import { WrappedTransaction } from "../transaction.ts";
+import { RelationshipDeclaration, getRelationshipType } from "../layer2/vnode-base.ts";
+import { VNodeType } from "../layer3/vnode.ts";
+import { stringify } from "../lib/log.ts";
+import { VNodeKey, VNID } from "../lib/key.ts";
+import { Field, GetDataType, PropSchema } from "../lib/types/field.ts";
 
 export type OneRelationshipSpec<VNR extends RelationshipDeclaration, KeyType = VNodeKey> = {
     key: KeyType|null;
@@ -12,7 +12,7 @@ export type OneRelationshipSpec<VNR extends RelationshipDeclaration, KeyType = V
     VNR["properties"] extends PropSchema ?
         {[propName in keyof VNR["properties"]]?: GetDataType<VNR["properties"][propName]>}
     :
-        {/* empty object */}
+        Record<string, never>/* empty object */
     )
 
 /**
@@ -82,6 +82,7 @@ export async function updateToOneRelationship<VNR extends RelationshipDeclaratio
         if (mergeResult[0].oldTargets.length) {
             return {prevTo: {key: mergeResult[0].oldTargets[0].id, ...mergeResult[0].oldTargets[0].properties}};
         }
+        // deno-lint-ignore no-explicit-any
         return {prevTo: {key: null} as any};
     }
 }
@@ -93,7 +94,7 @@ export type RelationshipSpec<VNR extends RelationshipDeclaration, KeyType = VNod
     VNR["properties"] extends PropSchema ?
         {[propName in keyof VNR["properties"]]?: GetDataType<VNR["properties"][propName]>}
     :
-        {/* empty object */}
+        Record<string, never>/* empty object */
 )
 
 /**

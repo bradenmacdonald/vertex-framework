@@ -1,6 +1,7 @@
-import { GetDataType } from "../lib/types/field";
-import { BaseVNodeType } from "../layer2/vnode-base";
-import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request";
+// deno-lint-ignore-file no-explicit-any
+import { GetDataType } from "../lib/types/field.ts";
+import { BaseVNodeType } from "../layer2/vnode-base.ts";
+import { AnyDataRequest, BaseDataRequest, RequiredMixin } from "../layer2/data-request.ts";
 import {
     ConditionalPropsMixin,
     DerivedPropsMixin,
@@ -9,8 +10,8 @@ import {
     IncludedVirtualManyProp,
     IncludedVirtualOneProp,
     VirtualPropsMixin
-} from "./data-request-mixins";
-import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode";
+} from "./data-request-mixins.ts";
+import { VNodeType, VNodeTypeWithVirtualProps } from "./vnode.ts";
 
 
 type UnWindConditionalPropsArray<conditionallyRequestedProperties extends AnyDataRequest<any>[]> = (
@@ -45,10 +46,10 @@ export type DataResponse<Request extends AnyDataRequest<BaseVNodeType>> = (
                     keyof includedVirtualProps extends never ? unknown :  // This line makes types look nicer by hiding the "& {}" type when there are no included virtual props
                     {[virtualProp in keyof includedVirtualProps]: (
                         // A -to-many virtual property is included:
-                        includedVirtualProps[virtualProp] extends IncludedVirtualManyProp<any, infer Spec> ?
+                        includedVirtualProps[virtualProp] extends IncludedVirtualManyProp<infer Spec> ?
                             DataResponse<Spec>[]
                         // A -to-one virtual property is included:
-                        : includedVirtualProps[virtualProp] extends IncludedVirtualOneProp<any, infer Spec> ?
+                        : includedVirtualProps[virtualProp] extends IncludedVirtualOneProp<infer Spec> ?
                             // 1:1 relationships are currently always optional at the DB level, so this may be null
                             DataResponse<Spec> | null
                         // A cypher expression virtual property is included:

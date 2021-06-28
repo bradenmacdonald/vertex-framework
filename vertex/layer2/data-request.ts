@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 /**
  * Data Request:
  * 
@@ -29,7 +30,7 @@
  */
 import {
     BaseVNodeType
-} from "./vnode-base";
+} from "./vnode-base.ts";
 
 
 ///////////////// BaseDataRequest //////////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +61,12 @@ export type AnyDataRequest<VNT extends BaseVNodeType> = BaseDataRequest<VNT, any
 /** A helper that mixins can use to update their state in a data request. */
 export type UpdateMixin<VNT extends BaseVNodeType, ThisRequest, CurrentMixin, NewMixin> = (
     ThisRequest extends BaseDataRequest<VNT, infer requestedProperties, CurrentMixin & RequiredMixin & infer Other> ?
-        BaseDataRequest<VNT, requestedProperties, NewMixin & RequiredMixin & Other>
+        (
+            BaseDataRequest<VNT, requestedProperties, NewMixin & RequiredMixin & Other> extends infer X ? X : never
+            //                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            // This "extends infer" seems like a no-op but prevents this type from becoming deeply recursive.
+            // Thanks to https://github.com/microsoft/TypeScript/issues/30188#issuecomment-478938437 for the tip
+        )
     : never
 );
 
@@ -171,7 +177,9 @@ export class DataRequestState {
     }
 
     static proxyHandler: ProxyHandler<DataRequestState> = {
+        // deno-lint-ignore no-unused-vars
         set: (dataRequestState, propKey, value, proxyObj) => false,  // Disallow setting properties on the Data Request
+        // deno-lint-ignore no-unused-vars
         get: (dataRequestState, propKey, proxyObj) => {
             if (propKey === DataRequestState._internalState) {
                 return dataRequestState;

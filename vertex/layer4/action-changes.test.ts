@@ -1,23 +1,24 @@
-import { suite, test, assertRejects, assert, log, before, after, configureTestData } from "../lib/intern-tests";
-import { ActedIn, CreateMovie, CreateMovieFranchise, CreatePerson, Movie, MovieFranchise, Person, testGraph, UpdateMovie, } from "../test-project";
+import { group, test, assertThrowsAsync, configureTestData, assertEquals } from "../lib/tests.ts";
+import { ActedIn, CreateMovie, CreateMovieFranchise, CreatePerson, Movie, MovieFranchise, Person, testGraph, UpdateMovie, } from "../test-project/index.ts";
 import {
     VNID,
     getActionChanges,
     GenericCypherAction,
     VD,
-} from "..";
-import { C } from "../layer2/cypher-sugar";
-import { ActionChangeSet } from "./action-changes";
+} from "../index.ts";
+import { C } from "../layer2/cypher-sugar.ts";
+import { ActionChangeSet } from "./action-changes.ts";
 
-suite(__filename, () => {
+group(import.meta, () => {
 
     configureTestData({isolateTestWrites: true, loadTestProjectData: false});
     
-    suite("getActionChanges", () => {
+    group("getActionChanges", () => {
 
         test("throws an error for an invalid action ID", async () => {
-            await assertRejects(
-                testGraph.read(tx => getActionChanges(tx, VNID("_foobar"))),
+            await assertThrowsAsync(
+                () => testGraph.read(tx => getActionChanges(tx, VNID("_foobar"))),
+                undefined,
                 "Action not found.",
             );
         });
@@ -27,7 +28,7 @@ suite(__filename, () => {
                 CreateMovie({slugId: "tropic-thunder", title: "Tropic Thunder", year: 2008}),
             );
             const changes = await testGraph.read(tx => getActionChanges(tx, action1.actionId));
-            assert.deepStrictEqual(changes, {
+            assertEquals(changes, {
                 createdNodes: [
                     {
                         id: action1.id,
@@ -84,7 +85,7 @@ suite(__filename, () => {
                 unDeletedNodes: [],
                 deletedNodesCount: 0,
             };
-            assert.deepStrictEqual(changes, expected);
+            assertEquals(changes, expected);
         });
 
         test("gives data about created VNodes and their relationship properties", async () => {
@@ -135,7 +136,7 @@ suite(__filename, () => {
                 unDeletedNodes: [],
                 deletedNodesCount: 0,
             };
-            assert.deepStrictEqual(changes, expected);
+            assertEquals(changes, expected);
         });
 
         test("gives data about modified VNodes and relationships", async () => {
@@ -179,7 +180,7 @@ suite(__filename, () => {
                 unDeletedNodes: [],
                 deletedNodesCount: 0,
             };
-            assert.deepStrictEqual(changes, expected);
+            assertEquals(changes, expected);
         });
 
 
@@ -187,7 +188,7 @@ suite(__filename, () => {
             const franchiseAction = await testGraph.runAsSystem(
                 CreateMovieFranchise({slugId: "jumanji", name: "Jumanji"}),
             );
-            const action0 = await testGraph.runAsSystem(
+            const _action0 = await testGraph.runAsSystem(
                 // Add an extra property that we'll later set null:
                 GenericCypherAction({cypher: C`
                     MATCH (mf:${MovieFranchise}), mf HAS KEY ${franchiseAction.id}
@@ -218,7 +219,7 @@ suite(__filename, () => {
                 unDeletedNodes: [],
                 deletedNodesCount: 0,
             };
-            assert.deepStrictEqual(changes, expected);
+            assertEquals(changes, expected);
         });
 
         test("gives data about modified relationship properties", async () => {
@@ -250,25 +251,25 @@ suite(__filename, () => {
                 unDeletedNodes: [],
                 deletedNodesCount: 0,
             };
-            assert.deepStrictEqual(changes, expected);
+            assertEquals(changes, expected);
         });
 
         test("actions are not allowed to mutate properties on a relationship; they must re-created them", async () => {
-            const movieAction = await testGraph.runAsSystem(
+            const _movieAction = await testGraph.runAsSystem(
                 CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018}),
             );
             const rdjAction = await testGraph.runAsSystem(
                 CreatePerson({slugId: "rdj", name: "Robert Downey Jr.", dateOfBirth: VD`1965-04-04`}),
             );
-            const action0 = await testGraph.runAsSystem(
+            const _action0 = await testGraph.runAsSystem(
                 ActedIn({personId: "rdj", movieId: "infinity-war", role: "Tony Stark / Iron Man"}),
             );
-            await assertRejects(testGraph.runAsSystem(
+            await assertThrowsAsync(() => testGraph.runAsSystem(
                 GenericCypherAction({cypher: C`
                     MATCH (p:${Person})-[rel:${Person.rel.ACTED_IN}]->(m:${Movie}), p HAS KEY ${"rdj"}, m HAS KEY ${"infinity-war"}
                     SET rel.role = "NEW ROLE"
                 `, modifiedNodes: [rdjAction.id]}),
-            ), "Error executing triggers");
+            ), undefined, "Error executing triggers");
         });
 
         test("gives data about deleted relationships", async () => {
@@ -307,7 +308,7 @@ suite(__filename, () => {
                 unDeletedNodes: [],
                 deletedNodesCount: 0,
             };
-            assert.deepStrictEqual(changes, expected);
+            assertEquals(changes, expected);
         });
 
         test("gives data about soft-deleted nodes, and un-deleted ones", async () => {
@@ -336,7 +337,7 @@ suite(__filename, () => {
                 unDeletedNodes: [],
                 deletedNodesCount: 0,
             };
-            assert.deepStrictEqual(changes, expected);
+            assertEquals(changes, expected);
 
             // Now un-delete it:
             const action2 = await testGraph.runAsSystem(
@@ -357,7 +358,7 @@ suite(__filename, () => {
                 unDeletedNodes: [movieAction.id],
                 deletedNodesCount: 0,
             };
-            assert.deepStrictEqual(changes2, expected2);
+            assertEquals(changes2, expected2);
         });
 
         test("records when nodes are fully deleted", async () => {
@@ -387,7 +388,7 @@ suite(__filename, () => {
                 unDeletedNodes: [],
                 deletedNodesCount: 1,
             };
-            assert.deepStrictEqual(changes, expected);
+            assertEquals(changes, expected);
         });
     });
 });

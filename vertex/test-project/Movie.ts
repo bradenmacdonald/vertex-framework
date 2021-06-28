@@ -3,14 +3,11 @@ import {
     defaultUpdateFor,
     defaultCreateFor,
     VNodeType,
-    VNodeTypeRef,
     VirtualPropType,
-} from "../";
-import { Field } from "../lib/types/field";
+    Field,
+} from "../index.ts";
 
-// When necessary to avoid circular references, this pattern can be used to create a "Forward Reference" to a VNodeType:
-export const MovieRef: typeof Movie = VNodeTypeRef("TestMovie");
-import { MovieFranchise } from "./MovieFranchise";
+import { MovieFranchise } from "./MovieFranchise.ts";
 
 
 /**
@@ -23,10 +20,13 @@ export class Movie extends VNodeType {
         ...VNodeType.properties,
         slugId: Field.Slug,
         title: Field.String,
-        year: Field.Int.Check(y => y.min(1888).max(2200)),
+        year: Field.Int.Check(v => {
+            if (typeof v !=="number" || v < 1888 || v > 2200) { throw new Error("Invalid year"); }
+            return v;
+        }),
     };
     static defaultOrderBy = "@this.year DESC";
-    static rel = VNodeType.hasRelationshipsFromThisTo({
+    static rel = this.hasRelationshipsFromThisTo({
         /** This Movie is part of a franchise */
         FRANCHISE_IS: {
             to: [MovieFranchise],
@@ -34,10 +34,10 @@ export class Movie extends VNodeType {
             cardinality: VNodeType.Rel.ToOneOrNone,
         },
     });
-    static virtualProperties = VNodeType.hasVirtualProperties({
+    static virtualProperties = this.hasVirtualProperties({
         franchise: {
             type: VirtualPropType.OneRelationship,
-            query: C`(@this)-[:${Movie.rel.FRANCHISE_IS}]->(@target:${MovieFranchise})`,
+            query: C`(@this)-[:${this.rel.FRANCHISE_IS}]->(@target:${MovieFranchise})`,
             target: MovieFranchise,
         },
     });
@@ -48,7 +48,7 @@ interface UpdateMovieExtraArgs {
 }
 
 export const UpdateMovie = defaultUpdateFor(Movie, m => m.slugId.title.year, {
-    otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot, changes) => {
+    otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot) => {
         const previousValues: Partial<UpdateMovieExtraArgs> = {};
         if (args.franchiseId !== undefined) {
             await tx.updateToOneRelationship({
@@ -59,7 +59,6 @@ export const UpdateMovie = defaultUpdateFor(Movie, m => m.slugId.title.year, {
         }
         return {
             additionalModifiedNodes: [],
-            previousValues,
         };
     },
 });

@@ -1,7 +1,7 @@
-import { VNID } from "../lib/types/vnid";
-import { C, CypherQuery } from "../layer2/cypher-sugar";
-import { Action, defineAction } from "./action";
-import { getActionChanges } from "./action-changes";
+import { VNID } from "../lib/types/vnid.ts";
+import { C, CypherQuery } from "../layer2/cypher-sugar.ts";
+import { Action, defineAction } from "./action.ts";
+import { getActionChanges } from "./action-changes.ts";
 
 /**
  * A generic action that can run arbitrary cypher, meant only for use in tests.
@@ -14,7 +14,7 @@ export const GenericCypherAction = defineAction({
         description?: string,
     },
     apply: async (tx, data) => {
-        const dbResult = await tx.query(data.cypher);
+        await tx.query(data.cypher);
         return {
             resultData: {},
             modifiedNodes: data.modifiedNodes ?? [],

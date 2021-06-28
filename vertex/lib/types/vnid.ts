@@ -1,5 +1,5 @@
-import { NominalType } from "../ts-utils";
-import { UUIDv4 } from "./uuid";
+import { NominalType } from "../ts-utils.ts";
+import { UUIDv4 } from "./uuid.ts";
 
 /** A UUID-string, which is kind of like a subclass of string */
 export type VNID = NominalType<string, "VNID">;
@@ -19,9 +19,9 @@ export function VNID(encodedString?: string): VNID {
 }
 
 /** Is the given value a VNID string? */
-export function isVNID(value: any): value is VNID {
+export function isVNID(value: unknown): value is VNID {
     try {
-        decodeVNID(value);
+        decodeVNID(value as VNID);  // It is safe to pass non-strings to this function
         return true;
     } catch {
         return false;

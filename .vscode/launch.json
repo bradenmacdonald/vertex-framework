@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Deno: Test (not yet working)",
+            // This doesn't seem to be working, because the test runner launches each separate test file in a separate
+            // process and the debugger seems to pause forever at the end of the first test file. Running it without
+            // the debugger enabled works fine.
+            "request": "launch",
+            "type": "pwa-node",
+            "cwd": "${workspaceFolder}",
+            "runtimeExecutable": "deno",
+            "runtimeArgs": [
+                "test",
+                "--inspect",
+                "--allow-read",
+                "--allow-net",
+            ],
+            "attachSimplePort": 9229,
+            "console": "integratedTerminal",
+        }
+    ]
+}

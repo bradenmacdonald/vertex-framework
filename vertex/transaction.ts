@@ -1,17 +1,19 @@
-import { Result, Transaction, isDate as isNeo4jDate, DateTime as Neo4jDateTime } from "neo4j-driver-lite";
-import { VNID, RelationshipDeclaration } from ".";
+// deno-lint-ignore-file no-explicit-any
+import { Neo4j } from "./deps.ts";
+import { VNID } from "./lib/types/vnid.ts";
+import { RelationshipDeclaration } from "./layer2/vnode-base.ts";
 
-import type { CypherQuery, QueryResponse } from "./layer2/cypher-sugar";
-import { query, queryOne } from "./layer2/query";
-import { OneRelationshipSpec, RelationshipSpec, updateToManyRelationship, updateToOneRelationship } from "./layer4/action-helpers";
-import { pull, pullOne, PullNoTx, PullOneNoTx } from "./layer3/pull";
-import { VNodeType } from "./layer3/vnode";
+import type { CypherQuery, QueryResponse } from "./layer2/cypher-sugar.ts";
+import { query, queryOne } from "./layer2/query.ts";
+import { OneRelationshipSpec, RelationshipSpec, updateToManyRelationship, updateToOneRelationship } from "./layer4/action-helpers.ts";
+import { pull, pullOne, PullNoTx, PullOneNoTx } from "./layer3/pull.ts";
+import { VNodeType } from "./layer3/vnode.ts";
 
 /** A Neo4j Transaction with some Vertex Framework convenience methods */
 export class WrappedTransaction {
-    #tx: Transaction;
+    #tx: Neo4j.Transaction;
 
-    public constructor(plainTx: Transaction) {
+    public constructor(plainTx: Neo4j.Transaction) {
         this.#tx = plainTx;
     }
 
@@ -21,7 +23,7 @@ export class WrappedTransaction {
      * @param parameters Optional query parameters.
      * @returns A Neo4j result (set of records)
      */
-    public run(query: string, parameters?: { [key: string]: any }): Result {
+    public run(query: string, parameters?: { [key: string]: any }): Neo4j.Result {
         return this.#tx.run(query, parameters ? fixParameterTypes(parameters) : undefined);
     }
 
@@ -68,8 +70,8 @@ function fixParameterTypes(parameters: { [key: string]: any }): { [key: string]:
     const fixValue = (value: any): any => {
         if (value instanceof Date) {
             // Convert this standard Date instance to the Neo4j DateTime format:
-            return Neo4jDateTime.fromStandardDate(value);
-        } else if (isNeo4jDate(value)) {
+            return Neo4j.DateTime.fromStandardDate(value);
+        } else if (Neo4j.isDate(value)) {
             // This is a VDate or a Neo4jDate, either will work.
             return value;
         } else if (Array.isArray(value)) {

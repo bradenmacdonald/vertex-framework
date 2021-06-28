@@ -1,10 +1,12 @@
-FROM node:16
+FROM denoland/deno:alpine-1.11.2
 
 # Set the working directory to /testenv
 WORKDIR /testenv
 
-ENV NODE_ENV test
-ENV PATH /testenv/node_modules/.bin:$PATH
+# Prefer not to run as root.
+USER deno
 
-# Start the development server
-CMD ["npm", "run", "entrypoint-test"]
+# TODO: Here we would normally cache dependencies, see guide at https://hub.docker.com/r/denoland/deno
+
+# Start a shell
+CMD sh

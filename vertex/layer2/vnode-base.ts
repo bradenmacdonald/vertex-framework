@@ -1,8 +1,9 @@
-import { WrappedTransaction } from "../transaction";
-import { Field, TypedField, FieldType, GetDataShape, PropSchema, validatePropSchema } from "../lib/types/field";
-import { C } from "./cypher-sugar";
-import { convertNeo4jFieldValue } from "./cypher-return-shape";
-import { VNID } from "../lib/key";
+import { WrappedTransaction } from "../transaction.ts";
+import { Field, FieldType, GetDataShape, PropSchema, validatePropSchema, PropertyTypedField } from "../lib/types/field.ts";
+import { C } from "./cypher-sugar.ts";
+import { convertNeo4jFieldValue } from "./cypher-return-shape.ts";
+import { VNID } from "../lib/key.ts";
+import { applyLazilyToDeferrable } from "../lib/deferrable.ts";
 
 // An empty object that can be used as a default value for read-only properties
 export const emptyObj = Object.freeze({});
@@ -10,7 +11,7 @@ export const emptyObj = Object.freeze({});
 const relTypeKey = Symbol("relTypeKey");
 
 export interface PropSchemaWithId extends PropSchema {
-    id: TypedField<FieldType.VNID, false, any>;
+    id: PropertyTypedField<FieldType.VNID, false>;
 }
 
 export interface RelationshipsSchema {
@@ -70,6 +71,7 @@ export class _BaseVNodeType {
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
     static readonly defaultOrderBy: string|undefined = undefined;
 
+    // deno-lint-ignore no-explicit-any
     static async validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void> {
         // Note: tests for this function are in layer3/validation.test.ts since they depend on actions
 
@@ -84,10 +86,21 @@ export class _BaseVNodeType {
         }
 
         // Validate properties:
-        validatePropSchema(this.properties, dbObject, {
-            abortEarly: false,
-            allowUnknown: true,  // We must allow unknown so that parent classes can validate, without knowledge of their child class schemas
-        });
+        const newValues = validatePropSchema(this.properties, dbObject);
+
+        // Check if the validation cleaned/changed any of the values:
+        const valuesChangedDuringValidation: Record<string, unknown> = {}
+        for (const key in newValues) {
+            if (newValues[key] !== dbObject[key]) {
+                valuesChangedDuringValidation[key] = newValues[key];
+            }
+        }
+        if (Object.keys(valuesChangedDuringValidation).length > 0) {
+            await tx.queryOne(C`
+                MATCH (node:VNode {id: ${dbObject.id}})
+                SET node += ${valuesChangedDuringValidation}
+            `.RETURN({}));
+        }
 
         // Validate relationships:
         const relTypes = Object.keys(this.rel);
@@ -173,31 +186,35 @@ export class _BaseVNodeType {
             throw new Error(`If a VNode declares a slugId property, it must be of type Field.Slug.`);
         }
 
-        // Check for annoying circular references that TypeScript can't catch:
-        Object.entries(vnt.rel).forEach(([relName, rel]) => {
-            rel.to.forEach((targetVNT, idx) => {
-                if (targetVNT === undefined) {
-                    throw new Error(`Circular reference in ${vnt.name} definition: relationship ${vnt.name}.rel.${relName}.to[${idx}] is undefined.`);
-                }
+        // We need to apply some cleanups and validation and annotation to the .rels property. BUT that property may be
+        // "deferred" (wrapped in a proxy object and lazily evaluated when accessed) in order to avoid circular imports.
+        // So use this helper function to do the cleanup/validation at the last second, when .rels is first accessed.
+        applyLazilyToDeferrable(vnt.rel, (rels => {
+            // Check for annoying circular references that TypeScript can't catch:
+            Object.entries(rels).forEach(([relName, rel]) => {
+                rel.to.forEach((targetVNT, idx) => {
+                    if (targetVNT === undefined) {
+                        throw new Error(`Circular reference in ${vnt.name} definition: relationship ${vnt.name}.rel.${relName}.to[${idx}] is undefined.`);
+                    }
+                });
             });
-        });
 
-        // Store the "type" (name/label) of each relationship in its definition, so that when parts of the code
-        // reference a relationship like SomeVNT.rel.FOO_BAR, we can get the name "FOO_BAR" from that value, even though
-        // the name was only declared as the key, and is not part of the FOO_BAR value.
-        for (const relationshipType of Object.keys(vnt.rel)) {
-            const relDeclaration = vnt.rel[relationshipType];
-            if (relDeclaration[relTypeKey] !== undefined && relDeclaration[relTypeKey] != relationshipType) {
-                // This is a very obscure edge case error, but if someone is saying something like
-                // rel = { FOO: SomeOtherVNodeType.rel.BAR } then we need to flag that we can't share the same
-                // relationship declaration and call it both FOO and BAR.
-                throw new Error(`The relationship ${vnt.name}.${relationshipType} is also declared somewhere else as type ${relDeclaration[relTypeKey]}.`);
+            // Store the "type" (name/label) of each relationship in its definition, so that when parts of the code
+            // reference a relationship like SomeVNT.rel.FOO_BAR, we can get the name "FOO_BAR" from that value, even though
+            // the name was only declared as the key, and is not part of the FOO_BAR value.
+            for (const relationshipType of Object.keys(rels)) {
+                const relDeclaration = rels[relationshipType];
+                if (relDeclaration[relTypeKey] !== undefined && relDeclaration[relTypeKey] != relationshipType) {
+                    // This is a very obscure edge case error, but if someone is saying something like
+                    // rel = { FOO: SomeOtherVNodeType.rel.BAR } then we need to flag that we can't share the same
+                    // relationship declaration and call it both FOO and BAR.
+                    throw new Error(`The relationship ${vnt.name}.${relationshipType} is also declared somewhere else as type ${relDeclaration[relTypeKey]}.`);
+                }
+                relDeclaration[relTypeKey] = relationshipType;
             }
-            relDeclaration[relTypeKey] = relationshipType;
-        }
+        }));
 
-        // Freeze, register, and return the VNodeType:
-        //vnt = Object.freeze(vnt);
+        // Register the VNodeType:
         registerVNodeType(vnt);
     }
 
@@ -240,6 +257,7 @@ export interface BaseVNodeType {
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     readonly rel: RelationshipsSchema;
     readonly defaultOrderBy: string|undefined;
+    // deno-lint-ignore no-explicit-any
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 
     declare(vnt: BaseVNodeType): void;
@@ -247,25 +265,27 @@ export interface BaseVNodeType {
 }
 
 /** Helper function to check if some object is a VNodeType */
-export function isBaseVNodeType(obj: any): obj is BaseVNodeType {
-    return Object.prototype.isPrototypeOf.call(_BaseVNodeType, obj);
+export function isBaseVNodeType(obj: unknown): obj is BaseVNodeType {
+    return typeof obj === "function" && Object.prototype.isPrototypeOf.call(_BaseVNodeType, obj);
 }
 
 /** Helper function to get the type/name of a relationship from its declaration - see _BaseVNodeType.declare() */
 export function getRelationshipType(rel: RelationshipDeclaration): string {
-    const relDeclaration = rel as any;
-    if (relDeclaration[relTypeKey] === undefined) {
+    const relDeclaration = rel;
+    const result = relDeclaration[relTypeKey];
+    if (result === undefined) {
         throw new Error(`Tried accessing a relationship on a VNodeType that didn't use the @VNodeType.declare class decorator`);
     }
-    return relDeclaration[relTypeKey];
+    return result;
 }
+
 /**
  * Is the thing passed as a parameter a relationship declaration (that was declared in a VNode's "rel" static prop?)
  * This checks for a private property that gets added to every relationship by the @VNodeType.declare decorator.
  */
-export function isRelationshipDeclaration(relDeclaration: RelationshipDeclaration): relDeclaration is RelationshipDeclaration {
+export function isRelationshipDeclaration(relDeclaration: unknown): relDeclaration is RelationshipDeclaration {
     // In JavaScript, typeof null === "object" which is why we need the middle condition here.
-    return typeof relDeclaration === "object" && relDeclaration !== null && relDeclaration[relTypeKey] !== undefined;
+    return typeof relDeclaration === "object" && relDeclaration !== null && relTypeKey in relDeclaration;
 }
 
 

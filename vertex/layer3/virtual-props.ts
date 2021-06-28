@@ -1,6 +1,6 @@
-import type { CypherQuery } from "../layer2/cypher-sugar";
-import { TypedField } from "../lib/types/field";
-import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base";
+import type { CypherQuery } from "../layer2/cypher-sugar.ts";
+import { TypedField } from "../lib/types/field.ts";
+import { BaseVNodeType, RelationshipDeclaration } from "../layer2/vnode-base.ts";
 /**
  * Every VNode can declare "virtual properties" which are computed properties
  * (such as related VNodes) that can be loaded from the graph or other sources.

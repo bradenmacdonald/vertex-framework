@@ -1,12 +1,13 @@
-import { ActionDefinition, defineAction } from "./action";
-import { C } from "../layer2/cypher-sugar";
-import { VNID, VNodeKey } from "../lib/key";
-import { WrappedTransaction } from "../transaction";
-import { RawVNode, getAllLabels } from "../layer2/vnode-base";
-import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "../layer2/data-request";
-import { Field, FieldType, GetDataType } from "../lib/types/field";
-import { VNodeType } from "../layer3/vnode";
-import { stringify } from "../lib/log";
+// deno-lint-ignore-file no-explicit-any ban-types
+import { ActionDefinition, defineAction } from "./action.ts";
+import { C } from "../layer2/cypher-sugar.ts";
+import { VNID, VNodeKey } from "../lib/key.ts";
+import { WrappedTransaction } from "../transaction.ts";
+import { RawVNode, getAllLabels } from "../layer2/vnode-base.ts";
+import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "../layer2/data-request.ts";
+import { Field, FieldType, GetDataType } from "../lib/types/field.ts";
+import { VNodeType } from "../layer3/vnode.ts";
+import { stringify } from "../lib/log.ts";
 
 
 // Useful action generators to reduce boilerplate
@@ -25,7 +26,6 @@ type UpdateImplementationDetails<VNT extends VNodeType, MutableProps extends key
         data: {key: VNodeKey} & PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs,
         nodeSnapshot: RawVNode<VNT>,
         changes: PropertyValuesForUpdate<VNT, MutableProps>,
-        previousValues: PropertyValuesForUpdate<VNT, MutableProps>,
     }) => void,
     /** If there is a need to update relationships or complex properties, this method can do so */
     otherUpdates?: (
@@ -33,7 +33,7 @@ type UpdateImplementationDetails<VNT extends VNodeType, MutableProps extends key
         tx: WrappedTransaction,
         nodeSnapshot: RawVNode<VNT>,
         changes: Readonly<PropertyValuesForUpdate<VNT, MutableProps>>,
-    ) => Promise<{previousValues: Partial<PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs>, additionalModifiedNodes?: VNID[]}>,
+    ) => Promise<{additionalModifiedNodes?: VNID[]}>,
 };
 
 /** Detailed type specification for an Update action created by the defaultUpdateFor() template */
@@ -49,9 +49,7 @@ export interface UpdateActionDefinition<
     `Update${VNT["label"]}`,
     // The parameters that can/must be passed to this action to run it:
     {key: VNodeKey} & PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs,
-    // The result of running this action will be "prevValues" which stores the previous values so the action can be
-    // undone.
-    {prevValues: PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs}
+    Record<string, never>
 > {
     // Because Update actions are designed to work together with the Create action template, we need to store the list
     // of what properties the Update action can mutate:
@@ -85,8 +83,6 @@ export function defaultUpdateFor<VNT extends VNodeType, MutableProps extends Req
         apply: async function applyUpdateAction(tx, data) {
             // Load the current value of the VNode from the graph
             const nodeSnapshot: RawVNode<VNT> = (await tx.queryOne(C`MATCH (node:${type}), node HAS KEY ${data.key}`.RETURN({node: Field.VNode(type)}))).node;
-            // Prepare to store the previous values of any changed properties/relationships (so we can undo this update)
-            let previousValues: PropertyArgs = {};
             // Store the new values (properties that are being changed):
             const changes: any = {};
     
@@ -103,13 +99,12 @@ export function defaultUpdateFor<VNT extends VNodeType, MutableProps extends Req
                             value = BigInt(value);  // Using BigInt will ensure Neo4j stores it as int, not float. It will be read out as a Number because of our typing system.
                         }
                         changes[propertyName] = value;
-                        (previousValues as any)[propertyName] = nodeSnapshot[propertyName];
                     }
                 }
             }
-            // If there is a need to clean any properties, this function can mutate "changes" and "previousValues"
+            // If there is a need to clean any properties, this function can mutate "changes"
             if (clean) {
-                clean({data, nodeSnapshot, changes, previousValues});
+                clean({data, nodeSnapshot, changes});
             }
             await tx.queryOne(C`
                 MATCH (t:${type}), t HAS KEY ${data.key}
@@ -120,14 +115,13 @@ export function defaultUpdateFor<VNT extends VNodeType, MutableProps extends Req
             if (otherUpdates) {
                 // Update relationships etc.
                 const result = await otherUpdates(data, tx, nodeSnapshot, changes);
-                previousValues = {...previousValues, ...result.previousValues};
                 if (result.additionalModifiedNodes) {
                     modifiedNodes = [...modifiedNodes, ...result.additionalModifiedNodes];
                 }
             }
     
             return {
-                resultData: {prevValues: previousValues as any},
+                resultData: {},
                 modifiedNodes,
                 description: `Updated ${type.withId(nodeSnapshot.id as any)} (${Object.keys(data).filter(k => k !== "key").join(", ")})`,
             };
@@ -170,7 +164,7 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends Re
     // And accepts any _optional_ properties that the Update action understands:
     & ArgsForUpdateAction<UAI>
     // And it returns the VNID of the newly created node, and whatever the Update action returned, if any
-, {id: VNID, updateResult: null|{prevValues: any}}> {
+, {id: VNID}> {
 
     const requiredPropertyKeys = getRequestedRawProperties(type, requiredProperties);
 
@@ -179,7 +173,7 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends Re
     const CreateAction = defineAction({
         type: `Create${type.label}` as `Create${VNT["label"]}`,
         parameters: {} as Args,
-        resultData: {} as {id: VNID, updateResult: null|{prevValues: any}},
+        resultData: {} as {id: VNID},
         apply: async function applyCreateAction(tx, data) {
             const id = VNID();
             // This Create Action also runs an Update at the same time (if configured that way).
@@ -217,7 +211,7 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends Re
             if (updateAction && Object.keys(propsToSetViaUpdate).length > 0) {
                 const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: id, ...propsToSetViaUpdate});
                 return {
-                    resultData: { id, updateResult: updateResult.resultData },
+                    resultData: { id },
                     modifiedNodes: [id, ...updateResult.modifiedNodes],
                     description,
                 };
@@ -234,7 +228,6 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends Re
     return CreateAction;
 }
 
-// eslint-disable-next-line @typescript-eslint/ban-types
 export function defaultDeleteFor<VNT extends VNodeType>(type: VNT): ActionDefinition<`Delete${VNT["label"]}`, {key: VNodeKey}, {}> {
 
     const DeleteAction = defineAction({
