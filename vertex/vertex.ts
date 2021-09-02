@@ -176,9 +176,12 @@ export class Vertex implements VertexCore {
     public async resetDBToSnapshot(snapshot: VertexTestDataSnapshot): Promise<void> {
         await await this._restrictedAllowWritesWithoutAction(async () => {
             // Disable the slugId auto-creation trigger since it'll conflict with the SlugId nodes already in the data snapshot
-            await this._restrictedWrite(async tx => {
-                await tx.run(`CALL apoc.trigger.pause("createSlugIdRelation")`);
-            });
+            const pauseSlugId = await this.isTriggerInstalled("trackActionChanges");
+            if (pauseSlugId) {
+                await this._restrictedWrite(async tx => {
+                    await tx.run(`CALL apoc.trigger.pause("createSlugIdRelation")`);
+                });
+            }
             try {
                 await this._restrictedWrite(async tx => {
                     await tx.run(`MATCH (n) DETACH DELETE n`);
@@ -194,9 +197,11 @@ export class Vertex implements VertexCore {
                     }
                 });
             } finally {
-                await this._restrictedWrite(async tx => {
-                    await tx.run(`CALL apoc.trigger.resume("createSlugIdRelation")`);
-                });
+                if (pauseSlugId) {
+                    await this._restrictedWrite(async tx => {
+                        await tx.run(`CALL apoc.trigger.resume("createSlugIdRelation")`);
+                    });
+                }
             }
         });
     }
