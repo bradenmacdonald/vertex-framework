@@ -125,8 +125,8 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
         }
         let matchClause = (
             virtProp.query.queryString
-            .replace("@this", parentNodeVariable)
-            .replace("@target", newTargetVar)
+            .replace(/@this/g, parentNodeVariable)
+            .replace(/@target/g, newTargetVar)
         );
         // If (one of) the relationship(s) in the MATCH (@self)-...relationships...-(@target) expression is named via the @rel placeholder,
         // then replace that with a variable that can be used to fetch properties from the relationship or sort by them.
@@ -134,7 +134,7 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
         if (matchClause.includes("@rel")) {
             relationshipVariable = generateNameFor("rel");
             workingVars.add(relationshipVariable);
-            matchClause = matchClause.replace("@rel", relationshipVariable);
+            matchClause = matchClause.replace(/@rel/g, relationshipVariable);
         }
         query += `\nOPTIONAL MATCH ${matchedPathVar} = ${matchClause}\n`;
 
@@ -145,7 +145,7 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
         const orderBy = virtProp.defaultOrderBy || targetVNT.defaultOrderBy;
         if (orderBy) {
             // TODO: allow ordering by properties of the relationship
-            const orderExpression = orderBy.replace("@this", newTargetVar).replace("@rel", relationshipVariable || "@rel");
+            const orderExpression = orderBy.replace(/@this/g, newTargetVar).replace("@rel", relationshipVariable || "@rel");
             query += `WITH ${[...workingVars].join(", ")} ORDER BY ${orderExpression}\n`;
         }
         // Construct the WITH statement that ends this subquery, collect()ing many related nodes into a single array property
@@ -185,7 +185,7 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
         // to limit the OPTIONAL MATCH to one node at most. According to PROFILE, this way of doing it only adds 1 "db hit"
         query += `\nCALL {\n`;
         query += `    WITH ${parentNodeVariable}\n`;
-        query += `    OPTIONAL MATCH ${virtProp.query.queryString.replace("@this", parentNodeVariable).replace("@target", newTargetVar)}\n`;
+        query += `    OPTIONAL MATCH ${virtProp.query.queryString.replace(/@this/g, parentNodeVariable).replace(/@target/g, newTargetVar)}\n`;
         query += `    RETURN ${newTargetVar} LIMIT 1\n`;
         query += `}\n`;
 
@@ -211,7 +211,7 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
             // ^ This could be supported in the future though, if useful.
         }
 
-        const cypherExpression = virtProp.cypherExpression.queryString.replace("@this", parentNodeVariable).replace("@rel", relationshipVariable || "@rel");
+        const cypherExpression = virtProp.cypherExpression.queryString.replace(/@this/g, parentNodeVariable).replace(/@rel/g, relationshipVariable || "@rel");
 
         query += `WITH ${[...workingVars].join(", ")}, (${cypherExpression}) AS ${variableName}\n`;
         workingVars.add(variableName);
@@ -261,7 +261,7 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
 
     const orderBy = rootFilter.orderBy || rootNodeType.defaultOrderBy;
     if (orderBy) {
-        query += ` ORDER BY ${orderBy.replace("@this", "_node")}`;
+        query += ` ORDER BY ${orderBy.replace(/@this/g, "_node")}`;
     }
 
     return {query, params};
