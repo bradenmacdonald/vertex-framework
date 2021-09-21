@@ -15,13 +15,6 @@
             "problemMatcher": []
         },
         {
-            "label": "Test environment: Open shell",
-            "type": "shell",
-            "command": "docker-compose",
-            "args": ["exec", "tester", "/bin/sh"],
-            "problemMatcher": []
-        },
-        {
             "label": "Lint",
             "type": "shell",
             "command": "deno",
