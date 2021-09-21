@@ -13,7 +13,6 @@ import { Movie } from "./Movie.ts";
 /**
  * A Person VNode type
  */
-@VNodeType.declare
 export class Person extends VNodeType {
     static label = "TestPerson" as const;
     static properties = {

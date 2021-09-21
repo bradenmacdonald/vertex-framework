@@ -13,7 +13,6 @@ import { MovieFranchise } from "./MovieFranchise.ts";
 /**
  * A Movie VNode for testing
  */
-@VNodeType.declare
 export class Movie extends VNodeType {
     static label = "TestMovie";
     static properties = {

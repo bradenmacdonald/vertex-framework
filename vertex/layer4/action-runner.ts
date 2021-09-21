@@ -2,7 +2,6 @@ import { ActionRequest, getActionDefinition, ActionResult, Action } from "./acti
 import { VNID } from "../lib/types/vnid.ts";
 import { SYSTEM_VNID } from "./schema.ts";
 import { log } from "../lib/log.ts";
-import { getVNodeType } from "../layer2/vnode-base.ts";
 import { VertexCore } from "../vertex-interface.ts";
 import { neoNodeToRawVNode } from "../layer2/cypher-return-shape.ts";
 import { C } from "../layer2/cypher-sugar.ts";
@@ -73,7 +72,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                     if (label === "VNode") {
                         continue;
                     }
-                    const nodeType = getVNodeType(label);
+                    const nodeType = graph.getVNodeType(label);
                     // Make sure all required labels are applied:
                     for (let parentType = Object.getPrototypeOf(nodeType); parentType.label; parentType = Object.getPrototypeOf(parentType)) {
                         if (!node.labels.includes(parentType.label)) {

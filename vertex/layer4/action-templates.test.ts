@@ -12,9 +12,8 @@ import { AssertEqual, AssertNotEqual, checkType } from "../lib/ts-utils.ts";
 import { VD } from "../lib/types/vdate.ts";
 
 /** A VNodeType for use in this test suite. */
-@VNodeType.declare
 class AstronomicalBody extends VNodeType {
-    static label = "AstroBodyAT";  // AT = Action Templates test
+    static label = "AstroBody";
     static readonly properties = {
         ...VNodeType.properties,
         slugId: Field.Slug,
@@ -22,17 +21,16 @@ class AstronomicalBody extends VNodeType {
     };
 }
 
-@VNodeType.declare
 class Planet extends AstronomicalBody {
-    static readonly label = "PlanetAT";  // AT = Action Templates test
+    static readonly label = "Planet";
     static readonly properties = {
         ...AstronomicalBody.properties,
         numberOfMoons: Field.NullOr.Int,
     };
-    static readonly rel = {
+    static readonly rel = this.hasRelationshipsFromThisTo({
         /** This planet has moon(s) */
         HAS_MOON: { to: [AstronomicalBody] },
-    };
+    });
 }
 
 const CreateAstroBody = defaultCreateFor(AstronomicalBody, ab => ab.slugId.mass);
@@ -60,12 +58,12 @@ const CreatePlanet = defaultCreateFor(Planet, p => p.slugId.mass, UpdatePlanet);
 
 group(import.meta, () => {
 
-    configureTestData({isolateTestWrites: true, loadTestProjectData: false});
+    configureTestData({isolateTestWrites: true, loadTestProjectData: false, additionalVNodeTypes: [AstronomicalBody, Planet]});
 
     group("defaultCreateFor", () => {
 
         test("has a statically typed 'type'", () => {
-            checkType<AssertEqual<typeof CreatePlanet.type, "CreatePlanetAT">>();
+            checkType<AssertEqual<typeof CreatePlanet.type, "CreatePlanet">>();
             checkType<AssertNotEqual<typeof CreatePlanet.type, "otherString">>();
         })
 
@@ -131,7 +129,7 @@ group(import.meta, () => {
                 CreatePlanet({slugId: "Earth", mass: 9000})
             );
             const result = await testGraph.read(tx => tx.query(C`MATCH (p:${Planet} {id: ${id}})`.RETURN({"labels(p)": Field.List(Field.String) })));
-            assertEquals(new Set(result[0]["labels(p)"]), new Set(["PlanetAT", "AstroBodyAT", "VNode"]));
+            assertEquals(new Set(result[0]["labels(p)"]), new Set(["Planet", "AstroBody", "VNode"]));
         })
 
         test("it can set properties via the Update action", async () => {

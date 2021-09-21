@@ -1,5 +1,6 @@
 import { VNID, VNodeKey } from "./lib/key.ts";
 import { WrappedTransaction } from "./transaction.ts";
+import type { VNodeType } from "./layer3/vnode.ts";
 
 /**
  * Definition of the core methods of the Vertex class, so that we can avoid circular imports.
@@ -11,6 +12,11 @@ export interface VertexCore {
     _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
     _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<void>;
     vnidForKey(key: VNodeKey): Promise<VNID>;
+
+    registerVNodeType(vnt: VNodeType): void;
+    registerVNodeTypes(vnts: VNodeType[]): void;
+    unregisterVNodeType(vnt: VNodeType): void;
+    getVNodeType(label: string): VNodeType;
 
     snapshotDataForTesting(): Promise<VertexTestDataSnapshot>;
     resetDBToSnapshot(snapshot: VertexTestDataSnapshot): Promise<void>;

@@ -218,7 +218,7 @@ export const derivedPropsMixinImplementation: MixinImplementation = (dataRequest
         const request = requestWithDerivedPropAdded(dataRequest, propKey);
         // And add in any dependencies required:
         if (!(derivedProp instanceof DerivedProperty)) {
-            throw new Error(`Derived property ${vnodeType}.${propKey} is invalid - missing @VNodeType.declare ?`);
+            throw new Error(`Derived property ${vnodeType.name}.${propKey} is invalid - did you use this.hasDerivedProperties(...)?`);
         }
         // The code in pull() needs to be able to tell which fields were explicitly requested, and which were requested
         // only for use by derived props, as dependencies. So we add those dependency fields conditionally, only when

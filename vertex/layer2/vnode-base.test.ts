@@ -2,11 +2,10 @@ import {
     VNodeType,
     Field,
 } from "../index.ts";
-import { group, test, assertEquals, assertStrictEquals, assertThrows } from "../lib/tests.ts";
+import { group, test, assertEquals, assertStrictEquals } from "../lib/tests.ts";
 import { getAllLabels, getRelationshipType } from "./vnode-base.ts";
 
 /** A VNodeType for use in this test suite. */
-@VNodeType.declare
 class Employee extends VNodeType {
     static label = "Employee";
     static properties = {
@@ -16,7 +15,6 @@ class Employee extends VNodeType {
 }
 
 /** A VNodeType for use in this test suite. */
-@VNodeType.declare
 class Manager extends Employee {
     static label = "Manager";
     static properties = {
@@ -29,38 +27,19 @@ class Manager extends Employee {
 }
 
 /** A VNodeType for use in this test suite. */
-@VNodeType.declare
 class Executive extends Manager {
     static label = "Executive";
     static readonly properties = {
         ...Manager.properties,
     };
-    static readonly rel = {
+    static readonly rel = this.hasRelationshipsFromThisTo({
         ...Manager.rel,
         // A -to-one relationship:
         HAS_ASSISTANT: { to: [Employee], properties: { since: Field.DateTime } }
-    };
+    });
 }
 
 group(import.meta, () => {
-
-
-    group("BaseVNodeType", () => {
-        test("VNodeType.declare", () => {
-
-            class SomeVNT extends VNodeType {
-                static readonly label = "SomeVNT";
-                static readonly properties = {
-                    ...VNodeType.properties,
-                };
-            }
-
-            VNodeType.declare(SomeVNT);
-            assertThrows(() => {
-                VNodeType.declare(SomeVNT);
-            }, undefined, "Duplicate VNodeType label: SomeVNT");
-        });
-    });
 
     group("getAllLabels", () => {
 

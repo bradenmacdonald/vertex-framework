@@ -3,7 +3,7 @@ import { Field, FieldType, GetDataShape, PropSchema, validatePropSchema, Propert
 import { C } from "./cypher-sugar.ts";
 import { convertNeo4jFieldValue } from "./cypher-return-shape.ts";
 import { VNID } from "../lib/key.ts";
-import { applyLazilyToDeferrable } from "../lib/deferrable.ts";
+import { applyLazilyToDeferrable, deferrable, Deferrable } from "../lib/deferrable.ts";
 
 // An empty object that can be used as a default value for read-only properties
 export const emptyObj = Object.freeze({});
@@ -168,33 +168,23 @@ export class _BaseVNodeType {
         }
     }
 
-    /**
-     * Validate and register a VNodeType.
-     *
-     * Every VNodeType must be decorated with this function (or call this function with the VNodeType subclass, if not
-     * using decorators)
-     * 
-     * This is protected because a public version is declared in the VNodeType class that subclasses this one.
-     */
-    protected static declare(vnt: BaseVNodeType): void {
 
-        if (vnt.properties.id !== Field.VNID) {
-            throw new Error(`${vnt.name} VNodeType does not inherit the required id property from the base class.`);
-        }
-
-        if ("slugId" in vnt.properties && vnt.properties.slugId.type !== FieldType.Slug) {
-            throw new Error(`If a VNode declares a slugId property, it must be of type Field.Slug.`);
-        }
+    /** Helper method needed to declare a VNodeType's "rel" (relationships) property with correct typing and metadata. */
+    static hasRelationshipsFromThisTo<Rels extends RelationshipsSchema>(relationships: Deferrable<Rels>): Rels {
+        const deferredRels = deferrable(relationships);
 
         // We need to apply some cleanups and validation and annotation to the .rels property. BUT that property may be
         // "deferred" (wrapped in a proxy object and lazily evaluated when accessed) in order to avoid circular imports.
         // So use this helper function to do the cleanup/validation at the last second, when .rels is first accessed.
-        applyLazilyToDeferrable(vnt.rel, (rels => {
+        applyLazilyToDeferrable(deferredRels, (rels => {
             // Check for annoying circular references that TypeScript can't catch:
             Object.entries(rels).forEach(([relName, rel]) => {
                 rel.to.forEach((targetVNT, idx) => {
                     if (targetVNT === undefined) {
-                        throw new Error(`Circular reference in ${vnt.name} definition: relationship ${vnt.name}.rel.${relName}.to[${idx}] is undefined.`);
+                        throw new Error(`
+                            Circular reference in ${this.name} definition: relationship ${this.name}.rel.${relName}.to[${idx}] is undefined.
+                            Try putting the relationships into a function, like "static rel = this.hasRelationshipsFromThisTo(() => {...});"
+                        `);
                     }
                 });
             });
@@ -203,19 +193,10 @@ export class _BaseVNodeType {
             // reference a relationship like SomeVNT.rel.FOO_BAR, we can get the name "FOO_BAR" from that value, even though
             // the name was only declared as the key, and is not part of the FOO_BAR value.
             for (const relationshipType of Object.keys(rels)) {
-                const relDeclaration = rels[relationshipType];
-                if (relDeclaration[relTypeKey] !== undefined && relDeclaration[relTypeKey] != relationshipType) {
-                    // This is a very obscure edge case error, but if someone is saying something like
-                    // rel = { FOO: SomeOtherVNodeType.rel.BAR } then we need to flag that we can't share the same
-                    // relationship declaration and call it both FOO and BAR.
-                    throw new Error(`The relationship ${vnt.name}.${relationshipType} is also declared somewhere else as type ${relDeclaration[relTypeKey]}.`);
-                }
-                relDeclaration[relTypeKey] = relationshipType;
+                storeRelationshipType(relationshipType, rels[relationshipType]);
             }
         }));
-
-        // Register the VNodeType:
-        registerVNodeType(vnt);
+        return deferredRels;
     }
 
     /**
@@ -260,7 +241,6 @@ export interface BaseVNodeType {
     // deno-lint-ignore no-explicit-any
     validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
 
-    declare(vnt: BaseVNodeType): void;
     withId(id: VNID): string;
 }
 
@@ -269,19 +249,37 @@ export function isBaseVNodeType(obj: unknown): obj is BaseVNodeType {
     return typeof obj === "function" && Object.prototype.isPrototypeOf.call(_BaseVNodeType, obj);
 }
 
-/** Helper function to get the type/name of a relationship from its declaration - see _BaseVNodeType.declare() */
+/**
+ * Store the "type" (name/label) of each relationship in its definition, so that when parts of the code
+ * reference a relationship like SomeVNT.rel.FOO_BAR, we can get the name "FOO_BAR" from that value, even though
+ * the name was only declared as the key, and is not part of the FOO_BAR value.
+ * 
+ * This is used in Vertex.registerVNodeType()
+ */
+export function storeRelationshipType(relationshipType: string, relDeclaration: RelationshipDeclaration) {
+    if (relDeclaration[relTypeKey] !== undefined && relDeclaration[relTypeKey] != relationshipType) {
+        // This is a very obscure edge case error, but if someone is saying something like
+        // rel = { FOO: SomeOtherVNodeType.rel.BAR } then we need to flag that we can't share the same
+        // relationship declaration and call it both FOO and BAR.
+        throw new Error(`The relationship ${relationshipType} is also declared somewhere else as type ${relDeclaration[relTypeKey]}.`);
+    }
+    relDeclaration[relTypeKey] = relationshipType;
+}
+
+/** Helper function to get the type/name of a relationship from its declaration - see storeRelationshipType() */
 export function getRelationshipType(rel: RelationshipDeclaration): string {
     const relDeclaration = rel;
     const result = relDeclaration[relTypeKey];
     if (result === undefined) {
-        throw new Error(`Tried accessing a relationship on a VNodeType that didn't use the @VNodeType.declare class decorator`);
+        throw new Error(`A VNodeType's relationships were not declared using this.hasRelationshipsFromThisTo({...})`);
     }
     return result;
 }
 
 /**
  * Is the thing passed as a parameter a relationship declaration (that was declared in a VNode's "rel" static prop?)
- * This checks for a private property that gets added to every relationship by the @VNodeType.declare decorator.
+ * This checks for a private property that gets added to every relationship by storeRelationshipType() during
+ * Vertex.registerVNodeType()
  */
 export function isRelationshipDeclaration(relDeclaration: unknown): relDeclaration is RelationshipDeclaration {
     // In JavaScript, typeof null === "object" which is why we need the middle condition here.
@@ -296,26 +294,8 @@ export function isRelationshipDeclaration(relDeclaration: unknown): relDeclarati
 export type RawVNode<T extends BaseVNodeType> = GetDataShape<T["properties"]> & { _labels: string[]; };
 
 
-const registeredNodeTypes: {[label: string]: BaseVNodeType} = {};
-
-function registerVNodeType(vnt: BaseVNodeType): void {
-    if (registeredNodeTypes[vnt.label] !== undefined) {
-        throw new Error(`Duplicate VNodeType label: ${vnt.label}`);
-    }
-    registeredNodeTypes[vnt.label] = vnt;
-}
-
 /** Exception: A VNode with the specified label has not been registered [via registerVNodeType()]  */
 export class InvalidNodeLabel extends Error {}
-
-/** Given a label used in the Neo4j graph (e.g. "User"), get its VNodeType definition */
-export function getVNodeType(label: string): BaseVNodeType {
-    const def = registeredNodeTypes[label];
-    if (def === undefined) {
-        throw new InvalidNodeLabel(`VNode definition with label ${label} has not been loaded.`);
-    }
-    return def;
-}
 
 export function getAllLabels(vnt: BaseVNodeType): string[] {
     if (!vnt.label || vnt.label === "VNode") {

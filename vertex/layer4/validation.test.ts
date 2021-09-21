@@ -15,13 +15,11 @@ import {
     defaultCreateFor,
 } from "../index.ts";
 
-@VNodeType.declare
 class BirthCertificate extends VNodeType {
-    static label = "BirthCertRVT";  // RVT: Relationship Validation Tests
+    static label = "BirthCert";
     static readonly properties = {...VNodeType.properties};
 }
 
-@VNodeType.declare
 class Person extends VNodeType {
     static label = "PersonRVT";  // RVT: Relationship Validation Tests
     static readonly properties = {...VNodeType.properties, slugId: Field.Slug};
@@ -57,10 +55,8 @@ const createPerson = async (name: string): Promise<VNID> => {
 }
 
 
-
-@VNodeType.declare
 class Note extends VNodeType {
-    static label = "NoteVT";  // VT = validation tests
+    static label = "Note";
     static readonly slugIdPrefix = "note-";
     static readonly properties = {...VNodeType.properties, slugId: Field.Slug, text: Field.NullOr.String};
 }
@@ -70,7 +66,11 @@ const CreateNote = defaultCreateFor(Note, n => n.slugId);
 
 group(import.meta, () => {
 
-    configureTestData({isolateTestWrites: true, loadTestProjectData: false});
+    configureTestData({isolateTestWrites: true, loadTestProjectData: false, additionalVNodeTypes: [
+        BirthCertificate,
+        Person,
+        Note,
+    ]});
 
     group("test slugIdPrefix validation", () => {
 
@@ -84,7 +84,7 @@ group(import.meta, () => {
             await assertThrowsAsync(
                 () => testGraph.runAsSystem(CreateNote({slugId: "test1-note-foo"})),
                 undefined,
-                `NoteVT has an invalid slugId "test1-note-foo". Expected it to start with "note-".`,
+                `Note has an invalid slugId "test1-note-foo". Expected it to start with "note-".`,
             );
         });
     });

@@ -378,7 +378,7 @@ function postProcessResult(origResult: Readonly<Record<string, any>>, request: F
         for (const propName of derivedProperties) {
             const derivedProp = request.vnodeType.derivedProperties[propName];
             if (!(derivedProp instanceof DerivedProperty)) {
-                throw new Error(`Derived property ${request.vnodeType.name}.${propName} is invalid. Is the class not decorated with @VNodeType.declare ?`);
+                throw new Error(`Derived property ${request.vnodeType.name}.${propName} is invalid. Did you forget Vertex.registerVNodeType() ?`);
             }
             newResult[propName] = derivedProp.computeValue(dataSoFar);
         }

@@ -19,7 +19,7 @@ export interface DerivedPropsSchema {
     [K: string]: DerivedProperty<any>|((vnt: VNodeType, derivedPropName: string) => DerivedProperty<any>),
 }
 
-// The required @VNodeType.declare decorator and/or the optional VNodeType.hasDerivedProperties method will "clean" the
+// The required Vertex.registerVNodeType() and/or the optional VNodeType.hasDerivedProperties method will "clean" the
 // by calling any properties that are declared as functions, to convert them to DerivedProperty objects.
 export interface DerivedPropsSchemaCleaned {
     [K: string]: DerivedProperty<any>,

@@ -10,7 +10,6 @@ import { Movie } from "./Movie.ts";
 /**
  * A Movie Franchise VNode for testing
  */
-@VNodeType.declare
 export class MovieFranchise extends VNodeType {
     static label = "TestMovieFranchise";
     static properties = {

@@ -10,6 +10,17 @@ export const testGraph = new Vertex({
     },
 });
 
+import { Movie } from "./Movie.ts";
+import { MovieFranchise } from "./MovieFranchise.ts";
+import { Person } from "./Person.ts";
+import { TypeTester } from "./TypeTester.ts";
+testGraph.registerVNodeTypes([
+    Movie,
+    MovieFranchise,
+    Person,
+    TypeTester,
+]);
+
 export * from "./Movie.ts";
 export * from "./MovieFranchise.ts";
 export * from "./Person.ts";

@@ -1,9 +1,29 @@
-import { group, test, assertEquals, assertThrowsAsync, configureTestData } from "./lib/tests.ts";
+import { group, test, assertEquals, assertThrowsAsync, configureTestData, assertThrows } from "./lib/tests.ts";
 import { Person, testGraph } from "./test-project/index.ts";
 
-import { VNID, SlugId } from "./index.ts";
+import { VNID, SlugId, VNodeType } from "./index.ts";
 
 group("Vertex Core", () => {
+
+
+    group("VNodeType Registration", () => {
+        test("Vertex.registerVNodeType", () => {
+
+            class SomeVNT extends VNodeType {
+                static readonly label = "SomeVNT";
+                static readonly properties = {
+                    ...VNodeType.properties,
+                };
+            }
+
+            testGraph.registerVNodeType(SomeVNT);
+            assertThrows(() => {
+                testGraph.registerVNodeType(SomeVNT);
+            }, undefined, "Duplicate VNodeType label: SomeVNT");
+            testGraph.unregisterVNodeType(SomeVNT);
+        });
+    });
+
 
     group("Basic database operations", () => {
 

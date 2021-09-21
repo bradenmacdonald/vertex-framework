@@ -13,7 +13,6 @@ import {
 import { testGraph } from "../test-project/index.ts";
 
 /** A VNodeType for use in this test group. */
-@VNodeType.declare
 class Person extends VNodeType {
     static label = "PersonAHT";  // AHT: action-helpers.test
     static readonly properties = {
@@ -23,9 +22,8 @@ class Person extends VNodeType {
 }
 
 /** A VNodeType for use in this test group. */
-@VNodeType.declare
 class AstronomicalBody extends VNodeType {
-    static label = "AstroBodyAHT";  // AHT: action-helpers.test
+    static label = "AstroBody";
     static readonly properties = {
         ...VNodeType.properties,
         slugId: Field.Slug,
@@ -99,7 +97,10 @@ const earthOrbitsTheSun = {key: "sun", periodInSeconds: 3.1558149e7};
 
 group(import.meta, () => {
 
-    configureTestData({isolateTestWrites: true, loadTestProjectData: false});
+    configureTestData({isolateTestWrites: true, loadTestProjectData: false, additionalVNodeTypes: [
+        AstronomicalBody,
+        Person,
+    ]});
 
     group("updateToOneRelationship", () => {
 

@@ -104,7 +104,6 @@ export function getActionDefinition(type: string): ActionDefinition|undefined {
 }
 
 
-@VNodeType.declare
 export class Action extends VNodeType {
     static label = "Action";
     static readonly properties = {

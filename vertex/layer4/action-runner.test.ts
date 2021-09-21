@@ -11,7 +11,6 @@ import {
     EmptyResultError,
 } from "../index.ts";
 
-@VNodeType.declare
 class AstronomicalBody extends VNodeType {
     static label = "AstroBody";
     static readonly properties = {
@@ -21,7 +20,6 @@ class AstronomicalBody extends VNodeType {
     };
 }
 
-@VNodeType.declare
 class Planet extends AstronomicalBody {
     static label = "Planet";
     static readonly properties = {
@@ -45,7 +43,7 @@ const GenericCreateAction = defineAction({
 
 group("action runner", () => {
 
-    configureTestData({isolateTestWrites: true, loadTestProjectData: false});
+    configureTestData({isolateTestWrites: true, loadTestProjectData: false, additionalVNodeTypes: [AstronomicalBody, Planet]});
 
     group("test isolation", () => {
         // Test that our test cases have sufficient test isolation, via isolateTestWrites()

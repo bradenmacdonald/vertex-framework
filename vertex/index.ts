@@ -57,9 +57,8 @@ export {
 export {
     InvalidNodeLabel,
     PublicValidationError,
-    // BaseVNodeType - internal use only: we use VNodeType (from layer 4) in its place
+    // BaseVNodeType - internal use only: we use VNodeType (from layer 3) in its place
     ValidationError,
-    //getVNodeType - redefined in layer 4
     //isBaseVNodeType - internal use only
 } from "./layer2/vnode-base.ts";
 export type {
@@ -107,7 +106,6 @@ export type {
 export {
     VNodeType,
     isVNodeType,
-    getVNodeType,
 } from "./layer3/vnode.ts";
 
 export type {

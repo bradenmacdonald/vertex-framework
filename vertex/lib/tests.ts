@@ -5,6 +5,7 @@ export * from "https://deno.land/std@0.99.0/testing/asserts.ts";
 import { log } from "./log.ts"
 import { VertexTestDataSnapshot } from "../vertex-interface.ts";
 import { testGraph } from "../test-project/index.ts";
+import type { VNodeType } from "../layer3/vnode.ts";
 
 export {
     afterAll,
@@ -101,6 +102,8 @@ export function configureTestData(args: {
     // If these tests are writing to the database, set this to true and the database will be reset after each test.
     // If the tests are read-only, set this false for better performance.
     isolateTestWrites: boolean,
+    // Additional VNodeTypes to register:
+    additionalVNodeTypes?: VNodeType[],
 }): void {
     if (args.isolateTestWrites) {
         if (args.loadTestProjectData) {
@@ -115,5 +118,11 @@ export function configureTestData(args: {
             beforeAll(loadTestProjectData);
             afterAll(resetTestDbToSnapshot);
         }
+    }
+
+    if (args.additionalVNodeTypes !== undefined) {
+        const vnts = args.additionalVNodeTypes;
+        beforeAll(() => { testGraph.registerVNodeTypes(vnts); });
+        afterAll(() => { vnts.forEach(vnt => { testGraph.unregisterVNodeType(vnt); }); });
     }
 }

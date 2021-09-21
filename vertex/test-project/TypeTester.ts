@@ -8,7 +8,6 @@ import {
 /**
  * A VNode type that contains nullable and non-nullable fields of all types supported by Vertex Framework
  */
-@VNodeType.declare
 export class TypeTester extends VNodeType {
     static readonly label = "TypeTester";
     static readonly properties = {

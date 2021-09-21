@@ -11,7 +11,9 @@ import { WrappedTransaction } from "./transaction.ts";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface.ts";
 import { VNodeKey } from "./lib/key.ts";
 import { C } from "./layer2/cypher-sugar.ts";
-import { Field } from "./lib/types/field.ts";
+import { Field, FieldType } from "./lib/types/field.ts";
+import type { VNodeType } from "./layer3/vnode.ts";
+import { InvalidNodeLabel } from "./layer2/vnode-base.ts";
 
 
 export interface InitArgs {
@@ -25,6 +27,7 @@ export interface InitArgs {
 export class Vertex implements VertexCore {
     private readonly driver: Neo4j.Driver;
     public readonly migrations: {[name: string]: Migration};
+    private registeredNodeTypes: {[label: string]: VNodeType} = {};
 
     constructor(config: InitArgs) {
         this.driver = neo4j.driver(
@@ -33,6 +36,49 @@ export class Vertex implements VertexCore {
             { useBigInt: true },
         );
         this.migrations = {...coreMigrations, ...actionMigrations, ...config.extraMigrations};
+    }
+
+    /**
+     * Validate and register a VNodeType.
+     *
+     * Every VNodeType must be registered with this function before it can be used.
+     * 
+     * This is protected because a public version is declared in the VNodeType class that subclasses this one.
+     */
+    public registerVNodeType(vnt: VNodeType): void {
+        if (this.registeredNodeTypes[vnt.label] !== undefined) {
+            throw new Error(`Duplicate VNodeType label: ${vnt.label}`);
+        }
+
+        if (vnt.properties.id !== Field.VNID) {
+            throw new Error(`${vnt.name} VNodeType does not inherit the required id property from the base class.`);
+        }
+
+        if ("slugId" in vnt.properties && vnt.properties.slugId.type !== FieldType.Slug) {
+            throw new Error(`If a VNode declares a slugId property, it must be of type Field.Slug.`);
+        }
+
+        this.registeredNodeTypes[vnt.label] = vnt;
+    }
+
+    public registerVNodeTypes(vnts: VNodeType[]): void {
+        vnts.forEach(vnt => this.registerVNodeType(vnt));
+    }
+
+    public unregisterVNodeType(vnt: VNodeType): void {
+        if (this.registeredNodeTypes[vnt.label] === undefined) {
+            throw new Error(`VNodeType ${vnt.name} is not registered.`);
+        }
+        delete this.registeredNodeTypes[vnt.label];
+    }
+
+    /** Given a label used in the Neo4j graph (e.g. "User"), get its VNodeType definition */
+    public getVNodeType(label: string): VNodeType {
+        const def = this.registeredNodeTypes[label];
+        if (def === undefined) {
+            throw new InvalidNodeLabel(`VNode definition with label ${label} has not been loaded.`);
+        }
+        return def;
     }
 
     /** Await this when your application prepares to shut down */

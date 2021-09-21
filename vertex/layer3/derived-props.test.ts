@@ -36,7 +36,6 @@ class Employee extends VNodeType {
 }
 
 /** A VNodeType for use in this test suite. */
-@VNodeType.declare
 class Manager extends Employee {
     static label = "ManagerDPT";  // DPT = Derived Props Test
     static readonly properties = {
@@ -45,7 +44,6 @@ class Manager extends Employee {
 }
 
 /** A VNodeType for use in this test suite. */
-@VNodeType.declare
 class Executive extends Manager {
     static label = "ExecutiveDPT";  // DPT = Derived Props Test
     static readonly properties = {

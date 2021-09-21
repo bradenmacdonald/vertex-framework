@@ -35,7 +35,6 @@ Here is an example of how an application can define a `VNode` type and its schem
 /**
  * A Person VNode type
  */
-@VNodeType.declare
 export class Person extends VNodeType {
     static label = "Person";
     static properties = {
@@ -154,7 +153,6 @@ First, when defining a `VNode` type/schema, you can also specify **virtual prope
 /**
  * A Person VNode type
  */
-@VNodeType.declare
 export class Person extends VNodeType {
 
     ... // label, properties, rel, defaultOrderBy as shown above
@@ -381,7 +379,6 @@ export const MovieRef: typeof Movie = VNodeTypeRef("Movie");
 import { MovieFranchise } from "./MovieFranchise";
 
 // Define Movie now:
-@VNodeType.declare
 export class Movie extends VNodeType {
     static label = "Movie";
     ...
@@ -410,7 +407,6 @@ Then, in `MovieFranchise.ts`:
 // we import MovieRef:
 import { MovieRef as Movie } from "./Movie";
 
-@VNodeType.declare
 export class MovieFranchise extends VNodeType {
     static label = "MovieFranchise";
     ...

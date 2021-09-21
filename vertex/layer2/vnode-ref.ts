@@ -4,11 +4,10 @@
  * one will encounter when creating a project using Vertex Framework. See the description of VNodeTypeRef below for
  * details.
  */
-import { getVNodeType, BaseVNodeType, RelationshipDeclaration } from "./vnode-base.ts";
+import { BaseVNodeType, RelationshipDeclaration } from "./vnode-base.ts";
 
 /** Interface for our "Fake" VNodeType which holds the label used to lazily load the real type. */
 interface FakeVNodeType {
-    label: string;  // <-- this label is the same as the "real" VNodeType we want to load
     loadedVNodeType?: BaseVNodeType;  // <-- This holds a reference to the "real" VNodeType after we load it lazily
     relationshipsProxy: any;  // <-- This holds a special proxy used to access the relationships under .rel.REL_NAME before the VNodeType is loaded.
 }
@@ -16,7 +15,7 @@ interface FakeVNodeType {
 /** Helper method used by vnodeRefProxyHandler to get the real VNodeType from the fake VNodeType */
 function getVNode(refData: FakeVNodeType): BaseVNodeType {
     if (refData.loadedVNodeType === undefined) {
-        refData.loadedVNodeType = getVNodeType(refData.label);
+        throw new Error("Unable to use forward reference that hasn't been resolved with .resolveTo()");
     }
     return refData.loadedVNodeType;
 }
@@ -29,6 +28,14 @@ const vnodeRefProxyHandler: ProxyHandler<FakeVNodeType> = {
             // The VNodeType is not yet loaded - return a proxy that returns forward references (proxies) for each
             // relationship. We assume the relationship exists (it should, due to TypeScript checking).
             return refData.relationshipsProxy;
+        } else if (propKey === "resolveTo") {
+            // Now we are given the "full" class definition:
+            return (vnt: BaseVNodeType) => {
+                if (refData.loadedVNodeType !== undefined) {
+                    throw new Error("That forward reference was already resolved.");
+                }
+                refData.loadedVNodeType = vnt;
+            }
         }
         return Reflect.get(getVNode(refData), propKey, proxyObj);
     },
@@ -50,25 +57,27 @@ const vnodeRefProxyHandler: ProxyHandler<FakeVNodeType> = {
  *     import { VNodeType, VirtualPropType, VNodeTypeRef, ... } from "vertex-framework"
  *
  *     // There is a circular reference between Movie and MovieFranchise, so declare a forward reference now:
- *     export const MovieRef: typeof Movie = VNodeTypeRef("TestMovie");  // the string must match the VNodeType's label
+ *     export const MovieRef: typeof Movie = VNodeTypeRef();
  *
  *     // _now_ we can import MovieFranchise without circular references:
  *     import { MovieFranchise } from "./MovieFranchise";
+ * 
+ *     // but now we must resolve the forward reference:
+ *     VNodeTypeRef.resolve(MovieRef, Movie);
  * 
  * Then in MovieFranchise, use MovieRef everywhere in top-level code that you would use "Movie". You can use the
  * reference itself and you can also access its relationships like MovieRef.rel.SOME_RELATIONSHIP, but you cannot access
  * any properties of the reference (like "MovieRef.label") or of the relationships (like "MovieRef.rel.SOME_REL.label"),
  * as any property access other than the .rel.REL_NAME properties will attempt loading the VNode.
  */
-export const VNodeTypeRef = <VNT extends BaseVNodeType>(label_: string): VNT => {
+export const VNodeTypeRef = () => {
 
-    const name = `${label_}Placeholder`;
+    const name = `VNodePlaceholder`;
     // Dynamically construct a VNodeType class to use as the internal data ("target") for the proxy.
     // We need this because the "target" must be somewhat similar in terms of prototype to the real VNode type
     // for the proxy to work.
     const classBuilder = {
         [name]: class extends BaseVNodeType {
-            static label = label_;
             static loadedVNodeType?: BaseVNodeType;  // <-- the real VNodeType will be loaded on demand (later) and stored here
             static relationshipsProxy: any;
         },
@@ -78,8 +87,12 @@ export const VNodeTypeRef = <VNT extends BaseVNodeType>(label_: string): VNT => 
     // VNodeType is loaded, if necssary.
     classBuilder[name].relationshipsProxy = new Proxy(classBuilder[name], RelationshipsProxyHandler);
 
-    return new Proxy(classBuilder[name], vnodeRefProxyHandler) as any as VNT;
+    return new Proxy(classBuilder[name], vnodeRefProxyHandler) as any;
 }
+
+VNodeTypeRef.resolve = (ref: BaseVNodeType, real: BaseVNodeType) => {
+    (ref as any).resolveTo(real);
+};
 
 
 /// More proxies, to allow access to [VNodeTypeRef].rel.SOME_RELATIONSHIP before VNodeType has loaded:

@@ -16,9 +16,8 @@ import * as check from "https://denoporter.sirjosh.workers.dev/v1/deno.land/x/co
 
 
 
-@VNodeType.declare
 class Note extends VNodeType {
-    static label = "NoteFVT";  // VT = field validation tests
+    static label = "Note";
     static readonly properties = {
         ...VNodeType.properties,
         // A default string field. By default, the validation will trim the string and limit it to 1,000 characters.
@@ -33,7 +32,7 @@ const CreateNote = defaultCreateFor(Note, n => n.defaultString.allCapsString);
 
 group(import.meta, () => {
     
-    configureTestData({isolateTestWrites: true, loadTestProjectData: false});
+    configureTestData({isolateTestWrites: true, loadTestProjectData: false, additionalVNodeTypes: [Note]});
     
     group("test field validation with cleaning features", () => {
         
