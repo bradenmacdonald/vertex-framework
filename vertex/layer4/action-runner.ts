@@ -124,7 +124,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
 
         // This user ID validation happens very late but saves us a separate query.
         if (actionUpdate.records.length === 0) {
-            throw new Error("Invalid user ID - unable to apply action.");
+            throw new Error(`Invalid user ID (${userId}) or action revert ID (${isRevertOfAction}) - unable to apply action.`);
         }
 
         return [resultData, tookMs, description];
