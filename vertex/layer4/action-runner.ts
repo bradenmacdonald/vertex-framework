@@ -7,6 +7,7 @@ import { neoNodeToRawVNode } from "../layer2/cypher-return-shape.ts";
 import { C } from "../layer2/cypher-sugar.ts";
 import { Field, Node } from "../lib/types/field.ts";
 import { UndoAction } from "./action-generic.ts";
+import { baseValidateVNode } from "./validation.ts";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
@@ -27,13 +28,13 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
     const [result, tookMs, description] = await graph._restrictedWrite(async (tx) => {
 
         // First, apply the action:
-        let modifiedNodeIds: VNID[];
+        const modifiedNodeIds = new Set<VNID>();
         // deno-lint-ignore no-explicit-any
         let resultData: any;
         let description: string;
         try {
             const x = await ActionDefinition.apply(tx, parameters);
-            modifiedNodeIds = x.modifiedNodes;
+            x.modifiedNodes.forEach(id => modifiedNodeIds.add(id));
             resultData = x.resultData;
             description = x.description;
         } catch (err) {
@@ -41,20 +42,46 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
             throw err;
         }
 
-        if (modifiedNodeIds.length > 0) {
+        if (modifiedNodeIds.size > 0) {
             // Mark the Action as having :MODIFIED any affects nodes, and also retrieve the current version of them.
             // (If a node was deleted, this will ignore it.)
+            const modifiedNodeIdsArray = Array.from(modifiedNodeIds);
             const result = await tx.query(C`
                 MERGE (a:${Action} {id: ${actionId}})
                 WITH a
                 // Most efficient way to MATCH either a :VNode or a :DeletedVNode by ID:
                 CALL {
-                    MATCH (n:VNode) WHERE n.id IN ${modifiedNodeIds} RETURN n
+                    MATCH (n:VNode) WHERE n.id IN ${modifiedNodeIdsArray} RETURN n
                     UNION
-                    MATCH (n:DeletedVNode) WHERE n.id IN ${modifiedNodeIds} RETURN n
+                    MATCH (n:DeletedVNode) WHERE n.id IN ${modifiedNodeIdsArray} RETURN n
                 }
                 MERGE (a)-[:${Action.rel.MODIFIED}]->(n)
             `.RETURN({n: Field.Node}));
+
+            // Load relationship data for validation.
+            // Storing large amounts of data on relationship properties is not recommended so it should be safe to pull
+            // down all the relationships and their properties at once.
+            const relationshipsData = await tx.query(C`
+                UNWIND ${modifiedNodeIdsArray} as id
+                MATCH (node:VNode {id: id})-[rel]->(target:VNode)
+                WITH id, {
+                    relType: type(rel),
+                    relProps: properties(rel),
+                    targetLabels: labels(target),
+                    targetId: id(target)
+                } AS rel
+                RETURN id, collect(rel) AS rels
+                `.givesShape({
+                    id: Field.VNID,
+                    rels: Field.List(Field.Record({
+                        relType: Field.String,
+                        relProps: Field.Any,
+                        targetLabels: Field.List(Field.String),
+                        targetId: Field.Int,
+                    })),
+                })
+            );
+
             // Then, validate all nodes that had changes:
             for (const resultRow of result) {
                 const node: Node = resultRow.n;
@@ -80,8 +107,11 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                         }
                     }
                     // Validate this VNodeType:
+                    const rawNode = neoNodeToRawVNode(node, nodeType, "n");
+                    const relData = relationshipsData.find(rd => rd.id === rawNode.id)?.rels || [];
                     try {
-                        await nodeType.validate(neoNodeToRawVNode(node, nodeType, "n"), tx);
+                        await baseValidateVNode(nodeType, rawNode, relData, tx);
+                        await nodeType.validate(rawNode, tx);
                     } catch (err) {
                         log.error(`${type} action failed during transaction validation: ${err}`);
                         throw err;

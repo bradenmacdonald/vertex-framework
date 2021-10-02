@@ -1,7 +1,5 @@
 import { WrappedTransaction } from "../transaction.ts";
-import { Field, FieldType, GetDataShape, PropSchema, validatePropSchema, PropertyTypedField } from "../lib/types/field.ts";
-import { C } from "./cypher-sugar.ts";
-import { convertNeo4jFieldValue } from "./cypher-return-shape.ts";
+import { Field, FieldType, GetDataShape, PropSchema, PropertyTypedField } from "../lib/types/field.ts";
 import { VNID } from "../lib/key.ts";
 import { applyLazilyToDeferrable, deferrable, Deferrable } from "../lib/deferrable.ts";
 
@@ -63,7 +61,7 @@ export class _BaseVNodeType {
     static label = "VNode";
     /** If this type has a slugId property, this is the prefix that all of its slugIds must have (e.g. "user-") */
     static readonly slugIdPrefix: string = "";
-    static readonly properties: PropSchemaWithId = {
+    static readonly properties = {
         id: Field.VNID,
     };
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
@@ -71,101 +69,9 @@ export class _BaseVNodeType {
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
     static readonly defaultOrderBy: string|undefined = undefined;
 
-    // deno-lint-ignore no-explicit-any
-    static async validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void> {
-        // Note: tests for this function are in layer3/validation.test.ts since they depend on actions
-
-        // Validate slugId prefix
-        if (this.slugIdPrefix !== "") {
-            if (!this.properties.slugId) {
-                throw new Error("A VNodeType cannot specify a slugIdPrefix if it doesn't declare the slugId property");
-            }
-            if (typeof dbObject.slugId !== "string" || !dbObject.slugId.startsWith(this.slugIdPrefix)) {
-                throw new ValidationError(`${this.label} has an invalid slugId "${dbObject.slugId}". Expected it to start with "${this.slugIdPrefix}".`);
-            }
-        }
-
-        // Validate properties:
-        const newValues = validatePropSchema(this.properties, dbObject);
-
-        // Check if the validation cleaned/changed any of the values:
-        const valuesChangedDuringValidation: Record<string, unknown> = {}
-        for (const key in newValues) {
-            if (newValues[key] !== dbObject[key]) {
-                valuesChangedDuringValidation[key] = newValues[key];
-            }
-        }
-        if (Object.keys(valuesChangedDuringValidation).length > 0) {
-            await tx.queryOne(C`
-                MATCH (node:VNode {id: ${dbObject.id}})
-                SET node += ${valuesChangedDuringValidation}
-            `.RETURN({}));
-        }
-
-        // Validate relationships:
-        const relTypes = Object.keys(this.rel);
-        if (relTypes.length > 0) {
-            // Storing large amounts of data on relationship properties is not recommended so it should be safe to pull
-            // down all the relationships and their properties.
-            const relData = await tx.query(C`
-                MATCH (node:VNode {id: ${dbObject.id}})-[rel]->(target:VNode)
-                RETURN type(rel) as relType, properties(rel) as relProps, labels(target) as targetLabels, id(target) as targetId
-            `.givesShape({relType: Field.String, relProps: Field.Any, targetLabels: Field.List(Field.String), targetId: Field.Int}));
-            // Check each relationship type, one type at a time:
-            for (const relType of relTypes) {
-                const spec = this.rel[relType];
-                const rels = relData.filter(r => r.relType === relType);
-                // Check the target labels, if they are restricted:
-                if (spec.to !== undefined) {
-                    // Every node that this relationship points to must have at least one of the allowed labels
-                    // This should work correctly with inheritance
-                    const allowedLabels = spec.to.map(vnt => vnt.label);
-                    rels.forEach(r => {
-                        if (!allowedLabels.find(allowedLabel => r.targetLabels.includes(allowedLabel))) {
-                            throw new ValidationError(`Relationship ${relType} is not allowed to point to node with labels :${r.targetLabels.join(":")}`);
-                        }
-                    });
-                }
-                // Check the cardinality of this relationship type, if restricted:
-                if (spec.cardinality !== Cardinality.ToMany) {
-                    // How many nodes does this relationship type point to:
-                    const targetCount = rels.length;
-                    if (spec.cardinality === Cardinality.ToOneRequired) {
-                        if (targetCount < 1) {
-                            throw new ValidationError(`Required relationship type ${relType} must point to one node, but does not exist.`);
-                        } else if (targetCount > 1) {
-                            throw new ValidationError(`Required to-one relationship type ${relType} is pointing to more than one node.`);
-                        }
-                    } else if (spec.cardinality === Cardinality.ToOneOrNone) {
-                        if (targetCount > 1) {
-                            throw new ValidationError(`To-one relationship type ${relType} is pointing to more than one node.`);
-                        }
-                    } else if (spec.cardinality === Cardinality.ToManyUnique) {
-                        const uniqueTargets = new Set(rels.map(r => r.targetId));
-                        if (uniqueTargets.size !== targetCount) {
-                            throw new ValidationError(`Creating multiple ${relType} relationships between the same pair of nodes is not allowed.`);
-                        }
-                    }
-                }
-                // Check the properties, if their schema is specified:
-                if (Object.keys(spec.properties ?? emptyObj).length) {
-                    rels.forEach(r => {
-                        if (spec.properties) {
-                            // For consistency, we make missing properties always appear as "null" instead of "undefined":
-                            const valuesFound = {...r.relProps};
-                            for (const propName in spec.properties) {
-                                if (propName in valuesFound) {
-                                    valuesFound[propName] = convertNeo4jFieldValue(propName, valuesFound[propName], spec.properties[propName]);
-                                } else {
-                                    valuesFound[propName] = null;
-                                }
-                            }
-                            validatePropSchema(spec.properties, valuesFound);
-                        }
-                    });
-                }
-            }
-        }
+    static async validate(_dbObject: RawVNode<typeof this>, _tx: WrappedTransaction): Promise<void> {
+        // Validation for this VNodeType can occur here. Subclasses should _not_ call super(); the action runner will
+        // automatically validate any inherited classes after an action.
     }
 
 
@@ -234,6 +140,7 @@ export const BaseVNodeType = _BaseVNodeType;
 export interface BaseVNodeType {
     new(): _BaseVNodeType;
     readonly label: string;
+    readonly slugIdPrefix: string;
     readonly properties: PropSchemaWithId;
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     readonly rel: RelationshipsSchema;

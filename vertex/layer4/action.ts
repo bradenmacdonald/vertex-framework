@@ -120,10 +120,10 @@ export class Action extends VNodeType {
         // getActionChanges() function. If this is > 0, this action cannot be undone/reversed.
         deletedNodesCount: Field.Int,
     };
-    static async validate(dbObject: RawVNode<typeof Action>, tx: WrappedTransaction): Promise<void> {
-        await super.validate(dbObject, tx);
+    static async validate(_dbObject: RawVNode<typeof this>, _tx: WrappedTransaction): Promise<void> {
+        // No specific validation
     }
-    static readonly rel = VNodeType.hasRelationshipsFromThisTo({
+    static readonly rel = this.hasRelationshipsFromThisTo({
         /** What VNodes were modified by this action */
         MODIFIED: {
             to: [BaseVNodeType],
@@ -136,7 +136,7 @@ export class Action extends VNodeType {
         },
     });
 
-    static readonly virtualProperties = VNodeType.hasVirtualProperties({
+    static readonly virtualProperties = this.hasVirtualProperties({
         revertedBy: {
             type: "one-relationship",
             query: C`(@target:${this})-[:${this.rel.REVERTED}]->(@this)`,
