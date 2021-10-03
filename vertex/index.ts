@@ -60,6 +60,7 @@ export {
     // BaseVNodeType - internal use only: we use VNodeType (from layer 3) in its place
     ValidationError,
     //isBaseVNodeType - internal use only
+    getRelationshipType,
 } from "./layer2/vnode-base.ts";
 export type {
     RawVNode,

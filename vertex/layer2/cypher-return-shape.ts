@@ -104,9 +104,12 @@ export function neoNodeToRawVNode<VNT extends BaseVNodeType = any>(fieldValue: N
     if (!fieldValue.labels.includes("VNode")) {
         throw new Error(`Field ${fieldName} is a node but is missing the VNode label`);
     }
+    if (!fieldValue.labels.includes(vnodeType.label)) {
+        throw new Error(`Field ${fieldName} is a VNode but is missing the expected ${vnodeType.label} label`);
+    }
     
     // "Clean" the properties.
-    // Here we have to resolve a discrepancy: when requesting a specific property via pul() or a raw query that lists
+    // Here we have to resolve a discrepancy: when requesting a specific property via pull() or a raw query that lists
     // specific properties to return, Neo4j will give them a NULL value when those specific named properties are absent.
     // But when just returning a Node in general, Neo4j will only return defined properties and JavaScript will see any
     // absent properties as having an 'undefined' value - not NULL.
