@@ -55,6 +55,10 @@ export {
 } from "./layer2/cypher-sugar.ts";
 
 export {
+    convertNeo4jFieldValue,
+} from "./layer2/cypher-return-shape.ts";
+
+export {
     InvalidNodeLabel,
     PublicValidationError,
     // BaseVNodeType - internal use only: we use VNodeType (from layer 3) in its place
