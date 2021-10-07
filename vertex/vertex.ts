@@ -289,15 +289,15 @@ export class Vertex implements VertexCore {
                 // Apply the migration
                 log.info(`Applying migration "${migrationId}"`);
                 await this._restrictedAllowWritesWithoutAction(async () => {
-                    await migration.forward(dbWrite);
-                    await dbWrite(tx =>
-                        tx.run(`
+                    await dbWrite(async tx => {
+                        await migration.forward(dbWrite);
+                        await tx.run(`
                             CREATE (m:Migration {id: $migrationId})
                             WITH m as m2
                             MATCH (deps:Migration) WHERE deps.id IN $dependsOn
                             CREATE (m2)-[:DEPENDS_ON]->(deps)
                         `, {migrationId, dependsOn: migration.dependsOn})
-                    );
+                    });
                 });
                 appliedMigrationIds.add(migrationId);
             }
