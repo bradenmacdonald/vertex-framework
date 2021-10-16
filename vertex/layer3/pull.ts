@@ -98,7 +98,7 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
     if (rootFilter.where) {
         // This query is being filtered by some WHERE condition.
         // Add it and any parameter values into this query. Rename parameters as needed.
-        let whereClause = rootFilter.where.queryString.replace("@this", "_node");
+        let whereClause = rootFilter.where.queryString.replace(/@this/g, "_node");
         let i = 1;
         for (const paramName in rootFilter.where.params) {
             const newParamName = `whereParam${i++}`;
