@@ -1,12 +1,12 @@
 # Vertex Framework
 
-Vertex Framework is an **experimental** graph data management framework in active development for use by the [TechNotes](https://technotes.org) prototype. It sits between a TypeScript application and a Neo4j graph database.
+Vertex Framework is an **experimental** graph data management framework in active development for use by the Neolace platform and for [TechNotes](https://technotes.org). It sits between a TypeScript application and a [Neo4j graph database](https://neo4j.com/).
 
 ![Diagram showing vertex framework between the Application and the Neo4j database](./docs/images/overview.svg)
 
-Its design choices are oriented around the TechNotes use case and probably not suitable for general use at this time.
+Its design choices are oriented around the Neolace use case and probably not suitable for general use at this time.
 
-🚧 **Vertex Framework is pre-alpha and unstable.** Its API will feature regular breaking changes. 🚧
+🚧 **Vertex Framework is alpha software.** Its API will feature regular breaking changes. 🚧
 
 ---
 
@@ -18,7 +18,7 @@ Have you ever been debugging a web application and wondered how some data value 
 
 An **`Action`** represents a change to the database, such as "Create User", "Update User Profile", "Edit Article", and so on. (Actions are similar to GraphQL "Mutations", and are also "Commands" in the more general [Command Pattern](https://en.wikipedia.org/wiki/Command_pattern).) When an `Action` is run, data about the Action itself is saved into the graph, such as what user ran the action, when the action ran, how long it took to process, and what nodes it modified. This means that it's trivial to look up an ordered list of actions that have modified any given node in the graph, giving the complete change history of that node.
 
-Vertex Framework uses APOC triggers to enforce this constraint, i.e. to ensure that the database cannot be modified other than through Actions, and that Actions must always indicate which nodes they have modified.
+Vertex Framework uses [APOC triggers](https://neo4j.com/labs/apoc/4.1/background-operations/triggers/) to enforce this constraint, i.e. to ensure that the database cannot be modified other than through Actions, and that Actions must always indicate which nodes they have modified.
 
 Actions can optionally define how to "invert" their effects, which gives the ability to "undo" actions where useful.
 
@@ -26,7 +26,7 @@ Actions can optionally define how to "invert" their effects, which gives the abi
 
 Neo4j has relatively minimal support for enforcing schema constraints. Vertex Framework implements a layer of schema definition and validation on top of Neo4j, providing your application with all the benefits that strongly typed data brings.
 
-Every node in your data graph that Vertex Framework manages is called a `VNode` and must comply with one or more VNode types defined by your application. All `VNode`s have the `:VNode` label and at least one other label, as well as a `UUID` as their primary key.
+Every node in your data graph that Vertex Framework manages is called a `VNode` and must comply with one or more VNode types defined by your application. All `VNode`s have the `:VNode` label and at least one other label, as well as a property called `id` which holds [a `VNID`](arch-decisions/003-identifiers.md) (a type of UUID) as their primary key.
 
 Here is an example of how an application can define a `VNode` type and its schema:
 
@@ -39,15 +39,15 @@ export class Person extends VNodeType {
     static label = "Person";
     static properties = {
         ...VNodeType.properties,
-        name: Joi.string().required(),
-        dateOfBirth: Joi.date().iso(),
+        name: Field.String,
+        dateOfBirth: Field.Date,
     };
     static rel = this.hasRelationshipsFromThisTo({
         /** This Person acted in a given movie */
         ACTED_IN: {
             to: [Movie],
             properties: {
-                role: Joi.string(),
+                role: Field.String,
             },
         },
         /** This Person is a friend of the given person (non-directed relationship) */
@@ -61,8 +61,6 @@ export class Person extends VNodeType {
 }
 
 ```
-
-The type and validation rules of each property are defined using [Joi](https://joi.dev/).
 
 When any `Action` creates or modifies a VNode with the `Person` label, Vertex framework will validate this schema. If the Action created a `Person` VNode that was missing the required `name` property, or that had a `FRIEND_OF` relationship pointing to a `Movie` VNode, or any other schema violation, the `Action` will fail validation and its transaction will not be committed.
 
@@ -81,8 +79,6 @@ export const CreatePerson = defaultCreateFor(Person, p => p.name, UpdatePerson);
 In the first line, `p.name.dateOfBirth` is specifying which `Person` fields the auto-generated `UpdatePerson` action should be able to update. It's fully typed, so as you type `p => p.` in your IDE, you'll get a dropdown showing you the available fields, and if you refactor your `Person` schema but still reference an old field here, TypeScript will show an error. In the second line, `p => p.name` is speciyfing that the `name` property is required and must be specified when running the `CreatePerson` action. Other properties defined in the `UpdatePerson` action can also be passed in, but will be optional:
 
 ![Screenshot showing auto-completion in an IDE](./docs/images/readme-autogen-action.png)
-
-Auto-generated actions like this can always be "inverted", providing out of the box "undo" functionality.
 
 ## Cypher syntactic sugar
 
@@ -229,7 +225,7 @@ A complete call to `pull()`, to look up a specific person and information about 
 
 As you can see, everything is fully typed and TypeScript is aware of all available fields and the exact shape of the data returned by the query.
 
-The syntax of specifying properties with `pull()` and anywhere else in vertex framework is that regular ("raw") properties are just chained like `person.name.dateOfBirth.uuid`, but virtual and derived properties are chained as method calls like `person.age().numSameAgeFriends()`. If the virtual property is a relationship, then it's necessary to pass in parameters to determine the shape of data you want from the target VNode type as well (e.g. `p.friends(f => f.name)` to specify that the name of each friend is to be loaded.)
+The syntax of specifying properties with `pull()` and anywhere else in vertex framework is that regular ("raw") properties are just chained like `person.name.dateOfBirth.id`, but virtual and derived properties are chained as method calls like `person.age().numSameAgeFriends()`. If the virtual property is a relationship, then it's necessary to pass in parameters to determine the shape of data you want from the target VNode type as well (e.g. `p.friends(f => f.name)` to specify that the name of each friend is to be loaded.)
 
 `pull()` and `pullOne()` are nearly identical, but `pull()` always returns an array and `pullOne()` always returns a single result (and throws an error if the query returns anything other than a single result).
 
@@ -246,7 +242,7 @@ If your VNode type defines properties in its relationship schema, and then refer
             to: [Movie],
             properties: {
                 // Properties stored on the relationship:
-                role: Joi.string(),
+                role: Field.String,
             },
         },
     ...
@@ -275,11 +271,11 @@ Here's an example:
 const flags = request.GET["flags"]?.split(",") || [];
 
 const result = await graph.pull(Person, p => p
-    .uuid
+    .id
     .name
     .dateOfBirth
     .if("includeFriends", p => p
-        .friends(f => f.uuid.name.dateOfBirth)
+        .friends(f => f.id.name.dateOfBirth)
         .numSameAgeFriends()
     ),
     {flags,}
@@ -292,7 +288,7 @@ Conditional properties are designed to partially provide one of the big features
 
 ## slugIds
 
-Vertex Framework requires that every VNode has a `uuid` primary key. Optionally, some VNode types can have a "secondary key" by defining a property called `slugId` and setting its type to `slugIdProperty`. A short ID is a string between 1 and 32 characters long used as a changeable identifier for that VNode. For example, a person named Alex might have the slugId `p-alex`.
+Vertex Framework requires that every VNode has a `id` primary key. Optionally, some VNode types can have a "secondary key" by defining a property called `slugId` and setting its type to `slugIdProperty`. A short ID is a string between 1 and 32 characters long used as a changeable identifier for that VNode. For example, a person named Alex might have the slugId `p-alex`.
 
 Unlike the primary key, the `slugId` of a given VNode can be changed when needed. However, Vertex Framework ensures that even though slugIds can be changed, "old" slugIds will continue to work and to "point to" the same VNode. This allows you to use slugIds in URLs, confident that even if the slugId is changed at some point, the URL will continue to work forever.
 
@@ -371,12 +367,14 @@ In `Movie.ts`:
 ```typescript
 import { VNodeType, VNodeTypeRef } from "vertex-framework";
 
-// Declare a forward reference to Movie _before_ importing MovieFranchise.
-// Specify the type (typeof Movie) for TypeScript and the label ("Movie") for
-// Vertex Framework to use to find the full class definition at runtime.
-export const MovieRef: typeof Movie = VNodeTypeRef("Movie");
-
+// There is a circular reference between Movie and MovieFranchise, so declare a
+// forward reference now:
+export const MovieRef: typeof Movie = VNodeTypeRef();
+// _now_ we can import MovieFranchise without circular references:
 import { MovieFranchise } from "./MovieFranchise";
+// but now we must resolve the forward reference:
+VNodeTypeRef.resolve(MovieRef, Movie);
+
 
 // Define Movie now:
 export class Movie extends VNodeType {
@@ -428,7 +426,7 @@ You should then generally be able to use `MovieRef` anywhere you would use `Movi
 
 Future improvements planned for Vertex Framework:
 
-* Full data types when declaring VNode properties; keep Joi for validation only (e.g. currently TypeScript doesn't know when a Joi.string() is required or nullable, which creates suboptimal types; currently there is no "date" or "datetime" or "bigint" support)
+* Optimize performance of TypeScript typing (currently quite slow)
 * Pagination of results when using `pull()`
 * Pagination and filtering of -to-many virtual properties when using `pull()`
 * A mechanism for actions that have side effects
@@ -441,4 +439,4 @@ MIT
 
 ## Contributing
 
-If you're interested in this project, contributions and help are welcome! Please feel fre to open a GitHub issue or pull request, or to reach out to Braden at braden@technotes.org.
+If you're interested in this project, contributions and help are welcome! Please feel free to open a GitHub issue or pull request, or to reach out to Braden at braden@technotes.org.

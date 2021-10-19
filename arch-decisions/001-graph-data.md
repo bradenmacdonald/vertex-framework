@@ -10,9 +10,7 @@ This application uses only strongly typed nodes, which are called "VNodes" (not 
 
 Every VNode has a unique permanent identifier string ("VNID", VNode ID - see "003-identifiers").
 
-Schema field/property definitions and basic validation are done using [Joi](https://joi.dev/). Additional validation rules for each VNode type consist of arbitrary code and checks, and can include additional graph queries as needed.
-
-* Joi validation rules can be written once and then used at the graph database level, the REST API request/response shape level, and on the frontend.
+Schema field/property definitions and basic validation are done whenever a node is modified. Additional validation rules for each VNode type consist of arbitrary code and checks, and can include additional graph queries as needed.
 
 When a VNode is "deleted", its `VNode` label is changed to `DeletedVNode`. This preserves data and relationships and makes code for un-deleting/restoring nodes simpler.
 
@@ -23,7 +21,7 @@ Any code in the application is welcome to read from the database at any time, an
 Vertex Framework provides three different APIs for reading data, where `tx` represents a read transaction:
 
 * `tx.run(query, params)` - run a query on the database, using the native Neo4j driver directly
-* `tx.query(query, params, returnShape)` and `tx.queryOne` - run a query on the database, and return a typed response, with the shape specified by `returnShape`. With the `query` methods, the syntactic sugar `(node)::{$key}` is supported for doing a lookup by either UUID or shortId, and the query's `RETURN` clause can be automatically generated based on `returnShape`
+* `tx.query(query, params, returnShape)` and `tx.queryOne` - run a query on the database, and return a typed response, with the shape specified by `returnShape`. With the `query` methods, the syntactic sugar `(node)::{$key}` is supported for doing a lookup by either UUID or slugId, and the query's `RETURN` clause can be automatically generated based on `returnShape`
 * `tx.pull(dataRequest, filter)`, `tx.pull(VNodeType, shapeSpec, filter)` and `tx.pullOne` - retrieve nodes, properties, and "virtual properties" from the database. With the `pull` methods, the Cypher code for the query is generated fully automatically, and a fully typed response is provided.
 
 ## Writing/Mutating Data: Actions
@@ -36,5 +34,3 @@ Each Action tracks carefully which VNodes it modifies, and then validation of ea
 
 * This provides a complete change history of every VNode and its relationships.
 * This provides fairly strong schema enforcement which Neo4j otherwise does not support (although changes to the validation schema do not apply retroactively, and it relies on actions accurately declaring which VNodes they have modified).
-
-Actions can generally be "inverted" to create a new Action that undoes the original action. This, in combination with the Action log/history, allows auditing and reverting changes to the graph as needed.
