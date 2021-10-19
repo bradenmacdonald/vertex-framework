@@ -1,4 +1,4 @@
-image: denoland/deno:alpine-1.11.2
+image: denoland/deno:alpine
 
 variables:
   # Set default neo4j password to "vertex"
