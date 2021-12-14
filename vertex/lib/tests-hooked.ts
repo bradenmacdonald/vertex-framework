@@ -83,7 +83,7 @@ export function test(
     
     Deno.test({
         name: name.join(" > "),
-        async fn() {
+        async fn(t) {
             // Before.
             for (const { beforeAll, beforeEach, completedTests } of hooks) {
                 if (completedTests === 0) {
@@ -95,7 +95,7 @@ export function test(
             
             // Test.
             try {
-                await fn();
+                await fn(t);
             } finally {
                 for (const hook of hooks) {
                     hook.completedTests++;
