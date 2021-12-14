@@ -1,0 +1,51 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v2
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1.1.0
+        with:
+          deno-version: v1.x
+
+      - name: Lint code
+        run: deno lint
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v2
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1.1.0
+        with:
+          deno-version: v1.x
+
+      - name: Run Neo4j
+        run: docker-compose -f "docker-compose.yml" up -d
+
+      - name: Wait for Neo4j
+        run: sleep 10
+
+      - name: Set up test suite
+        run: deno run --allow-net --allow-env --allow-write vertex/lib/test-setup.ts
+
+      - name: Run tests
+        run: deno test --allow-net --allow-env --allow-read
+
+      - name: Stop containers
+        if: always()
+        run: docker-compose -f "docker-compose.yml" down

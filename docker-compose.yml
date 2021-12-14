@@ -12,6 +12,8 @@ services:
       # We need trigger functionality, which is part of "APOC" and must be enabled:
       NEO4JLABS_PLUGINS: '["apoc"]'
       NEO4J_apoc_trigger_enabled: "true"
+      # The following is needed for apoc.export.cypher.all, even though we're only exporting to memory, not disk.
+      apoc.export.file.enabled: "true"
     ports:
       - 7774:7474  # Browse on your host at http://localhost:7774/browser/?connectURL=neo4j://localhost:7777
       - 7777:7687  # Bolt
