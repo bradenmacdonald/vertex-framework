@@ -42,7 +42,7 @@ type VPTarget<VirtProp extends VirtualManyRelationshipProperty|VirtualOneRelatio
 /** Allow requesting virtual properties, optionally based on whether or not a flag is set */
 export type VirtualPropsMixin<
     VNT extends VNodeTypeWithVirtualProps,
-    includedVirtualProps extends RecursiveVirtualPropRequest<VNT>|unknown = unknown,
+    includedVirtualProps extends RecursiveVirtualPropRequest<VNT> = Record<never, never>,
 > = ({
     [propName in keyof VNT["virtualProperties"]]:
         VNT["virtualProperties"][propName] extends VirtualManyRelationshipProperty ?
@@ -137,7 +137,7 @@ type ProjectRelationshipProps<Rel extends RelationshipDeclaration|undefined> = (
 /** Allow requesting derived properties, optionally based on whether or not a flag is set */
 export type DerivedPropsMixin<
     VNT extends VNodeType,
-    includedDerivedProps extends DerivedPropRequest<VNT>|unknown = unknown,
+    includedDerivedProps extends DerivedPropRequest<VNT> = Record<never, never>,
 > = ({
     [propName in keyof VNT["derivedProperties"]]:
         // For each derived property, add a method for requesting that derived property:
