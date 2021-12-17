@@ -29,6 +29,13 @@
             "problemMatcher": []
         },
         {
+            "label": "Run test setup",
+            "type": "shell",
+            "command": "deno",
+            "args": ["run", "--allow-write", "--allow-net", "--allow-env", "vertex/lib/test-setup.ts"],
+            "problemMatcher": []
+        },
+        {
             "label": "Destroy Neo4j Test Database",
             "type": "shell",
             "command": "docker-compose",

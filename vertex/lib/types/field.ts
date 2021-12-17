@@ -258,10 +258,10 @@ function makePropertyField<FT extends PropertyFieldType, Nullable extends boolea
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
     return {
-        // Note: all of the code below should work just fine without th "as Nullable extends ?..." part.
+        // Note: all of the code below should work just fine without th "as unknown as Nullable extends ?..." part.
         // It is just used to give these types nicer names when field schemas are viewed in an IDE.
-        VNID: makePropertyField(FieldType.VNID, nullable, validateVNID) as Nullable extends true ? _NullableVNIDField : _VNIDField,
-        Int: makePropertyField(FieldType.Int, nullable, validateInteger) as Nullable extends true ? _NullableIntField : _IntField,
+        VNID: makePropertyField(FieldType.VNID, nullable, validateVNID) as unknown as Nullable extends true ? _NullableVNIDField : _VNIDField,
+        Int: makePropertyField(FieldType.Int, nullable, validateInteger) as unknown as Nullable extends true ? _NullableIntField : _IntField,
         /** A signed integer up to 64 bits. For larger than 64 bits, use a string type as Neo4j doesn't support it. */
         BigInt: makePropertyField(FieldType.BigInt, nullable, validateBigInt),
         Float: makePropertyField(FieldType.Float, nullable, validateFloat),
@@ -275,10 +275,10 @@ function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
          * e.g. using https://deno.land/x/computed_types :
          *     myString: Field.String.Check(string.min(2).max(100))
          */
-        String: makePropertyField(FieldType.String, nullable, validateString, trimStringMaxLength(1_000)) as Nullable extends true ? _NullableStringField : _StringField,
+        String: makePropertyField(FieldType.String, nullable, validateString, trimStringMaxLength(1_000)) as unknown as Nullable extends true ? _NullableStringField : _StringField,
         /** A unicode-aware slug (cannot contain spaces/punctuation). Valid: "the-thing". Invalid: "foo_bar" or "foo bar" */
-        Slug: makePropertyField(FieldType.Slug, nullable, validateSlug, trimStringMaxLength(60)) as Nullable extends true ? _NullableSlugField : _SlugField,
-        Boolean: makePropertyField(FieldType.Boolean, nullable, validateBoolean) as Nullable extends true ? _NullableBooleanField : _BooleanField,
+        Slug: makePropertyField(FieldType.Slug, nullable, validateSlug, trimStringMaxLength(60)) as unknown as Nullable extends true ? _NullableSlugField : _SlugField,
+        Boolean: makePropertyField(FieldType.Boolean, nullable, validateBoolean) as unknown as Nullable extends true ? _NullableBooleanField : _BooleanField,
         /** A calendar date, i.e. a date without time information */
         Date: makePropertyField(FieldType.Date, nullable, validateVDate),
         DateTime: makePropertyField(FieldType.DateTime, nullable, validateDateTime),
