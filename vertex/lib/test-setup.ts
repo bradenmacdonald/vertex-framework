@@ -2,7 +2,7 @@ import { log } from "./log.ts"
 import { testGraph, createTestData } from "../test-project/index.ts";
 
 
-log.info("Seting up test environment");
+log.info("Setting up test environment");
 // Wipe out all existing Neo4j data
 await testGraph.reverseAllMigrations();
 // Apply pending migrations
