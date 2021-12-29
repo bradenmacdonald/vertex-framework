@@ -37,7 +37,7 @@ group("Vertex Core", () => {
             await assertThrowsAsync(
                 () => testGraph.read(tx => tx.run("RETURN tribble bibble")),
                 undefined,
-                "Invalid input 'b'",  // The 'b' at the start of "bibble" is where the parsing error occurs
+                "Invalid input 'bibble'",
             );
         });
     });
