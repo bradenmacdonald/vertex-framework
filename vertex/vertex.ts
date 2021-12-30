@@ -289,8 +289,8 @@ export class Vertex implements VertexCore {
                 // Apply the migration
                 log.info(`Applying migration "${migrationId}"`);
                 await this._restrictedAllowWritesWithoutAction(async () => {
+                    await migration.forward(dbWrite);
                     await dbWrite(async tx => {
-                        await migration.forward(dbWrite);
                         await tx.run(`
                             CREATE (m:Migration {id: $migrationId})
                             WITH m as m2
