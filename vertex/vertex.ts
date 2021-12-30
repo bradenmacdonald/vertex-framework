@@ -175,13 +175,13 @@ export class Vertex implements VertexCore {
     public async _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<void> {
         try {
             if (await this.isTriggerInstalled("trackActionChanges")) {
-                await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.pause("trackActionChanges")`));
+                await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.pause("trackActionChanges") YIELD name`));  // Without "YIELD name" this returns the code of the whole trigger.
             }
             await someCode();
         } finally {
             // We must check again if the trigger is installed since someCode() may have changed it.
             if (await this.isTriggerInstalled("trackActionChanges")) {
-                await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.resume("trackActionChanges")`));
+                await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.resume("trackActionChanges") YIELD name`));  // Without "YIELD name" this returns the code of the whole trigger.
             }
         }
     }
