@@ -88,19 +88,19 @@ export async function getActionChanges(tx: WrappedTransaction, actionId: VNID): 
         }
         const nodeChanges = modRel.properties;
         // nodeChanges contains key-value pairs set by the trackActionChanges trigger.
-        // > "created": "Label1,Label2"           if the node was created by this action
+        // > "created": [Label1, Label2]          if the node was created by this action
         // > "addedLabel:Label"                   if a label was added to an existing node
         // > "removedLabel:Label"                 if a label was removed from an existing node
         // > "newProp:PropName": propValue        if a property was set to a non-null value
         // > "oldProp:PropName": prevValue        if a property was changed or deleted, this was the previous value
-        // > "newRel:<#>:REL_TYPE": toVNID        if a new relationship was created (# is the temporary relationship ID, not to be used outside of this [trans]action)
+        // > "newRel:<#>": [REL_TYPE, toVNID]     if a new relationship was created (# is the temporary relationship index, not to be used outside of this [trans]action)
         // > "newRelProp:<#>:propName": propValue if properties were set on the new relationship
-        // > "deletedRel:<#>:REL_TYPE": toVNID    if a relationship was deleted
+        // > "deletedRel:<#>": [REL_TYPE, toVNID] if a relationship was deleted
         // > "deletedRelProp:<#>:propName": val   if properties existed on the deleted relationship
         if (nodeChanges.created) {
             // This is a newly-created VNode
             const createdNode = {
-                labels: new Set((nodeChanges.created as string).split(",")),
+                labels: new Set((nodeChanges.created as string[])),
                 id: VNID(nodeChanges["newProp:id"] ?? "error: missing ID"),
                 properties: {} as Record<string, RawPropertyValue>,
             };
@@ -113,20 +113,20 @@ export async function getActionChanges(tx: WrappedTransaction, actionId: VNID): 
                     continue;
                 } else if (changeType === chg.newProp) {
                     // Properties that were set on this newly created VNode:
-                    const propName = changeKey.substr(chg.newProp.length + 1);  // we allow property names to include ":" so don't use split() here.
+                    const propName = changeKey.substring(chg.newProp.length + 1);  // we allow property names to include ":" so don't use split() here.
                     createdNode.properties[propName] = nodeChanges[changeKey];
                 } else if (changeType === chg.newRel) {
                     const relId = changeKey.split(":")[1];  // This is a non-permanent numeric relationship ID, as a string
-                    const relType = changeKey.substr(chg.newRel.length + 1 + relId.length + 1);
+                    const [relType, toVNID] = nodeChanges[changeKey];
                     const propPrefix = `${chg.newRelProp}:${relId}:`;
                     changes.createdRelationships.push({
                         type: relType,
                         from: node.properties.id,
-                        to: nodeChanges[changeKey],
+                        to: toVNID,
                         properties: Object.fromEntries(
                             Object.keys(nodeChanges).filter(ck => ck.startsWith(propPrefix)).map(ck =>
                                 // For each relationship property, this is the [propName, raw prop value]
-                                [ck.substr(propPrefix.length), nodeChanges[ck]],
+                                [ck.substring(propPrefix.length), nodeChanges[ck]],
                             )
                         ),
                     });
@@ -183,31 +183,31 @@ export async function getActionChanges(tx: WrappedTransaction, actionId: VNID): 
                     }
                 } else if (changeType === chg.newRel) {
                     const relId = changeKey.split(":")[1];  // This is a non-permanent numeric relationship ID, as a string
-                    const relType = changeKey.substr(chg.newRel.length + 1 + relId.length + 1);
+                    const [relType, toVNID] = nodeChanges[changeKey];
                     const propPrefix = `${chg.newRelProp}:${relId}:`;
                     changes.createdRelationships.push({
                         type: relType,
                         from: node.properties.id,
-                        to: nodeChanges[changeKey],
+                        to: toVNID,
                         properties: Object.fromEntries(
                             Object.keys(nodeChanges).filter(ck => ck.startsWith(propPrefix)).map(ck =>
                                 // For each relationship property, this is the [propName, raw prop value]
-                                [ck.substr(propPrefix.length), nodeChanges[ck]],
+                                [ck.substring(propPrefix.length), nodeChanges[ck]],
                             )
                         ),
                     });
                 } else if (changeType === chg.deletedRel) {
                     const relId = changeKey.split(":")[1];  // This is a non-permanent numeric relationship ID, as a string
-                    const relType = changeKey.substr(chg.deletedRel.length + 1 + relId.length + 1);
+                    const [relType, toVNID] = nodeChanges[changeKey];
                     const propPrefix = `${chg.deletedRelProp}:${relId}:`;
                     changes.deletedRelationships.push({
                         type: relType,
                         from: node.properties.id,
-                        to: nodeChanges[changeKey],
+                        to: toVNID,
                         properties: Object.fromEntries(
                             Object.keys(nodeChanges).filter(ck => ck.startsWith(propPrefix)).map(ck =>
                                 // For each relationship property, this is the [propName, raw prop value]
-                                [ck.substr(propPrefix.length), nodeChanges[ck]],
+                                [ck.substring(propPrefix.length), nodeChanges[ck]],
                             )
                         ),
                     });

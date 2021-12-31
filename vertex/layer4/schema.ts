@@ -87,7 +87,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             // $createdNodes is a list of nodes
                             [
                                 n IN $createdNodes WHERE NOT n:Action AND NOT n:SlugId
-                                | {modifiedNode: n, changeDetails: {created: apoc.text.join(labels(n), ',')}}
+                                | {modifiedNode: n, changeDetails: {created: labels(n)}}
                             ] AS createdNodes,
 
 
@@ -147,14 +147,15 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             // Add details to the [:MODIFIED] relationship for every created relationship
                             // $createdRelationships is a list of relationships
                             [
-                                rel IN $createdRelationships
-                                WHERE startNode(rel):VNode AND startNode(rel)<>action AND endNode(rel)<>action
+                                // Given [rel1, rel2, rel3], enumerate over [{idx: 0, rel: rel1}, {idx: 1, rel: rel2}, ...]
+                                entry IN [v IN apoc.coll.zip(range(0, size($createdRelationships)-1), $createdRelationships) | {idx: v[0], rel: v[1]}]
+                                WHERE startNode(entry.rel):VNode AND startNode(entry.rel)<>action AND endNode(entry.rel)<>action
                                 | {
-                                    modifiedNode: startNode(rel),
+                                    modifiedNode: startNode(entry.rel),
                                     changeDetails: apoc.map.fromValues([
-                                        'newRel:' + id(rel) + ':' + type(rel), endNode(rel).id
+                                        'newRel:' + entry.idx, [type(entry.rel), endNode(entry.rel).id]
                                     ] + apoc.coll.flatten([
-                                        p IN keys(rel) | ['newRelProp:' + id(rel) + ':' + p, rel[p]]
+                                        p IN keys(entry.rel) | ['newRelProp:' + entry.idx + ':' + p, entry.rel[p]]
                                     ]))
                                 }
                             ] as newRelationships,
@@ -163,18 +164,19 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             // Add details to the [:MODIFIED] relationship for every deleted relationship
                             // $deletedRelationships is a list of relationships
                             [
-                                rel IN $deletedRelationships
-                                WHERE (startNode(rel):VNode OR startNode(rel):DeletedVNode) AND startNode(rel)<>action AND endNode(rel)<>action AND NOT startNode(rel) IN $deletedNodes AND NOT endNode(rel) IN $deletedNodes
+                                // Given [rel1, rel2, rel3], enumerate over [{idx: 0, rel: rel1}, {idx: 1, rel: rel2}, ...]
+                                entry IN [v IN apoc.coll.zip(range(0, size($deletedRelationships)-1), $deletedRelationships) | {idx: v[0], rel: v[1]}]
+                                WHERE (startNode(entry.rel):VNode OR startNode(entry.rel):DeletedVNode) AND startNode(entry.rel)<>action AND endNode(entry.rel)<>action AND NOT startNode(entry.rel) IN $deletedNodes AND NOT endNode(entry.rel) IN $deletedNodes
                                 | {
-                                    modifiedNode: startNode(rel),
+                                    modifiedNode: startNode(entry.rel),
                                     changeDetails: apoc.map.fromValues(
-                                        ['deletedRel:' + id(rel) + ':' + type(rel), endNode(rel).id]
+                                        ['deletedRel:' + entry.idx, [type(entry.rel), endNode(entry.rel).id]]
                                         // Plus we need the removed relationship properties - they're not available on 'rel'
                                         // but we can get them from $removedRelationshipProperties
                                         + apoc.coll.flatten([
                                             chg IN apoc.coll.flatten(apoc.map.values($removedRelationshipProperties, keys($removedRelationshipProperties)))
-                                            WHERE id(chg.relationship) = id(rel)
-                                            | ['deletedRelProp:' + id(rel) + ':' + chg.key, chg.old]
+                                            WHERE id(chg.relationship) = id(entry.rel)
+                                            | ['deletedRelProp:' + entry.idx + ':' + chg.key, chg.old]
                                         ])
                                     )
                                 }
