@@ -10,10 +10,15 @@ services:
       # Set default password to "vertex"
       NEO4J_AUTH: neo4j/vertex
       # We need trigger functionality, which is part of "APOC" and must be enabled:
-      NEO4JLABS_PLUGINS: '["apoc"]'
+      # The following will enable "APOC Full", but it takes time to download and install.
+      # NEO4JLABS_PLUGINS: '["apoc"]'
+      # We only need APOC core, which is included in the image; we only have to change the plugins directory to enable it:
+      NEO4J_dbms_directories_plugins: /var/lib/neo4j/labs
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      # Enable trigger functionality:
       NEO4J_apoc_trigger_enabled: "true"
       # The following is needed for apoc.export.cypher.all, even though we're only exporting to memory, not disk.
-      apoc.export.file.enabled: "true"
+      NEO4J_apoc_export_file_enabled: "true"
     ports:
       - 7774:7474  # Browse on your host at http://localhost:7774/browser/?connectURL=neo4j://localhost:7777
       - 7777:7687  # Bolt
