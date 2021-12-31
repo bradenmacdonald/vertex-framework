@@ -70,7 +70,8 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                 //    If the SlugId already exists, update its timestamp to make it the "current" one
                 await tx.run(`
                     CALL apoc.trigger.add("updateSlugIdRelation", "
-                        UNWIND apoc.trigger.propertiesByKey($assignedNodeProperties, 'slugId') AS prop
+                        // $assignedNodeProperties is map of {key: [list of {key,old,new,node}]}
+                        UNWIND $assignedNodeProperties.slugId AS prop
                         WITH prop.node as n, prop.old as oldSlugId
                         WHERE n:VNode AND n.slugId IS NOT NULL AND n.slugId <> oldSlugId
                         MERGE (s:SlugId {slugId: n.slugId})-[:IDENTIFIES]->(n)
