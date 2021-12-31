@@ -32,10 +32,8 @@ export interface VertexCore {
 type dbWriteType = <T>(code: (tx: WrappedTransaction) => Promise<T>) => Promise<T>;
 
 export interface Migration {
-    // deno-lint-ignore no-explicit-any
-    forward: (dbWrite: dbWriteType) => Promise<any>;
-    // deno-lint-ignore no-explicit-any
-    backward: (dbWrite: dbWriteType) => Promise<any>;
+    forward: (tx: dbWriteType) => Promise<unknown>;
+    backward: (dbWrite: dbWriteType) => Promise<unknown>;
     dependsOn: string[];
 }
 
