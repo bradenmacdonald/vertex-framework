@@ -61,7 +61,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                     CALL apoc.trigger.add("createSlugIdRelation","
                         UNWIND $createdNodes AS n
                         WITH n
-                        WHERE n:VNode AND EXISTS(n.slugId)
+                        WHERE n:VNode AND n.slugId IS NOT NULL
                         CREATE (:SlugId {slugId: n.slugId, timestamp: datetime()})-[:IDENTIFIES]->(n)
                     ", {phase:"before"})
                 `);
