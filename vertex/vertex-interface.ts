@@ -10,7 +10,7 @@ export interface VertexCore {
     read<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
     isTriggerInstalled(name: string): Promise<boolean>;
     _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
-    _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<void>;
+    _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<T>;
     vnidForKey(key: VNodeKey): Promise<VNID>;
 
     registerVNodeType(vnt: VNodeType): void;

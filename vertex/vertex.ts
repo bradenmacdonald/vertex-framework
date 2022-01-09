@@ -172,18 +172,20 @@ export class Vertex implements VertexCore {
      * we don't use Actions, so we need to pause the trigger during migrations or the trigger
      * will throw an exception and prevent the migration transactions from committing.
      */
-    public async _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<void> {
+    public async _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<T> {
+        let result: T;
         try {
             if (await this.isTriggerInstalled("trackActionChanges")) {
                 await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.pause("trackActionChanges") YIELD name`));  // Without "YIELD name" this returns the code of the whole trigger.
             }
-            await someCode();
+            result = await someCode();
         } finally {
             // We must check again if the trigger is installed since someCode() may have changed it.
             if (await this.isTriggerInstalled("trackActionChanges")) {
                 await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.resume("trackActionChanges") YIELD name`));  // Without "YIELD name" this returns the code of the whole trigger.
             }
         }
+        return result;
     }
 
     /** Helper function to check if a trigger with the given name is installed in the Neo4j database */

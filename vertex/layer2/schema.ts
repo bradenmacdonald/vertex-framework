@@ -78,13 +78,24 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                         SET s.timestamp = datetime()
                     ", {phase: "before"})
                 `);
-                // There is no delete trigger because deletions should generally be handled by re-labelling nodes to
-                // use a "DeletedVNode" label, not actually deleting the nodes.
+                // 3) When a VNode is deleted, delete any "floating" slug IDs.
+                await tx.run(`
+                    CALL apoc.trigger.add("deleteSlugIdRelation", "
+                        WITH $deletedNodes AS deletedNodes
+                        WHERE size(deletedNodes) > 0
+                        MATCH (s:SlugId)
+                        WHERE NOT EXISTS {
+                            MATCH (s)-[rel:IDENTIFIES]->(n)
+                        }
+                        DELETE s
+                    ", {phase: "before"})
+                `);
             });
         },
         backward: async (dbWrite) => {
             await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("createSlugIdRelation")`));
             await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("updateSlugIdRelation")`));
+            await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("deleteSlugIdRelation")`));
         },
     },
 });
