@@ -19,7 +19,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
             tx.run("CREATE CONSTRAINT migration_id_uniq ON (m:Migration) ASSERT m.id IS UNIQUE")
         ),
         backward: (dbWrite) => dbWrite(tx =>
-            tx.run("DROP CONSTRAINT migration_id_uniq")
+            tx.run("DROP CONSTRAINT migration_id_uniq IF EXISTS")
         ),
     },
     vnode: {
@@ -37,10 +37,10 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
         },
         backward: async (dbWrite) => {
             await dbWrite(async tx => {
-                await tx.run("DROP CONSTRAINT slugid_slugid_uniq");
-                await tx.run("DROP CONSTRAINT deletedvnode_id_uniq");
-                await tx.run("DROP CONSTRAINT vnode_slugid_uniq");
-                await tx.run("DROP CONSTRAINT vnode_id_uniq");
+                await tx.run("DROP CONSTRAINT slugid_slugid_uniq IF EXISTS");
+                await tx.run("DROP CONSTRAINT deletedvnode_id_uniq IF EXISTS");
+                await tx.run("DROP CONSTRAINT vnode_slugid_uniq IF EXISTS");
+                await tx.run("DROP CONSTRAINT vnode_id_uniq IF EXISTS");
             });
             // Delete all nodes after the indexes have been removed (faster than doing so before):
             await dbWrite(async tx => {
