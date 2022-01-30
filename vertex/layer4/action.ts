@@ -117,7 +117,7 @@ export class Action extends VNodeType {
         // What this action did, in English, with Node IDs inline like `Created ${Person.withId(newPersonVNID)}`
         description: Field.String,
         // This contains the VNIDs of any VNodes that were deleted by this action.
-        deletedNodeIds: Field.List(Field.VNID),
+        deletedNodeIds: Field.NullOr.List(Field.VNID),
     };
     static async validate(_dbObject: RawVNode<typeof this>, _tx: WrappedTransaction): Promise<void> {
         // No specific validation

@@ -70,14 +70,12 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             )
                         WITH head(actions) AS action
 
-                            // If a node is truly deleted, not just soft deleted using the :DeletedVNode label, we
-                            // record that the action deleted some node(s), but we don't record the detailed changes and
-                            // do not allow reversing the action. This is for things like GDPR user deletion that need
-                            // to irreversibly wipe data from the system.
-                            //
-                            // Count the number of fully deleted nodes that had the :VNode or :DeletedVNode label. We
-                            // exclude other nodes like :SlugID that aren't VNodes.
-                            SET action.deletedNodesCount = size([dn IN $deletedNodes WHERE dn IN $removedLabels['VNode'] OR dn IN $removedLabels['DeletedVNode']])
+                            // Record the IDs of any VNodes deleted by this action
+                            SET action.deletedNodeIds = [
+                                dn IN $deletedNodes WHERE dn IN $removedLabels['VNode']
+                                // | dn.id won't work because the node is deleted
+                                | head([entry IN $removedNodeProperties['id'] WHERE entry.node = dn]).old  // This gets the ID of the deleted node.
+                            ]
 
                         WITH
                             action,

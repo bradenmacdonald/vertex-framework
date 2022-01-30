@@ -46,7 +46,7 @@ group(import.meta, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             });
         });
 
@@ -83,7 +83,7 @@ group(import.meta, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -134,7 +134,7 @@ group(import.meta, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -178,7 +178,7 @@ group(import.meta, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -217,7 +217,7 @@ group(import.meta, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -249,7 +249,7 @@ group(import.meta, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -306,7 +306,7 @@ group(import.meta, () => {
                 ],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -335,7 +335,7 @@ group(import.meta, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [movieAction.id],
                 unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
 
@@ -356,7 +356,7 @@ group(import.meta, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [movieAction.id],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes2, expected2);
         });
@@ -386,7 +386,7 @@ group(import.meta, () => {
                 deletedRelationships: [],
                 softDeletedNodes: [],
                 unDeletedNodes: [],
-                deletedNodesCount: 1,
+                deletedNodeIds: [movieAction.id],
             };
             assertEquals(changes, expected);
         });

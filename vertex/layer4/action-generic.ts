@@ -43,7 +43,7 @@ export class UndoConflictError extends Error {}
         }
         const changes = await getActionChanges(tx, data.actionId);
 
-        if (changes.deletedNodesCount > 0) {
+        if (changes.deletedNodeIds.length > 0) {
             throw new UndoConflictError("Cannot undo an Action that permanently deleted data.");
         }
 

@@ -31,8 +31,8 @@ export interface ActionChangeSet {
     }[];
     softDeletedNodes: VNID[];
     unDeletedNodes: VNID[];
-    // The number of nodes that were permanently deleted. No other information is available about them, not even their ID.
-    deletedNodesCount: number;
+    // The ID of nodes that were permanently deleted.
+    deletedNodeIds: VNID[];
 }
 
 // Change Types - see "nodeChanges" comment in getActionChanges
@@ -66,21 +66,20 @@ export async function getActionChanges(tx: WrappedTransaction, actionId: VNID): 
         deletedRelationships: [],
         softDeletedNodes: [],
         unDeletedNodes: [],
-        deletedNodesCount: 0,
+        deletedNodeIds: [],
     };
 
     const result = await tx.query(C`
         MATCH (a:Action {id: ${actionId}})
         OPTIONAL MATCH (a)-[modRel:${Action.rel.MODIFIED}]->(node)
         WHERE node:VNode OR node:DeletedVNode
-    `.RETURN({"a.deletedNodesCount": Field.Int, modRel: Field.NullOr.Relationship, node: Field.NullOr.Node}));
+    `.RETURN({"a.deletedNodeIds": Field.List(Field.VNID), modRel: Field.NullOr.Relationship, node: Field.NullOr.Node}));
 
     if (result.length === 0) {
         throw new Error("Action not found.");
     }
 
-    // test if action deleted any nodes, and if so state that - we cannot undo it if it deleted nodes.
-    changes.deletedNodesCount = result[0]["a.deletedNodesCount"];
+    changes.deletedNodeIds = result[0]["a.deletedNodeIds"];
 
     for (const {modRel, node} of result) {
         if (node === null || modRel === null) {
