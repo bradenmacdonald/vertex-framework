@@ -71,7 +71,7 @@ Nobody likes boilerplate. Vertex Framework can auto-generate Actions for common 
 For example, to create `CreatePerson` and `UpdatePerson` actions for the `Person` VNode type shown above, the code needed is simply:
 
 ```typescript
-export const UpdatePerson = defaultUpdateActionFor(Person, p => p.name.dateOfBirth);
+export const UpdatePerson = defaultUpdateFor(Person, p => p.name.dateOfBirth);
 
 export const CreatePerson = defaultCreateFor(Person, p => p.name, UpdatePerson);
 ```
