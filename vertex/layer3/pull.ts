@@ -322,20 +322,20 @@ function postProcessResultDataTypes(origResult: Readonly<Record<string, any>>, r
         if (propDefn.type === VirtualPropType.ManyRelationship) {
             if (subRequest === undefined) { throw new Error(`unexpectedly missing subrequest`); /* Just to appease TypeScript */ }
             newResult[propName] = origResult[propName].map((subResultData: any) =>
-                postProcessResult(subResultData, subRequest)
+                postProcessResultDataTypes(subResultData, subRequest)
             );
         } else if (propDefn.type === VirtualPropType.OneRelationship) {
             if (origResult[propName] === null) {
                 newResult[propName] = null;
             } else {
                 if (subRequest === undefined) { throw new Error(`unexpectedly missing subrequest`); /* Just to appease TypeScript */ }
-                newResult[propName] = postProcessResult(origResult[propName], subRequest);
+                newResult[propName] = postProcessResultDataTypes(origResult[propName], subRequest);
             }
         } else {
             // A cypher expression field
             newResult[propName] = convertNeo4jFieldValue(propName, origResult[propName], propDefn.valueType);
         }
-        //log.debug(` -> newresult[${propName}] = ${JSON.stringify(newResult[propName])} from ${JSON.stringify(origResult[propName])}`);
+        //console.log(` -> newresult[${propName}] = `, newResult[propName], ` from `, origResult[propName]);
     });
 
     return newResult;
