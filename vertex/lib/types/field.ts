@@ -17,6 +17,7 @@ import {
     validateBoolean,
     validateDateTime,
     validateEmail,
+    validateList,
 } from "./validator.ts";
 
 /* Export properly typed Neo4j data structures  */
@@ -90,6 +91,7 @@ export type PropertyFieldType = (
     | FieldType.Date
     | FieldType.DateTime
     | FieldType.AnyPrimitive
+    | FieldType.List
 );
 
 type GetPrimitiveValueType<FT extends PropertyFieldType> = 
@@ -152,8 +154,9 @@ export type ResponseRecordTypedField<Nullable extends boolean = boolean, Schema 
 export type MapTypedField        <Nullable extends boolean = boolean, Schema extends GenericSchema[any]  = any>  = CompositeTypedField<FieldType.Map, Nullable, Schema> & {__generic: true};
 export type ResponseMapTypedField<Nullable extends boolean = boolean, Schema extends ResponseSchema[any] = any> = CompositeTypedField<FieldType.Map, Nullable, Schema>;
 
-// The list type comes in two flavors, depending on whether or not it allows response-typed values:
-export type ListTypedField        <Nullable extends boolean = boolean, Schema extends GenericSchema[any]  = any>  = CompositeTypedField<FieldType.List, Nullable, Schema> & {__generic: true};
+// The list type comes in three flavors, depending on how it is used:
+export type PropertyListTypedField<Nullable extends boolean = boolean, Schema extends PropSchema[any]     = any> = CompositeTypedField<FieldType.List, Nullable, Schema> & PropertyTypedField<FieldType.List, Nullable> & {__property: true};
+export type ListTypedField        <Nullable extends boolean = boolean, Schema extends GenericSchema[any]  = any> = CompositeTypedField<FieldType.List, Nullable, Schema> & {__generic: true};
 export type ResponseListTypedField<Nullable extends boolean = boolean, Schema extends ResponseSchema[any] = any> = CompositeTypedField<FieldType.List, Nullable, Schema>;
 
 export type AnyGenericField = CompositeTypedField<FieldType.AnyGeneric, false, unknown>;
@@ -294,22 +297,24 @@ function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
         } as any),
 
         /** Map: A key-value structure with arbitrary string keys that aren't known in advance (unlike Record). */
-        Map: <Schema extends GenericSchema[any]|ResponseSchema[any]>(schema: Schema): (
+        Map: <InnerType extends GenericSchema[any]|ResponseSchema[any]>(schema: InnerType): (
             // Default to a "Generic" record/schema if possible, but if the schema includes some neo4j-response-specific
             // types like Field.Node, then use a Response Record
-            Schema extends GenericSchema[any] ? MapTypedField<Nullable, Schema> :
-            Schema extends ResponseSchema[any] ? ResponseMapTypedField<Nullable, Schema> :
+            InnerType extends GenericSchema[any] ? MapTypedField<Nullable, InnerType> :
+            InnerType extends ResponseSchema[any] ? ResponseMapTypedField<Nullable, InnerType> :
             never) => ({
             type: FieldType.Map as const, schema, nullable,
         } as any),
 
-        List: <Schema extends GenericSchema[any]|ResponseSchema[any]>(schema: Schema): (
+        List: <InnerType extends GenericSchema[any]|ResponseSchema[any]>(schema: InnerType): (
             // Default to a "Generic" record/schema if possible, but if the schema includes some neo4j-response-specific
             // types like Field.Node, then use a Response Record
-            Schema extends GenericSchema[any] ? ListTypedField<Nullable, Schema> :
-            Schema extends ResponseSchema[any] ? ResponseListTypedField<Nullable, Schema> :
+            InnerType extends PropSchema[any] ? PropertyListTypedField<Nullable, InnerType> :
+            InnerType extends GenericSchema[any] ? ListTypedField<Nullable, InnerType> :
+            InnerType extends ResponseSchema[any] ? ResponseListTypedField<Nullable, InnerType> :
             never) => ({
             type: FieldType.List as const, schema, nullable,
+            baseValidator: validateList,
         } as any),
 
         // Pass through of the types used by the underlying Neo4j JavaScript driver:
@@ -353,11 +358,10 @@ export const Field = Object.freeze({
  */
 export type GetDataType<FieldSpec extends TypedField> = (
     (FieldSpec extends TypedField<any, true> ? null : never) | (
+        FieldSpec extends ResponseListTypedField<any, infer Schema> ? GetDataType<Schema>[] :  // Works for any of our list types, must come before Property line below
         FieldSpec extends PropertyTypedField<infer FT, any> ? GetPrimitiveValueType<FT> :
-
         FieldSpec extends ResponseRecordTypedField<any, infer Schema> ? { [K in keyof Schema]: GetDataType<Schema[K]> } :  // Works for Generic record or response record
         FieldSpec extends ResponseMapTypedField<any, infer Schema> ? { [K: string]: GetDataType<Schema> } :  // Works for Generic map or response map
-        FieldSpec extends ResponseListTypedField<any, infer Schema> ? GetDataType<Schema>[] :  // Works for Generic list or response list
         FieldSpec extends CompositeTypedField<FieldType.AnyGeneric, any, any> ? GenericValue :
 
         FieldSpec extends VNodeTypedField<any, infer VNT> ?
@@ -401,6 +405,14 @@ export function validateValue<FD extends PropertyTypedField<any, any>>(fieldType
 
     // Make sure the custom validator didn't change the fundamental type, or violate the base validator:
     value = fieldType.baseValidator(value);
+
+    if (fieldType.type === FieldType.List) {
+        // Special case handling for list, the only composite type that can be a property type.
+        const innerType = (fieldType as any).schema;
+        for (const innerValue of value) {
+            validateValue(innerType, innerValue);
+        }
+    }
     return value;
 }
 
