@@ -44,9 +44,15 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
             });
             // Delete all nodes after the indexes have been removed (faster than doing so before):
             await dbWrite(async tx => {
-                await tx.run(`MATCH (s:SlugId) DETACH DELETE s`);
-                await tx.run(`MATCH (v:VNode) DETACH DELETE v`);
-                await tx.run(`MATCH (v:DeletedVNode) DETACH DELETE v`);
+                // await tx.run(`MATCH (s:SlugId) DETACH DELETE s`);
+                // await tx.run(`MATCH (v:VNode) DETACH DELETE v`);
+                // await tx.run(`MATCH (v:DeletedVNode) DETACH DELETE v`);
+                // The above queries will run out of memory for large datasets, so use this iterative approach instead:
+                // See https://neo4j.com/developer/kb/large-delete-transaction-best-practices-in-neo4j/
+                // TODO: Change to new syntax in v4.4
+                await tx.run(`CALL apoc.periodic.iterate("MATCH (n:SlugId) RETURN id(n) AS id", "MATCH (n) WHERE id(n) = id DETACH DELETE n", {batchSize:10000})`);
+                await tx.run(`CALL apoc.periodic.iterate("MATCH (n:VNode) RETURN id(n) AS id", "MATCH (n) WHERE id(n) = id DETACH DELETE n", {batchSize:1000})`);
+                await tx.run(`CALL apoc.periodic.iterate("MATCH (n:DeletedVNode) RETURN id(n) AS id", "MATCH (n) WHERE id(n) = id DETACH DELETE n", {batchSize:1000})`);
             });
         },
     },
