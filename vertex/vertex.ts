@@ -95,8 +95,7 @@ export class Vertex implements VertexCore {
         try {
             result = await session.readTransaction(tx => code(new WrappedTransaction(tx)));
         } finally {
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            session.close();
+            await session.close();
         }
         return result;
     }
@@ -150,22 +149,28 @@ export class Vertex implements VertexCore {
      * Create a database write transaction, for reading and/or writing
      * data to the graph DB. This should only be used from within a schema migration or by action-runner.ts, because
      * writes to the database should only happen via Actions.
+     *
+     * If you need to run an implicit transaction ("auto-commit transaction"), pass a query directly instead of a
+     * function.
      */
-    public async _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T> {
+    public async _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
+    public async _restrictedWrite(query: string | { text: string; parameters?: Record<string, unknown> }): Promise<void>;
+    public async _restrictedWrite(codeOrQuery: ((tx: WrappedTransaction) => Promise<unknown>) | string | { text: string; parameters?: any }) {
         // Normal flow: create a new write transaction
         const session = this.driver.session({defaultAccessMode: "WRITE"});
-        let result: T;
         try {
-            result = await session.writeTransaction(tx => code(new WrappedTransaction(tx)));
+            if (typeof codeOrQuery === "function") {
+                return await session.writeTransaction(tx => codeOrQuery(new WrappedTransaction(tx)));
+            } else {
+                await session.run(codeOrQuery);
+            }
         } finally {
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            session.close();
+            await session.close();
         }
-        return result;
     }
 
     /**
-     * Allow code to write to the database without the trackActionChanges trigger.
+     * Allow code to write to the database without an action
      *
      * Normally, for any write transaction, the trackActionChanges trigger will check that the
      * write was done alongside the creation of an "Action" node in the database; for schema migrations
@@ -226,9 +231,7 @@ export class Vertex implements VertexCore {
             // Disable the slugId auto-creation trigger since it'll conflict with the SlugId nodes already in the data snapshot
             const pauseSlugId = await this.isTriggerInstalled("trackActionChanges");
             if (pauseSlugId) {
-                await this._restrictedWrite(async tx => {
-                    await tx.run(`CALL apoc.trigger.pause("createSlugIdRelation")`);
-                });
+                await this._restrictedWrite(`CALL apoc.trigger.pause("createSlugIdRelation")`);
             }
             try {
                 await this._restrictedWrite(async tx => {
@@ -246,9 +249,7 @@ export class Vertex implements VertexCore {
                 });
             } finally {
                 if (pauseSlugId) {
-                    await this._restrictedWrite(async tx => {
-                        await tx.run(`CALL apoc.trigger.resume("createSlugIdRelation")`);
-                    });
+                    await this._restrictedWrite(`CALL apoc.trigger.resume("createSlugIdRelation")`);
                 }
             }
         });

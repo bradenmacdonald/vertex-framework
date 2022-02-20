@@ -10,6 +10,7 @@ export interface VertexCore {
     read<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
     isTriggerInstalled(name: string): Promise<boolean>;
     _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
+    _restrictedWrite(query: string | { text: string; parameters?: Record<string, unknown> }): Promise<void>;
     _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<T>;
     vnidForKey(key: VNodeKey): Promise<VNID>;
 
@@ -29,7 +30,7 @@ export interface VertexCore {
     reverseAllMigrations(): Promise<void>;
 }
 
-type dbWriteType = <T>(code: (tx: WrappedTransaction) => Promise<T>) => Promise<T>;
+type dbWriteType = VertexCore["_restrictedWrite"];
 
 export interface Migration {
     forward: (tx: dbWriteType) => Promise<unknown>;
