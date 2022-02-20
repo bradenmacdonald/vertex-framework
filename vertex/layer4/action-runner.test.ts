@@ -212,7 +212,7 @@ group("action runner", () => {
         );
     });
 
-    test("An action can delete a node by re-labelling it", async () => {
+    test("An action can delete a node", async () => {
         // Create the planet and test that we can retrieve it:
         const {id} = await testGraph.runAsSystem(
             GenericCreateAction({labels: ["Planet", "AstroBody", "VNode"], data: {name: "Test Planet 5", mass: 100, numberOfMoons: 0}})
