@@ -98,9 +98,6 @@ export function neoNodeToRawVNode<VNT extends BaseVNodeType = any>(fieldValue: N
     if (!(fieldValue as any).__isNode__) { // would be nice if isNode() were exported from neo4j-driver
         throw new Error(`Field ${fieldName} is of type ${typeof fieldValue}, not a VNode.`);
     }
-    if (fieldValue.labels.includes("DeletedVNode")) {
-        throw new Error(`Field ${fieldName} matched a deleted VNode - check your query and match only nodes with the :VNode label`);
-    }
     if (!fieldValue.labels.includes("VNode")) {
         throw new Error(`Field ${fieldName} is a node but is missing the VNode label`);
     }

@@ -224,20 +224,10 @@ group("action runner", () => {
         assertEquals(await getPlanetName(), "Test Planet 5");
         // Now delete the planet:
         await testGraph.runAsSystem(GenericCypherAction({
-            cypher: C`MATCH (p:${Planet} {id: ${id}}) REMOVE p:VNode SET p:DeletedVNode`,
+            cypher: C`MATCH (p:${Planet} {id: ${id}}) DETACH DELETE p`,
             modifiedNodes: [id],
         }));
         await assertThrowsAsync(() => getPlanetName(), EmptyResultError);
-    });
-
-    test("An action cannot mark a node as both deleted and not deleted.", async () => {
-        await assertThrowsAsync(
-            () => testGraph.runAsSystem(
-                GenericCreateAction({labels: ["Planet", "VNode", "DeletedVNode"], data: {name: "Test Planet 6", mass: 100, numberOfMoons: 0}})
-            ),
-            undefined,
-            "Nodes must not have :VNode and :DeletedVNode"
-        );
     });
 
     test("An action must apply all labels from a VNode's inheritance chain", async () => {

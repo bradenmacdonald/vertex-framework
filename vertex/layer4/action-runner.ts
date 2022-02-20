@@ -49,12 +49,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
             const result = await tx.query(C`
                 MERGE (a:${Action} {id: ${actionId}})
                 WITH a
-                // Most efficient way to MATCH either a :VNode or a :DeletedVNode by ID:
-                CALL {
-                    MATCH (n:VNode) WHERE n.id IN ${modifiedNodeIdsArray} RETURN n
-                    UNION
-                    MATCH (n:DeletedVNode) WHERE n.id IN ${modifiedNodeIdsArray} RETURN n
-                }
+                MATCH (n:VNode) WHERE n.id IN ${modifiedNodeIdsArray}
                 MERGE (a)-[:${Action.rel.MODIFIED}]->(n)
             `.RETURN({n: Field.Node}));
 
@@ -88,12 +83,6 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                 if (node.labels.length < 2) {
                     // This is not a problem of bad data, it's a problem with the Action implementation
                     throw new Error(`Tried saving a VNode without additional labels. Every VNode must have the :VNode label and at least one other label.`);
-                }
-                if (node.labels.includes("DeletedVNode")) {
-                    if (node.labels.includes("VNode")) {
-                        throw new Error("Nodes must not have :VNode and :DeletedVNode");
-                    }
-                    continue;  // Don't validate deleted nodes
                 }
                 for (const label of node.labels) {
                     if (label === "VNode") {

@@ -29,8 +29,6 @@ export interface ActionChangeSet {
         to: VNID;
         properties: Record<string, RawPropertyValue>;
     }[];
-    softDeletedNodes: VNID[];
-    unDeletedNodes: VNID[];
     // The ID of nodes that were permanently deleted.
     deletedNodeIds: VNID[];
 }
@@ -64,15 +62,13 @@ export async function getActionChanges(tx: WrappedTransaction, actionId: VNID): 
         modifiedNodes: [],
         createdRelationships: [],
         deletedRelationships: [],
-        softDeletedNodes: [],
-        unDeletedNodes: [],
         deletedNodeIds: [],
     };
 
     const result = await tx.query(C`
         MATCH (a:Action {id: ${actionId}})
         OPTIONAL MATCH (a)-[modRel:${Action.rel.MODIFIED}]->(node)
-        WHERE node:VNode OR node:DeletedVNode
+        WHERE node:VNode
     `.RETURN({"a.deletedNodeIds": Field.List(Field.VNID), modRel: Field.NullOr.Relationship, node: Field.NullOr.Node}));
 
     if (result.length === 0) {
@@ -142,16 +138,6 @@ export async function getActionChanges(tx: WrappedTransaction, actionId: VNID): 
             // This existing node was modified in some way:
             const nodeId = VNID(node.properties.id ?? "error: missing VNID");
 
-            // First handle any changes to labels:
-            if (`${chg.addedLabel}:DeletedVNode` in nodeChanges && `${chg.removedLabel}:VNode` in nodeChanges) {
-                changes.softDeletedNodes.push(nodeId);
-                delete nodeChanges[`${chg.addedLabel}:DeletedVNode`];
-                delete nodeChanges[`${chg.removedLabel}:VNode`];
-            } else if (`${chg.addedLabel}:VNode` in nodeChanges && `${chg.removedLabel}:DeletedVNode` in nodeChanges) {
-                changes.unDeletedNodes.push(nodeId);
-                delete nodeChanges[`${chg.addedLabel}:VNode`];
-                delete nodeChanges[`${chg.removedLabel}:DeletedVNode`];
-            }
             const remainingLabelChanges = Object.keys(nodeChanges).filter(chgKey => chgKey.startsWith(chg.addedLabel) || chgKey.startsWith(chg.removedLabel));
             if (remainingLabelChanges.length > 0) {
                 throw new Error(`Unsupported changes to VNode labels (${remainingLabelChanges.join(", ")}).`);

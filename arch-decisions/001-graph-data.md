@@ -12,8 +12,6 @@ Every VNode has a unique permanent identifier string ("VNID", VNode ID - see "00
 
 Schema field/property definitions and basic validation are done whenever a node is modified. Additional validation rules for each VNode type consist of arbitrary code and checks, and can include additional graph queries as needed.
 
-When a VNode is "deleted", its `VNode` label is changed to `DeletedVNode`. This preserves data and relationships and makes code for un-deleting/restoring nodes simpler.
-
 ## Reading Data
 
 Any code in the application is welcome to read from the database at any time, and use any methods to query the nodes and relationships in the database.

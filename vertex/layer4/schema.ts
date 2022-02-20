@@ -90,8 +90,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
 
 
                             // Add details to the [:MODIFIED] relationship for every label added (but ignore newly
-                            // created nodes). Changing labels is most commonly going to happen as a way of 'soft
-                            // deleting' VNodes.
+                            // created nodes).
                             // $assignedLabels is a map of label to list of nodes
                             // The horrible apoc expressions below are necessary to convert
                             //    {foo: [1, 2], bar: [4]}
@@ -104,7 +103,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                                     pair IN apoc.coll.flatten([k in keys($assignedLabels) | apoc.coll.zip(apoc.coll.fill(k, size($assignedLabels[k])), $assignedLabels[k])])
                                     | {label: pair[0], node: pair[1]}
                                 ]
-                                WHERE (pair.node:VNode OR pair.node:DeletedVNode) AND NOT pair.node in $createdNodes
+                                WHERE pair.node:VNode AND NOT pair.node in $createdNodes
                                 | {modifiedNode: pair.node, changeDetails: apoc.map.fromValues([
                                     'addedLabel:' + pair.label, true
                                 ])}
@@ -117,7 +116,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                                     pair IN apoc.coll.flatten([k in keys($removedLabels) | apoc.coll.zip(apoc.coll.fill(k, size($removedLabels[k])), $removedLabels[k])])
                                     | {label: pair[0], node: pair[1]}
                                 ]
-                                WHERE (pair.node:VNode OR pair.node:DeletedVNode) AND NOT pair.node IN $deletedNodes
+                                WHERE pair.node:VNode AND NOT pair.node IN $deletedNodes
                                 | {modifiedNode: pair.node, changeDetails: apoc.map.fromValues([
                                     'removedLabel:' + pair.label, true
                                 ])}
@@ -164,7 +163,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             [
                                 // Given [rel1, rel2, rel3], enumerate over [{idx: 0, rel: rel1}, {idx: 1, rel: rel2}, ...]
                                 entry IN [v IN apoc.coll.zip(range(0, size($deletedRelationships)-1), $deletedRelationships) | {idx: v[0], rel: v[1]}]
-                                WHERE (startNode(entry.rel):VNode OR startNode(entry.rel):DeletedVNode) AND startNode(entry.rel)<>action AND endNode(entry.rel)<>action AND NOT startNode(entry.rel) IN $deletedNodes AND NOT endNode(entry.rel) IN $deletedNodes
+                                WHERE startNode(entry.rel):VNode AND startNode(entry.rel)<>action AND endNode(entry.rel)<>action AND NOT startNode(entry.rel) IN $deletedNodes AND NOT endNode(entry.rel) IN $deletedNodes
                                 | {
                                     modifiedNode: startNode(entry.rel),
                                     changeDetails: apoc.map.fromValues(

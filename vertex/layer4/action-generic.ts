@@ -47,16 +47,6 @@ export class UndoConflictError extends Error {}
             throw new UndoConflictError("Cannot undo an Action that permanently deleted data.");
         }
 
-        // Restore soft deleted nodes
-        if (changes.softDeletedNodes.length > 0) {
-            await tx.query(C`
-                MATCH (n:DeletedVNode) WHERE n.id IN ${changes.softDeletedNodes}
-                SET n:VNode
-                REMOVE n:DeletedVNode
-                RETURN NULL
-            `);
-        }
-
         // Restore any deleted relationships
         if (changes.deletedRelationships.length > 0) {
             const relsCreated = await tx.query(C`
@@ -103,13 +93,12 @@ export class UndoConflictError extends Error {}
             }
         }
 
-        // Soft delete any created nodes, but also verify that they haven't been modified since they were created.
+        // Delete any created nodes, but also verify that they haven't been modified since they were created.
         if (changes.createdNodes.length > 0) {
             const result = await tx.query(C`
                 UNWIND ${changes.createdNodes} as createdNode
                 MATCH (n:VNode) WHERE n.id = createdNode.id AND properties(n) = createdNode.properties
-                SET n:DeletedVNode
-                REMOVE n:VNode
+                DETACH DELETE n
                 RETURN NULL
             `);
             if (result.length !== changes.createdNodes.length) {
@@ -117,23 +106,11 @@ export class UndoConflictError extends Error {}
             }
         }
 
-        // Re-delete un-deleted nodes
-        if (changes.unDeletedNodes) {
-            await tx.query(C`
-                MATCH (n:VNode) WHERE n.id IN ${changes.unDeletedNodes}
-                SET n:DeletedVNode
-                REMOVE n:VNode
-                RETURN NULL
-            `);
-        }
-
         const modifiedNodes = new Set<VNID>();
         changes.createdNodes.forEach(cn => modifiedNodes.add(cn.id));
         changes.createdRelationships.forEach(cr => modifiedNodes.add(cr.from));
         changes.deletedRelationships.forEach(dr => modifiedNodes.add(dr.from));
         changes.modifiedNodes.forEach(mn => modifiedNodes.add(mn.id));
-        changes.softDeletedNodes.forEach(vnid => modifiedNodes.add(vnid));
-        changes.unDeletedNodes.forEach(vnid => modifiedNodes.add(vnid));
 
         return {
             resultData: {},

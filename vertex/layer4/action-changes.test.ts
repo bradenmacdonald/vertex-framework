@@ -44,8 +44,6 @@ group(import.meta, () => {
                 modifiedNodes: [],
                 createdRelationships: [],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
                 deletedNodeIds: [],
             });
         });
@@ -81,8 +79,6 @@ group(import.meta, () => {
                     }
                 ],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
                 deletedNodeIds: [],
             };
             assertEquals(changes, expected);
@@ -132,8 +128,6 @@ group(import.meta, () => {
                     }
                 ],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
                 deletedNodeIds: [],
             };
             assertEquals(changes, expected);
@@ -176,8 +170,6 @@ group(import.meta, () => {
                     }
                 ],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
                 deletedNodeIds: [],
             };
             assertEquals(changes, expected);
@@ -215,8 +207,6 @@ group(import.meta, () => {
                 ],
                 createdRelationships: [],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
                 deletedNodeIds: [],
             };
             assertEquals(changes, expected);
@@ -247,8 +237,6 @@ group(import.meta, () => {
                     }
                 ],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
                 deletedNodeIds: [],
             };
             assertEquals(changes, expected);
@@ -304,61 +292,9 @@ group(import.meta, () => {
                         },
                     }
                 ],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
                 deletedNodeIds: [],
             };
             assertEquals(changes, expected);
-        });
-
-        test("gives data about soft-deleted nodes, and un-deleted ones", async () => {
-            await testGraph.runAsSystem(
-                // To make this test more complex, we'll be soft deleting and restoring a node with relationships:
-                CreateMovieFranchise({slugId: "mcu", name: "Marvel Cinematic Universe"}),
-            );
-            const movieAction = await testGraph.runAsSystem(
-                CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018, franchiseId: "mcu"}),
-            );
-            const action1 = await testGraph.runAsSystem(
-                // Soft delete the movie:
-                GenericCypherAction({cypher: C`
-                    MATCH (m:${Movie}), m HAS KEY ${"infinity-war"}
-                    SET m:DeletedVNode
-                    REMOVE m:VNode
-                `, modifiedNodes: [movieAction.id]}),
-            );
-            const changes = await testGraph.read(tx => getActionChanges(tx, action1.actionId));
-            const expected: ActionChangeSet = {
-                createdNodes: [],
-                modifiedNodes: [],
-                createdRelationships: [],
-                deletedRelationships: [],
-                softDeletedNodes: [movieAction.id],
-                unDeletedNodes: [],
-                deletedNodeIds: [],
-            };
-            assertEquals(changes, expected);
-
-            // Now un-delete it:
-            const action2 = await testGraph.runAsSystem(
-                // Soft delete the movie:
-                GenericCypherAction({cypher: C`
-                    MATCH (m:DeletedVNode {id: ${movieAction.id}})
-                    SET m:VNode
-                    REMOVE m:DeletedVNode
-                `, modifiedNodes: [movieAction.id]}),
-            );
-            const changes2 = await testGraph.read(tx => getActionChanges(tx, action2.actionId));
-            const expected2: ActionChangeSet = {
-                createdNodes: [],
-                modifiedNodes: [],
-                createdRelationships: [],
-                deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [movieAction.id],
-                deletedNodeIds: [],
-            };
-            assertEquals(changes2, expected2);
         });
 
         test("records when nodes are fully deleted", async () => {
@@ -384,8 +320,6 @@ group(import.meta, () => {
                 modifiedNodes: [],
                 createdRelationships: [],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
                 deletedNodeIds: [movieAction.id],
             };
             assertEquals(changes, expected);

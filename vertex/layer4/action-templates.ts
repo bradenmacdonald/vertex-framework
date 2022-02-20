@@ -237,8 +237,7 @@ export function defaultDeleteFor<VNT extends VNodeType>(type: VNT): ActionDefini
         apply: async (tx, data) => {
             const result = await tx.queryOne(C`
                 MATCH (node:${type}), node HAS KEY ${data.key}
-                SET node:DeletedVNode
-                REMOVE node:VNode
+                DETACH DELETE node
             `.RETURN({"node.id": Field.VNID}));
             const modifiedNodes = [result["node.id"]];
             return {resultData: {id: result["node.id"]}, modifiedNodes, description: `Deleted ${type.withId(result["node.id"])}`};
