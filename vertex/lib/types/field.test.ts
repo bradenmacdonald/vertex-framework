@@ -494,6 +494,45 @@ group(import.meta, () => {
             });
         });
 
+        group("List", () => {
+
+            test("Basic field", () => {
+                const fieldDeclaration = Field.List(Field.String);
+                assertEquals(fieldDeclaration.type, FieldType.List);
+                assertEquals(fieldDeclaration.nullable, false);
+    
+                const value1 = validateValue(fieldDeclaration, ["s1", "s2"]);
+                checkType<AssertEqual<typeof value1, string[]>>();
+                assertEquals(value1, ["s1", "s2"]);  // Ensure that validation has preserved the value.
+                // These should all be valid:
+                const check = (str: string[]) => assertEquals(validateValue(fieldDeclaration, str), str);
+                check([]);
+                check(["one"]);
+                check(["one", "two"]);
+
+                // These should not be valid:
+                assertThrows(() => { validateValue(fieldDeclaration, "a string, not an array"); });
+                assertThrows(() => { validateValue(fieldDeclaration, ["next value is not a string =>", 3]); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
+            });
+    
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.List(Field.Int);
+                assertEquals(fieldDeclaration.type, FieldType.List);
+                assertEquals(fieldDeclaration.nullable, true);
+    
+                const value1 = validateValue(fieldDeclaration, [1, 2, 3]);
+                checkType<AssertEqual<typeof value1, number[]|null>>();
+                const value2 = validateValue(fieldDeclaration, null);
+                assertStrictEquals(value2, null);
+                assertThrows(() => { validateValue(fieldDeclaration, ["not a number"]); });
+                assertThrows(() => { validateValue(fieldDeclaration, {}); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
+            });
+
+            // TODO: implement support for .Check() on Field.List when used as a property
+        });
+
         group("validatePropSchema", () => {
             const buildingSchema: PropSchema = {
                 name: Field.String,
@@ -537,12 +576,11 @@ group(import.meta, () => {
                 fieldDate: Field.Date,
                 fieldDT: Field.DateTime,
                 fieldAP: Field.AnyPrimitive,
+                fieldList: Field.List(Field.String),
                 // @ts-expect-error a Record is not allowed in a property schema
                 fieldRecord: Field.Record({key: Field.String}),
                 // @ts-expect-error a Map is not allowed in a property schema
                 fieldMap: Field.Map(Field.String),
-                // @ts-expect-error a List is not allowed in a property schema
-                fieldList: Field.List(Field.String),
                 // @ts-expect-error an AnyGeneric is not allowed in a property schema
                 fieldAnyGeneric: Field.AnyGeneric,
                 // @ts-expect-error a Node is not allowed in a property schema

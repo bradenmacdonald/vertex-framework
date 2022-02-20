@@ -116,9 +116,8 @@ export class Action extends VNodeType {
         tookMs: Field.Int,
         // What this action did, in English, with Node IDs inline like `Created ${Person.withId(newPersonVNID)}`
         description: Field.String,
-        // Did this action (permanently) delete any nodes? (Set by the trackActionChanges trigger), used by the
-        // getActionChanges() function. If this is > 0, this action cannot be undone/reversed.
-        deletedNodesCount: Field.Int,
+        // This contains the VNIDs of any VNodes that were deleted by this action.
+        deletedNodeIds: Field.List(Field.VNID),
     };
     static async validate(_dbObject: RawVNode<typeof this>, _tx: WrappedTransaction): Promise<void> {
         // No specific validation

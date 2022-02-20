@@ -69,6 +69,14 @@ export const validateFloat: Validator<number> = (value) => {
     return value;
 };
 
+/** A list validator */
+export const validateList: Validator<any[]> = (value) => {
+    if (!Array.isArray(value)) {
+        throw new Error("Not a list");
+    }
+    return value;
+};
+
 /** An string validator */
 export const validateString: Validator<string> = (value) => {
     if (typeof value !== "string") {
