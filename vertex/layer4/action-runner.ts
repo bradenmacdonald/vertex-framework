@@ -28,6 +28,22 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
 
         // First, apply the action:
         const modifiedNodeIds = new Set<VNID>();
+
+        const actionCreate = await tx.query(C`
+            MATCH (u:User:VNode {id: ${userId}})
+            CREATE (a:${Action} {id: ${actionId}})
+            CREATE (u)-[:PERFORMED]->(a)
+            SET a.type = ${type}
+            SET a.timestamp = datetime()
+            // .tookMs and .description will be set below
+            // .deletedNodeIds will be set automatically by the trackActionChanges trigger
+            RETURN null
+        `);
+
+        if (actionCreate.length === 0) {
+            throw new Error(`Invalid user ID (${userId}) - unable to apply action.`);
+        }
+
         // deno-lint-ignore no-explicit-any
         let resultData: any;
         let description: string;
@@ -37,8 +53,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
             resultData = x.resultData;
             description = x.description;
         } catch (err) {
-            log.error(`${type} action failed during apply() method.`);
-            throw err;
+            throw new Error(`${type} action failed during apply() method (${err.message}).`, {cause: err});
         }
 
         if (modifiedNodeIds.size > 0) {
@@ -46,8 +61,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
             // (If a node was deleted, this will ignore it.)
             const modifiedNodeIdsArray = Array.from(modifiedNodeIds);
             const result = await tx.query(C`
-                MERGE (a:${Action} {id: ${actionId}})
-                WITH a
+                MATCH (a:${Action} {id: ${actionId}})
                 MATCH (n:VNode) WHERE n.id IN ${modifiedNodeIdsArray}
                 MERGE (a)-[:${Action.rel.MODIFIED}]->(n)
             `.RETURN({n: Field.Node}));
@@ -101,8 +115,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                         await baseValidateVNode(nodeType, rawNode, relData, tx);
                         await nodeType.validate(rawNode, tx);
                     } catch (err) {
-                        log.error(`${type} action failed during transaction validation: ${err}`);
-                        throw err;
+                        throw new Error(`${type} action failed during transaction validation (${err.message}).`, {cause: err});
                     }
                 }
             }
@@ -111,28 +124,12 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
         // Then record the entry into the global action log, since the action succeeded.
         const tookMs = (new Date()).getTime() - startTime.getTime();
 
-        const actionUpdate = await tx.run(`
-            MERGE (a:Action:VNode {id: $actionId})
-            SET a += {type: $type, timestamp: datetime(), tookMs: $tookMs, description: $description}
-            // .deletedNodeIds will be set automatically by the trackActionChanges trigger
-
-            WITH a
-            MATCH (u:User:VNode {id: $userId})
-            CREATE (u)-[:PERFORMED]->(a)
-
-            RETURN u
-        `, {
-            type: type,
-            actionId,
-            userId,
-            tookMs,
-            description,
-        });
-
-        // This user ID validation happens very late but saves us a separate query.
-        if (actionUpdate.records.length === 0) {
-            throw new Error(`Invalid user ID (${userId}) - unable to apply action.`);
-        }
+        await tx.queryOne(C`
+            MATCH (a:${Action} {id: ${actionId}})
+            SET a.tookMs = ${tookMs}
+            SET a.description = ${description}
+            RETURN null
+        `);
 
         return [resultData, tookMs, description];
     });
