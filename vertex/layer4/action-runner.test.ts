@@ -87,7 +87,7 @@ group("action runner", () => {
         await assertThrowsAsync(() => testGraph.runAs(
             VNID("_VuIbH1qBVKPl61pzwd1wL"),
             GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name, mass: 15}}),
-        ), undefined, `Invalid user ID (_VuIbH1qBVKPl61pzwd1wL) or action revert ID (null) - unable to apply action.`);
+        ), undefined, `Invalid user ID (_VuIbH1qBVKPl61pzwd1wL) - unable to apply action.`);
         assertEquals(
             (await testGraph.read(tx => tx.query(C`MATCH (m:${AstronomicalBody} {name: ${name}}) RETURN m`))).length,
             0
@@ -224,20 +224,10 @@ group("action runner", () => {
         assertEquals(await getPlanetName(), "Test Planet 5");
         // Now delete the planet:
         await testGraph.runAsSystem(GenericCypherAction({
-            cypher: C`MATCH (p:${Planet} {id: ${id}}) REMOVE p:VNode SET p:DeletedVNode`,
+            cypher: C`MATCH (p:${Planet} {id: ${id}}) DETACH DELETE p`,
             modifiedNodes: [id],
         }));
         await assertThrowsAsync(() => getPlanetName(), EmptyResultError);
-    });
-
-    test("An action cannot mark a node as both deleted and not deleted.", async () => {
-        await assertThrowsAsync(
-            () => testGraph.runAsSystem(
-                GenericCreateAction({labels: ["Planet", "VNode", "DeletedVNode"], data: {name: "Test Planet 6", mass: 100, numberOfMoons: 0}})
-            ),
-            undefined,
-            "Nodes must not have :VNode and :DeletedVNode"
-        );
     });
 
     test("An action must apply all labels from a VNode's inheritance chain", async () => {

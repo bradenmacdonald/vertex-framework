@@ -4,7 +4,6 @@
  * Labels used are:
  *  :Migration - tracks database schema and data migration history
  *  :VNode - label for all VNodes (basically all nodes involved in the Vertex Framework, except SlugId and Migration)
- *  :DeletedVNode - label for a VNode that has been "deleted" and should be ignored.
  *  :SlugId - label for SlugId nodes, used to allow looking up a VNode by its current _or_ past slugId values
  *  :User:VNode - label for the User VNode type; must exist and be a VNode but details are up to the application
  */
@@ -29,8 +28,6 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                 // We have the core label "VNode" which applies to all VNodes and enforces their VNID+slugId uniqueness
                 await tx.run(`CREATE CONSTRAINT vnode_id_uniq ON (v:VNode) ASSERT v.id IS UNIQUE`);
                 await tx.run(`CREATE CONSTRAINT vnode_slugid_uniq ON (v:VNode) ASSERT v.slugId IS UNIQUE`)
-                // We also have the "DeletedVNode" label, which applies to VNodes that are "deleted":
-                await tx.run(`CREATE CONSTRAINT deletedvnode_id_uniq ON (v:DeletedVNode) ASSERT v.id IS UNIQUE`);
                 // SlugIds are used to identify VNodes, and continue to work even if the "current" slugId is changed:
                 await tx.run("CREATE CONSTRAINT slugid_slugid_uniq ON (s:SlugId) ASSERT s.slugId IS UNIQUE");
             });
@@ -38,7 +35,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
         backward: async (dbWrite) => {
             await dbWrite(async tx => {
                 await tx.run("DROP CONSTRAINT slugid_slugid_uniq IF EXISTS");
-                await tx.run("DROP CONSTRAINT deletedvnode_id_uniq IF EXISTS");
+                await tx.run("DROP CONSTRAINT deletedvnode_id_uniq IF EXISTS");  // This is for a deprecated constraint and can eventually be removed
                 await tx.run("DROP CONSTRAINT vnode_slugid_uniq IF EXISTS");
                 await tx.run("DROP CONSTRAINT vnode_id_uniq IF EXISTS");
             });
@@ -46,13 +43,11 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
             await dbWrite(async tx => {
                 // await tx.run(`MATCH (s:SlugId) DETACH DELETE s`);
                 // await tx.run(`MATCH (v:VNode) DETACH DELETE v`);
-                // await tx.run(`MATCH (v:DeletedVNode) DETACH DELETE v`);
                 // The above queries will run out of memory for large datasets, so use this iterative approach instead:
                 // See https://neo4j.com/developer/kb/large-delete-transaction-best-practices-in-neo4j/
                 // TODO: Change to new syntax in v4.4
                 await tx.run(`CALL apoc.periodic.iterate("MATCH (n:SlugId) RETURN id(n) AS id", "MATCH (n) WHERE id(n) = id DETACH DELETE n", {batchSize:10000})`);
                 await tx.run(`CALL apoc.periodic.iterate("MATCH (n:VNode) RETURN id(n) AS id", "MATCH (n) WHERE id(n) = id DETACH DELETE n", {batchSize:1000})`);
-                await tx.run(`CALL apoc.periodic.iterate("MATCH (n:DeletedVNode) RETURN id(n) AS id", "MATCH (n) WHERE id(n) = id DETACH DELETE n", {batchSize:1000})`);
             });
         },
     },

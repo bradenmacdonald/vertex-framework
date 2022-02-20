@@ -33,20 +33,13 @@ group(import.meta, () => {
                     {
                         id: action1.id,
                         labels: new Set(["VNode", "TestMovie"]),
-                        properties: {
-                            id: action1.id,
-                            slugId: "tropic-thunder",
-                            title: "Tropic Thunder",
-                            year: 2008n,  // Raw database types mean that integers are always returned as BigInt
-                        }
+                        properties: new Set(["id", "slugId", "title", "year"]),
                     }
                 ],
                 modifiedNodes: [],
                 createdRelationships: [],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             });
         });
 
@@ -63,12 +56,7 @@ group(import.meta, () => {
                     {
                         id: action1.id,
                         labels: new Set(["VNode", "TestMovie"]),
-                        properties: {
-                            id: action1.id,
-                            slugId: "jumanji-2",
-                            title: "Jumanji: The Next Level",
-                            year: 2019n,  // Raw database types mean that integers are always returned as BigInt
-                        }
+                        properties: new Set(["id", "slugId", "title", "year"]),
                     }
                 ],
                 modifiedNodes: [],
@@ -81,9 +69,7 @@ group(import.meta, () => {
                     }
                 ],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -111,12 +97,7 @@ group(import.meta, () => {
                     {
                         id: movieVNID,
                         labels: new Set(["VNode", "TestMovie"]),
-                        properties: {
-                            id: movieVNID,
-                            slugId: "jumanji-2",
-                            title: "Jumanji: The Next Level",
-                            year: 2019n,  // Raw database types mean that integers are always returned as BigInt
-                        }
+                        properties: new Set(["id", "slugId", "title", "year"]),
                     }
                 ],
                 modifiedNodes: [],
@@ -132,9 +113,7 @@ group(import.meta, () => {
                     }
                 ],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -161,10 +140,7 @@ group(import.meta, () => {
                 modifiedNodes: [
                     {
                         id: movieId,
-                        properties: {
-                            slugId: {old: "temp-movie", new: "jumanji-2"},
-                            title: {old: "Temp Title", new: "Jumanji: The Next Level"},
-                        },
+                        properties: new Set(["slugId", "title"]),
                     }
                 ],
                 createdRelationships: [
@@ -176,9 +152,7 @@ group(import.meta, () => {
                     }
                 ],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -208,16 +182,12 @@ group(import.meta, () => {
                 modifiedNodes: [
                     {
                         id: franchiseAction.id,
-                        properties: {
-                            textProperty: {old: "hello", new: null},
-                        },
+                        properties: new Set(["textProperty"]),
                     }
                 ],
                 createdRelationships: [],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -247,9 +217,7 @@ group(import.meta, () => {
                     }
                 ],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
         });
@@ -304,61 +272,9 @@ group(import.meta, () => {
                         },
                     }
                 ],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
-                deletedNodesCount: 0,
+                deletedNodeIds: [],
             };
             assertEquals(changes, expected);
-        });
-
-        test("gives data about soft-deleted nodes, and un-deleted ones", async () => {
-            await testGraph.runAsSystem(
-                // To make this test more complex, we'll be soft deleting and restoring a node with relationships:
-                CreateMovieFranchise({slugId: "mcu", name: "Marvel Cinematic Universe"}),
-            );
-            const movieAction = await testGraph.runAsSystem(
-                CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018, franchiseId: "mcu"}),
-            );
-            const action1 = await testGraph.runAsSystem(
-                // Soft delete the movie:
-                GenericCypherAction({cypher: C`
-                    MATCH (m:${Movie}), m HAS KEY ${"infinity-war"}
-                    SET m:DeletedVNode
-                    REMOVE m:VNode
-                `, modifiedNodes: [movieAction.id]}),
-            );
-            const changes = await testGraph.read(tx => getActionChanges(tx, action1.actionId));
-            const expected: ActionChangeSet = {
-                createdNodes: [],
-                modifiedNodes: [],
-                createdRelationships: [],
-                deletedRelationships: [],
-                softDeletedNodes: [movieAction.id],
-                unDeletedNodes: [],
-                deletedNodesCount: 0,
-            };
-            assertEquals(changes, expected);
-
-            // Now un-delete it:
-            const action2 = await testGraph.runAsSystem(
-                // Soft delete the movie:
-                GenericCypherAction({cypher: C`
-                    MATCH (m:DeletedVNode {id: ${movieAction.id}})
-                    SET m:VNode
-                    REMOVE m:DeletedVNode
-                `, modifiedNodes: [movieAction.id]}),
-            );
-            const changes2 = await testGraph.read(tx => getActionChanges(tx, action2.actionId));
-            const expected2: ActionChangeSet = {
-                createdNodes: [],
-                modifiedNodes: [],
-                createdRelationships: [],
-                deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [movieAction.id],
-                deletedNodesCount: 0,
-            };
-            assertEquals(changes2, expected2);
         });
 
         test("records when nodes are fully deleted", async () => {
@@ -384,9 +300,7 @@ group(import.meta, () => {
                 modifiedNodes: [],
                 createdRelationships: [],
                 deletedRelationships: [],
-                softDeletedNodes: [],
-                unDeletedNodes: [],
-                deletedNodesCount: 1,
+                deletedNodeIds: [movieAction.id],
             };
             assertEquals(changes, expected);
         });

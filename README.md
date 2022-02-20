@@ -20,8 +20,6 @@ An **`Action`** represents a change to the database, such as "Create User", "Upd
 
 Vertex Framework uses [APOC triggers](https://neo4j.com/labs/apoc/4.1/background-operations/triggers/) to enforce this constraint, i.e. to ensure that the database cannot be modified other than through Actions, and that Actions must always indicate which nodes they have modified.
 
-Actions can optionally define how to "invert" their effects, which gives the ability to "undo" actions where useful.
-
 ## Data integrity and schema
 
 Neo4j has relatively minimal support for enforcing schema constraints. Vertex Framework implements a layer of schema definition and validation on top of Neo4j, providing your application with all the benefits that strongly typed data brings.
