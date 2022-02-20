@@ -39,7 +39,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
             // the Action node will be automatically created as part of the write transaction by the action-runner code.
             //
             // The purpose of this trigger is to automatically create a record of the exact changes that an action makes
-            // to the database. This makes it easy to undo the action by reverting the changes.
+            // to the database, although it doesn't save actual property values.
             //
             // Note that actions are still required to explicitly/manually specify the IDs of all VNodes that they
             // modify, for two reasons:

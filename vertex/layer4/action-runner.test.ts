@@ -87,7 +87,7 @@ group("action runner", () => {
         await assertThrowsAsync(() => testGraph.runAs(
             VNID("_VuIbH1qBVKPl61pzwd1wL"),
             GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name, mass: 15}}),
-        ), undefined, `Invalid user ID (_VuIbH1qBVKPl61pzwd1wL) or action revert ID (null) - unable to apply action.`);
+        ), undefined, `Invalid user ID (_VuIbH1qBVKPl61pzwd1wL) - unable to apply action.`);
         assertEquals(
             (await testGraph.read(tx => tx.query(C`MATCH (m:${AstronomicalBody} {name: ${name}}) RETURN m`))).length,
             0

@@ -8,7 +8,6 @@ import {
     VNodeKey,
     VDate,
     VD,
-    UndoAction,
 } from "../index.ts";
 import { testGraph } from "../test-project/index.ts";
 
@@ -137,20 +136,6 @@ group(import.meta, () => {
             assertEquals(await getOrbit("earth"), null);
         });
 
-        test("can be undone", async () => {
-            await testGraph.runAsSystem(CreateAstronomicalBody({slugId: "sun"}));
-            await testGraph.runAsSystem(CreateAstronomicalBody({slugId: "earth"}));
-            const action1 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: earthOrbitsTheSun}));
-            const action2 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: {key: null}}));
-            assertEquals(await getOrbit("earth"), null);
-            // Undo action 2:
-            await testGraph.runAsSystem(UndoAction({actionId: action2.actionId}));
-            assertEquals(await getOrbitAndPeriod("earth"), earthOrbitsTheSun);
-            // Undo action 1:
-            await testGraph.runAsSystem(UndoAction({actionId: action1.actionId}));
-            assertEquals(await getOrbit("earth"), null);
-        });
-
         test("gives an error with an invalid ID", async () => {
             await testGraph.runAsSystem(CreateAstronomicalBody({slugId: "earth"}));
             await assertThrowsAsync(
@@ -255,37 +240,6 @@ group(import.meta, () => {
                 neilArmstrongApollo11,
                 jimLovellApollo13,
             ]);
-        });
-
-        test("can be undone", async () => {
-            await testGraph.runAsSystem(
-                CreatePerson({slugId: "jim-lovell"}),
-                CreatePerson({slugId: "neil-armstrong"}),
-                CreateAstronomicalBody({slugId: "moon"}),
-            );
-            const action1 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon",
-            visitedBy: [
-                    jimLovellApollo8,
-                    neilArmstrongApollo11,
-                    jimLovellApollo13,
-                ],
-            }));
-            // Now remove Neil Armstrong:
-            const action2 = await testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon",
-                visitedBy: [
-                    jimLovellApollo8,
-                    jimLovellApollo13,
-                ],
-            }));
-            // Now undo each action in turn:
-            await testGraph.runAsSystem(UndoAction({actionId: action2.actionId}));
-            assertEquals(await getVisitors("moon"), [
-                jimLovellApollo8,
-                neilArmstrongApollo11,
-                jimLovellApollo13,
-            ]);
-            await testGraph.runAsSystem(UndoAction({actionId: action1.actionId}));
-            assertEquals(await getVisitors("moon"), []);
         });
 
         test("gives an error with an invalid ID", async () => {

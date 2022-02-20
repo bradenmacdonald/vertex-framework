@@ -142,7 +142,6 @@ export {
 
 export {
     GenericCypherAction,
-    UndoAction,
 } from "./layer4/action-generic.ts";
 
 export {

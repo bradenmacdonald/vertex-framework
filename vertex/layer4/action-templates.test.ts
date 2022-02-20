@@ -4,7 +4,6 @@ import {
     VNID,
     VNodeType,
     Field,
-    UndoAction,
 } from "../index.ts";
 import { defaultCreateFor, defaultUpdateFor } from "./action-templates.ts";
 import { testGraph, CreateTypeTester, TypeTester, UpdateTypeTester } from "../test-project/index.ts";
@@ -147,26 +146,6 @@ group(import.meta, () => {
             assertEquals(result.j.slugId, "Jupiter");
             assertEquals(result.j.numberOfMoons, 79);
             assertEquals(result.moon.slugId, "Io");
-        });
-
-        test("it can be undone", async () => {
-            await testGraph.runAsSystem(
-                CreateAstroBody({slugId: "Io", mass: 1})
-            );
-            // Create a planet - this is the action that we will soon undo:
-            const createResult = await testGraph.runAsSystem(
-                CreatePlanet({slugId: "Jupiter", mass: 99999, numberOfMoons: 79, addMoon: "Io"}),
-            );
-            // Check that it was created:
-            const findJupiter = C`MATCH (j:${Planet}), j HAS KEY ${"Jupiter"}`.RETURN({j: Field.VNode(Planet)});
-            const orig = await testGraph.read(tx => tx.query(findJupiter));
-            assertEquals(orig.length, 1);
-            assertEquals(orig[0].j.slugId, "Jupiter");
-            // Now undo it:
-            await testGraph.runAsSystem(UndoAction({actionId: createResult.actionId}));
-            // Now make sure it's gone:
-            const postDelete = await testGraph.read(tx => tx.query(findJupiter));
-            assertEquals(postDelete.length, 0);
         });
 
         test("Sets correct types for all fields", async () => {

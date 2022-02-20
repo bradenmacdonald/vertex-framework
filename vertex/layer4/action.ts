@@ -2,8 +2,7 @@
 /**
  * Vertex Framework uses the command pattern, where all operations that can change the site's content in any way
  * (other than data/schema migrations) are described as "actions" (a.k.a. mutations) that take the current state and
- * transform it to another state. A generic UndoAction is provided which can be used to undo any action, making it easy
- * to revert edits, undo changes, etc.
+ * transform it to another state.
  */
 import { VNID } from "../lib/types/vnid.ts";
 import { BaseVNodeType, RawVNode } from "../layer2/vnode-base.ts";

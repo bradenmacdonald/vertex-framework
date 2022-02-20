@@ -42,7 +42,7 @@ export async function updateToOneRelationship<VNR extends RelationshipDeclaratio
     if (toKey === null) {
         // We want to clear this x:1 relationship (set it to null)
         // Delete any existing relationship, returning the ID of the target it used to point to, as well as any
-        // properties that were set on the relationship (so we can undo this action if needed)
+        // properties that were set on the relationship
         const delResult = await tx.query(C`
             MATCH (:${fromType} {id: ${fromId}})-[rel:${rel}]->(target:VNode)
             WITH rel, target, properties(rel) as relProps
