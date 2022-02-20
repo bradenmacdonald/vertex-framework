@@ -33,12 +33,7 @@ group(import.meta, () => {
                     {
                         id: action1.id,
                         labels: new Set(["VNode", "TestMovie"]),
-                        properties: {
-                            id: action1.id,
-                            slugId: "tropic-thunder",
-                            title: "Tropic Thunder",
-                            year: 2008n,  // Raw database types mean that integers are always returned as BigInt
-                        }
+                        properties: new Set(["id", "slugId", "title", "year"]),
                     }
                 ],
                 modifiedNodes: [],
@@ -61,12 +56,7 @@ group(import.meta, () => {
                     {
                         id: action1.id,
                         labels: new Set(["VNode", "TestMovie"]),
-                        properties: {
-                            id: action1.id,
-                            slugId: "jumanji-2",
-                            title: "Jumanji: The Next Level",
-                            year: 2019n,  // Raw database types mean that integers are always returned as BigInt
-                        }
+                        properties: new Set(["id", "slugId", "title", "year"]),
                     }
                 ],
                 modifiedNodes: [],
@@ -107,12 +97,7 @@ group(import.meta, () => {
                     {
                         id: movieVNID,
                         labels: new Set(["VNode", "TestMovie"]),
-                        properties: {
-                            id: movieVNID,
-                            slugId: "jumanji-2",
-                            title: "Jumanji: The Next Level",
-                            year: 2019n,  // Raw database types mean that integers are always returned as BigInt
-                        }
+                        properties: new Set(["id", "slugId", "title", "year"]),
                     }
                 ],
                 modifiedNodes: [],
@@ -155,10 +140,7 @@ group(import.meta, () => {
                 modifiedNodes: [
                     {
                         id: movieId,
-                        properties: {
-                            slugId: {old: "temp-movie", new: "jumanji-2"},
-                            title: {old: "Temp Title", new: "Jumanji: The Next Level"},
-                        },
+                        properties: new Set(["slugId", "title"]),
                     }
                 ],
                 createdRelationships: [
@@ -200,9 +182,7 @@ group(import.meta, () => {
                 modifiedNodes: [
                     {
                         id: franchiseAction.id,
-                        properties: {
-                            textProperty: {old: "hello", new: null},
-                        },
+                        properties: new Set(["textProperty"]),
                     }
                 ],
                 createdRelationships: [],

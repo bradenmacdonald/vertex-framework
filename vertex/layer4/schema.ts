@@ -79,7 +79,15 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
 
                         WITH
                             action,
+                            [
+                                entry IN apoc.coll.flatten(
+                                    apoc.map.values($assignedNodeProperties, keys($assignedNodeProperties)) +
+                                    apoc.map.values($removedNodeProperties, keys($removedNodeProperties))
+                                )
+                                WHERE entry.node:VNode AND entry.node<>action AND NOT entry.node IN $deletedNodes
+                            ] AS changedPropertiesFlattened
 
+                        WITH action,
 
                             // Add details to the [:MODIFIED] relationship for every created nodes:
                             // $createdNodes is a list of nodes
@@ -123,23 +131,20 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             ] as removedLabels,
 
 
-                            // Add details to the [:MODIFIED] relationship for every changed property value.
-                            // We exclude recently created nodes, because their current values are just stored in the
-                            // database, and rolling back the change is as simple as deleting the new node.
+                            // Add a list of changed property keys to the [:MODIFIED] relationship for every changed
+                            // property value.
                             // $assignedNodeProperties is map of {key: [list of {key,old,new,node}]}
                             // $removedNodeProperties is map of {key: [list of {key,old,node}]}
                             [
-                                changedPropData IN apoc.coll.flatten(
-                                    apoc.map.values($assignedNodeProperties, keys($assignedNodeProperties)) +
-                                    apoc.map.values($removedNodeProperties, keys($removedNodeProperties))
-                                )
-                                WHERE changedPropData.node:VNode AND changedPropData.node<>action AND NOT changedPropData.node IN $deletedNodes
-                                | {modifiedNode: changedPropData.node, changeDetails: apoc.map.fromValues([
-                                    'newProp:' + changedPropData.key, changedPropData.new,
-                                    'oldProp:' + changedPropData.key, changedPropData.old
-                                ])}
-                            ] as newPropertyNodes,
-
+                                node IN apoc.coll.toSet([changedPropData IN changedPropertiesFlattened | changedPropData.node])
+                                | {modifiedNode: node, changeDetails: {
+                                    modifiedProperties: [
+                                        changedPropData IN changedPropertiesFlattened
+                                        WHERE changedPropData.node = node
+                                        | changedPropData.key
+                                    ]
+                                }}
+                            ] as modifiedPropertyNodes,
 
                             // Add details to the [:MODIFIED] relationship for every created relationship
                             // $createdRelationships is a list of relationships
@@ -203,7 +208,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                             ] as preventRelChanges
 
 
-                        UNWIND (createdNodes + newLabels + removedLabels + newPropertyNodes + newRelationships + deletedRelationships + preventRelChanges) AS change
+                        UNWIND (createdNodes + newLabels + removedLabels + modifiedPropertyNodes + newRelationships + deletedRelationships + preventRelChanges) AS change
                             WITH action, change.modifiedNode AS modifiedNode, change.changeDetails AS changeDetails
                                 OPTIONAL MATCH (action)-[modRel:MODIFIED]->(modifiedNode)
                                     CALL apoc.util.validate(
