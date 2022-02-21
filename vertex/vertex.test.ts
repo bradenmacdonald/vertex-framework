@@ -36,7 +36,7 @@ group("Vertex Core", () => {
         test("Can report an error message", async () => {
             await assertRejects(
                 () => testGraph.read(tx => tx.run("RETURN tribble bibble")),
-                "Invalid input 'bibble'",
+                "Invalid input 'b'",  // 'bibble' is the invalid part here
             );
         });
     });
