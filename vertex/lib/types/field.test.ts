@@ -279,6 +279,12 @@ group(import.meta, () => {
                 validateValue(fieldDeclaration, "example@example.com");
                 assertThrows(() => { validateValue(fieldDeclaration, "not an email"); });
             });
+
+            test(".Check(Field.validators.email) forces lowercase", () => {
+                // Add a custom check, in this case an email address validator:
+                const fieldDeclaration = Field.String.Check(Field.validators.email);
+                assertEquals(validateValue(fieldDeclaration, "EXaMPLE@exaMPle.com"), "example@example.com");
+            });
         });
 
         group("Slug", () => {

@@ -180,7 +180,8 @@ function isEmail(email: string): boolean {
 }
 
 export const validateEmail: Validator<string> = (_value) => {
-    const value = validateString(_value);
+    // Emails should be normalized to lowercase:
+    const value = validateString(_value).toLowerCase();
     if (!isEmail(value)) {
         throw new Error(`"${value}" is not a valid email address.`);
     }
