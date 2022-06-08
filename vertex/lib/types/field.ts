@@ -449,7 +449,10 @@ export function validatePropSchema<PS extends PropSchema>(propSchema: PS, value:
             if (validationError instanceof Error) {
                 throw new FieldValidationError(key, validationError.message);
             } else {
-                throw new Error(`Unexpected error: ${typeof validationError} ${validationError}`, {cause: validationError});
+                throw new Error(
+                    `Unexpected error: ${typeof validationError} ${validationError}`,
+                    {cause: validationError instanceof Error ? validationError : undefined},
+                );
             }
             //throw validationError;
         }
