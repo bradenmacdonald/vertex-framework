@@ -32,201 +32,166 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
             await dbWrite(tx => tx.run(`MATCH (u:User:VNode {id: "${SYSTEM_VNID}"}) DETACH DELETE u`));
         },
     },
-    trackActionChanges: {
+    requireAction: {
         dependsOn: ["vnode"],
         forward: async (dbWrite) => {
             // Other than migrations, all changes (writes) to the database must be associated with an "Action";
             // the Action node will be automatically created as part of the write transaction by the action-runner code.
-            //
-            // The purpose of this trigger is to automatically create a record of the exact changes that an action makes
-            // to the database, although it doesn't save actual property values.
-            //
-            // Note that actions are still required to explicitly/manually specify the IDs of all VNodes that they
-            // modify, for two reasons:
-            // (1) in case they want to mark a node as modified that this trigger wouldn't normally mark, such as the
-            //     "to" end of a relationship (especially in case of a symmetrical relationship)
-            // (2) so that we can run validation on every modified node _before_ committing the transaction. It's not
-            //     currently possible to get the "list of nodes the transaction will modify" without also attempting to
-            //     commit the transaction, and we need to run the validation before we attempt to commit.
-            //
-            // Actions specify the VNIDs of all VNodes that they modify, and the action runner code then creates a
-            // -[:MODIFIED]-> relationship to every node that it modified (created, updated, soft deleted, deleted, or
-            // created a relationship from).
-            //
-            // Important: Creating a relationship (a)-[:REL]->(b) only counts as modifying (a), not (b)
-            // However, actions can also include (b) in their list of modified nodes if they think it's useful.
-            //
-            // This trigger would normally cause issues for schema migrations and data migrations, so the migrator code
-            // explicitly pauses and resumes this trigger during each migration.
-
             await dbWrite(async tx => {
                 await tx.run(`
-                    CALL apoc.trigger.add("trackActionChanges", "
+                    CALL apoc.trigger.add("requireAction", "
 
                         WITH [n IN $createdNodes WHERE n:Action:VNode] AS actions
                             CALL apoc.util.validate(
                                 size(actions) <> 1,
                                 'every data write transaction should be associated with one Action, found %d', [size(actions)]
                             )
-                        WITH head(actions) AS action
+                            RETURN null
 
-                            // Record the IDs of any VNodes deleted by this action
-                            SET action.deletedNodeIds = [
-                                dn IN $deletedNodes WHERE dn IN $removedLabels['VNode']
-                                // | dn.id won't work because the node is deleted
-                                | head([entry IN $removedNodeProperties['id'] WHERE entry.node = dn]).old  // This gets the ID of the deleted node.
-                            ]
-
-                        WITH
-                            action,
-                            [
-                                entry IN apoc.coll.flatten(
-                                    apoc.map.values($assignedNodeProperties, keys($assignedNodeProperties)) +
-                                    apoc.map.values($removedNodeProperties, keys($removedNodeProperties))
-                                )
-                                WHERE entry.node:VNode AND entry.node<>action AND NOT entry.node IN $deletedNodes
-                            ] AS changedPropertiesFlattened
-
-                        WITH action,
-
-                            // Add details to the [:MODIFIED] relationship for every created nodes:
-                            // $createdNodes is a list of nodes
-                            [
-                                n IN $createdNodes WHERE NOT n:Action AND NOT n:SlugId
-                                | {modifiedNode: n, changeDetails: {created: labels(n)}}
-                            ] AS createdNodes,
-
-
-                            // Add details to the [:MODIFIED] relationship for every label added (but ignore newly
-                            // created nodes).
-                            // $assignedLabels is a map of label to list of nodes
-                            // The horrible apoc expressions below are necessary to convert
-                            //    {foo: [1, 2], bar: [4]}
-                            // to
-                            //    [['foo', 1], ['foo', 2], ['bar', 4]]
-                            // then to
-                            //    [{label: 'foo', node: 1}, {label: 'foo', node: 2}, {label: 'bar', node: 4}]
-                            [
-                                pair IN [
-                                    pair IN apoc.coll.flatten([k in keys($assignedLabels) | apoc.coll.zip(apoc.coll.fill(k, size($assignedLabels[k])), $assignedLabels[k])])
-                                    | {label: pair[0], node: pair[1]}
-                                ]
-                                WHERE pair.node:VNode AND NOT pair.node in $createdNodes
-                                | {modifiedNode: pair.node, changeDetails: apoc.map.fromValues([
-                                    'addedLabel:' + pair.label, true
-                                ])}
-                            ] as newLabels,
-
-
-                            // Add details to the [:MODIFIED] relationship for every label removed.
-                            [
-                                pair IN [
-                                    pair IN apoc.coll.flatten([k in keys($removedLabels) | apoc.coll.zip(apoc.coll.fill(k, size($removedLabels[k])), $removedLabels[k])])
-                                    | {label: pair[0], node: pair[1]}
-                                ]
-                                WHERE pair.node:VNode AND NOT pair.node IN $deletedNodes
-                                | {modifiedNode: pair.node, changeDetails: apoc.map.fromValues([
-                                    'removedLabel:' + pair.label, true
-                                ])}
-                            ] as removedLabels,
-
-
-                            // Add a list of changed property keys to the [:MODIFIED] relationship for every changed
-                            // property value.
-                            // $assignedNodeProperties is map of {key: [list of {key,old,new,node}]}
-                            // $removedNodeProperties is map of {key: [list of {key,old,node}]}
-                            [
-                                node IN apoc.coll.toSet([changedPropData IN changedPropertiesFlattened | changedPropData.node])
-                                | {modifiedNode: node, changeDetails: {
-                                    modifiedProperties: [
-                                        changedPropData IN changedPropertiesFlattened
-                                        WHERE changedPropData.node = node
-                                        | changedPropData.key
-                                    ]
-                                }}
-                            ] as modifiedPropertyNodes,
-
-                            // Add details to the [:MODIFIED] relationship for every created relationship
-                            // $createdRelationships is a list of relationships
-                            [
-                                // Given [rel1, rel2, rel3], enumerate over [{idx: 0, rel: rel1}, {idx: 1, rel: rel2}, ...]
-                                entry IN [v IN apoc.coll.zip(range(0, size($createdRelationships)-1), $createdRelationships) | {idx: v[0], rel: v[1]}]
-                                WHERE startNode(entry.rel):VNode AND startNode(entry.rel)<>action AND endNode(entry.rel)<>action
-                                | {
-                                    modifiedNode: startNode(entry.rel),
-                                    changeDetails: apoc.map.fromValues([
-                                        'newRel:' + entry.idx, [type(entry.rel), endNode(entry.rel).id]
-                                    ] + apoc.coll.flatten([
-                                        p IN keys(entry.rel) | ['newRelProp:' + entry.idx + ':' + p, entry.rel[p]]
-                                    ]))
-                                }
-                            ] as newRelationships,
-
-
-                            // Add details to the [:MODIFIED] relationship for every deleted relationship
-                            // $deletedRelationships is a list of relationships
-                            [
-                                // Given [rel1, rel2, rel3], enumerate over [{idx: 0, rel: rel1}, {idx: 1, rel: rel2}, ...]
-                                entry IN [v IN apoc.coll.zip(range(0, size($deletedRelationships)-1), $deletedRelationships) | {idx: v[0], rel: v[1]}]
-                                WHERE startNode(entry.rel):VNode AND startNode(entry.rel)<>action AND endNode(entry.rel)<>action AND NOT startNode(entry.rel) IN $deletedNodes AND NOT endNode(entry.rel) IN $deletedNodes
-                                | {
-                                    modifiedNode: startNode(entry.rel),
-                                    changeDetails: apoc.map.fromValues(
-                                        ['deletedRel:' + entry.idx, [type(entry.rel), endNode(entry.rel).id]]
-                                        // Plus we need the removed relationship properties - they're not available on 'rel'
-                                        // but we can get them from $removedRelationshipProperties
-                                        + apoc.coll.flatten([
-                                            chg IN apoc.coll.flatten(apoc.map.values($removedRelationshipProperties, keys($removedRelationshipProperties)))
-                                            WHERE id(chg.relationship) = id(entry.rel)
-                                            | ['deletedRelProp:' + entry.idx + ':' + chg.key, chg.old]
-                                        ])
-                                    )
-                                }
-                            ] as deletedRelationships,
-
-
-                            // Check if any relationship properties were modified.
-                            // We prohibit this because relationships don't have permanent identifiers (like VNIDs),
-                            // as relationship properties cannot be indexed/unique, so there's no good way to record
-                            // change history for them (if we referenced a internal ID for a relationship that was
-                            // deleted and re-created, the ID may point to a totally different relationship now).
-                            [
-                                changedRelPropData IN apoc.coll.flatten(
-                                    apoc.map.values($assignedRelationshipProperties, keys($assignedRelationshipProperties)) +
-                                    apoc.map.values($removedRelationshipProperties, keys($removedRelationshipProperties))
-                                )
-                                WHERE 
-                                    startNode(changedRelPropData.relationship):VNode AND 
-                                    NOT changedRelPropData.relationship IN $createdRelationships AND
-                                    NOT changedRelPropData.relationship IN $deletedRelationships AND
-                                    apoc.util.validatePredicate(
-                                        true,
-                                        'Changing relationship properties is not supported by Vertex Framework. Delete and re-create it instead.',
-                                        []
-                                    )
-                                | {}
-                            ] as preventRelChanges
-
-
-                        UNWIND (createdNodes + newLabels + removedLabels + modifiedPropertyNodes + newRelationships + deletedRelationships + preventRelChanges) AS change
-                            WITH action, change.modifiedNode AS modifiedNode, change.changeDetails AS changeDetails
-                                OPTIONAL MATCH (action)-[modRel:MODIFIED]->(modifiedNode)
-                                    CALL apoc.util.validate(
-                                        modRel IS NULL,
-                                        'A :%s node was modified by this %s action (%s) but not explicitly marked as modified by the Action.',
-                                        [last(labels(modifiedNode)), action.type, head(keys(changeDetails))]
-                                    )
-                                    SET modRel += changeDetails
-
-                        RETURN null
                     ", {phase: "before"})
                 `);
                 // Pause the trigger immediately, or it will complain about the upcoming migrations themselves; the migration code will resume it
-                await tx.run(`CALL apoc.trigger.pause("trackActionChanges")`);
+                await tx.run(`CALL apoc.trigger.pause("requireAction")`);
             });
         },
         backward: async (dbWrite) => {
-            await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("trackActionChanges")`));
+            await dbWrite(`CALL apoc.trigger.remove("requireAction")`);
+        },
+    },
+    validateActionModified: {
+        dependsOn: ["vnode", "requireAction"],
+        forward: async (dbWrite) => {
+            // Other than migrations, all changes (writes) to the database must be associated with an "Action";
+            // the Action node will be automatically created as part of the write transaction by the action-runner code.
+            //
+            // Actions are required to explicitly/manually specify the IDs of all VNodes that they modify, for two
+            // reasons:
+            // (1) in case they want to mark a node as modified that this trigger wouldn't normally mark, such as the
+            //     "to" end of a relationship (especially in case of a symmetrical relationship)
+            // (2) so that we can run validation on every modified node _before_ committing the transaction. It's not
+            //     currently possible to get the "list of nodes the transaction will modify" without also attempting to
+            //     commit the transaction, and we need to run the validation before we attempt to commit.
+            //
+            // This trigger enforces that.
+            //
+            // Important: Creating a relationship (a)-[:REL]->(b) only counts as modifying (a), not (b)
+            // However, actions can also include (b) in their list of modified nodes if they think it's useful.
+
+            await dbWrite(async tx => {
+                await tx.run(`
+                    CALL apoc.trigger.add("validateActionModified", "
+
+                        // Start with a MATCH so this trigger only runs when there is an action in the transaction
+                        MATCH (action:Action:VNode)
+                            WHERE id(action) IN [cn IN $createdNodes WHERE cn:Action | id(cn)]
+
+                        WITH action,
+
+                            // $createdNodes is [list of nodes]
+                            [
+                                node IN $createdNodes
+                                | node
+                            ] AS createdNodes,
+
+                            // $assignedLabels is a map: {label: [list of nodes]}
+                            //    e.g. {foo: [1, 2], bar: [4]} where 1,2,4 are nodes
+                            [
+                                node IN apoc.coll.flatten([k in keys($assignedLabels) | $assignedLabels[k]])
+                                | node
+                            ] AS newLabelNodes,
+
+                            // $removedLabels is a map: {label: [list of nodes]}
+                            [
+                                node IN apoc.coll.flatten([k in keys($removedLabels) | $removedLabels[k]])
+                                | node
+                            ] AS removedLabelNodes,
+
+                            // $assignedNodeProperties is map: {key: [list of {key,old,new,node}]}
+                            [
+                                entry IN apoc.coll.flatten([k in keys($assignedNodeProperties) | $assignedNodeProperties[k]])
+                                | entry.node
+                            ] AS newPropertyNodes,
+
+                            // $removedNodeProperties is map: {key: [list of {key,old,node}]}
+                            [
+                                entry IN apoc.coll.flatten([k in keys($removedNodeProperties) | $removedNodeProperties[k]])
+                                | entry.node
+                            ] AS removedPropertyNodes,
+
+                            // $createdRelationships is a list of relationships
+                            [
+                                rel IN $createdRelationships
+                                WHERE endNode(rel):VNode AND endNode(rel) <> action
+                                | startNode(rel)
+                            ] as newRelationshipNodes,
+
+                            // $deletedRelationships is a list of relationships
+                            [
+                                rel IN $deletedRelationships
+                                WHERE endNode(rel):VNode AND endNode(rel) <> action
+                                | startNode(rel)
+                            ] as deletedRelationshipNodes,
+
+                            // $assignedRelationshipProperties is a map: {key: [list of {key,old,new,relationship}]}
+                            // $removedRelationshipProperties is a map: {key: [list of {key,old,relationship}]}
+                            [
+                                changedRelPropData IN apoc.coll.flatten(
+                                    [k in keys($assignedRelationshipProperties) | $assignedRelationshipProperties[k]] +
+                                    [k in keys($removedRelationshipProperties) | $removedRelationshipProperties[k]]
+                                )
+                                WHERE endNode(changedRelPropData.relationship):VNode
+                                | startNode(changedRelPropData.relationship)
+                            ] as updatedRelationshipPropertyNodes
+
+                        WITH action, (createdNodes + newLabelNodes + removedLabelNodes + newPropertyNodes + removedPropertyNodes + newRelationshipNodes + deletedRelationshipNodes + updatedRelationshipPropertyNodes) AS changedNodes
+                        UNWIND changedNodes AS modifiedNode
+                        WITH DISTINCT action, modifiedNode
+                            WHERE modifiedNode:VNode AND NOT modifiedNode:Action
+
+                            OPTIONAL MATCH (action)-[modRel:MODIFIED]->(modifiedNode)
+                                CALL apoc.util.validate(
+                                    modRel IS NULL,
+                                    'A %s node was modified by this action but not explicitly marked as modified by the Action.',
+                                    [last(labels(modifiedNode))]
+                                )
+                                RETURN null
+                    ", {phase: "before"})
+                `);
+            });
+        },
+        backward: async (dbWrite) => {
+            await dbWrite(`CALL apoc.trigger.remove("validateActionModified")`);
+        },
+    },
+    trackActionDeletes: {
+        dependsOn: ["vnode", "requireAction"],
+        forward: async (dbWrite) => {
+            // When an action fully deletes a VNode, we lose track of that VNode - so record that the action deleted a
+            // VNode with the given ID.
+
+            await dbWrite(async tx => {
+                await tx.run(`
+                    CALL apoc.trigger.add("trackActionDeletes", "
+
+                        // Start with a MATCH so this trigger only runs when there is an action in the transaction
+                        MATCH (action:Action:VNode)
+                            WHERE id(action) IN [cn IN $createdNodes WHERE cn:Action | id(cn)]
+
+                        WITH action
+                            WHERE size($deletedNodes) > 0  // Stop the trigger here if no nodes were deleted.
+
+                        // Record the IDs of any VNodes deleted by this action
+                        SET action.deletedNodeIds = [
+                            dn IN $deletedNodes WHERE dn IN $removedLabels['VNode']
+                            | head([entry IN $removedNodeProperties['id'] WHERE entry.node = dn]).old  // This gets the ID of the deleted node. dn.id won't work because the node is deleted
+                        ]
+
+                    ", {phase: "before"})
+                `);
+            });
+        },
+        backward: async (dbWrite) => {
+            await dbWrite(`CALL apoc.trigger.remove("trackActionDeletes")`);
         },
     },
 });

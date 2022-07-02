@@ -172,7 +172,7 @@ export class Vertex implements VertexCore {
     /**
      * Allow code to write to the database without an action
      *
-     * Normally, for any write transaction, the trackActionChanges trigger will check that the
+     * Normally, for any write transaction, the requireAction trigger will check that the
      * write was done alongside the creation of an "Action" node in the database; for schema migrations
      * we don't use Actions, so we need to pause the trigger during migrations or the trigger
      * will throw an exception and prevent the migration transactions from committing.
@@ -180,15 +180,23 @@ export class Vertex implements VertexCore {
     public async _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<T> {
         let result: T;
         try {
-            if (await this.isTriggerInstalled("trackActionChanges")) {
-                await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.pause("trackActionChanges") YIELD name`));  // Without "YIELD name" this returns the code of the whole trigger.
-            }
+            await this._restrictedWrite(`
+                // pausing requireAction
+                CALL apoc.trigger.list() YIELD name, paused
+                WITH name, paused WHERE name IN ["requireAction", "validateActionModified", "trackActionDeletes"] AND paused = false
+                CALL apoc.trigger.pause(name) YIELD name AS x
+                RETURN null
+            `);// Without "YIELD name" this returns the code of the whole trigger.
             result = await someCode();
         } finally {
             // We must check again if the trigger is installed since someCode() may have changed it.
-            if (await this.isTriggerInstalled("trackActionChanges")) {
-                await this._restrictedWrite(tx => tx.run(`CALL apoc.trigger.resume("trackActionChanges") YIELD name`));  // Without "YIELD name" this returns the code of the whole trigger.
-            }
+            await this._restrictedWrite(`
+                // resuming requireAction
+                CALL apoc.trigger.list() YIELD name, paused
+                WITH name, paused WHERE name IN ["requireAction", "validateActionModified", "trackActionDeletes"] AND paused = true
+                CALL apoc.trigger.resume(name) YIELD name AS x
+                RETURN null
+            `);
         }
         return result;
     }
@@ -229,9 +237,9 @@ export class Vertex implements VertexCore {
     public async resetDBToSnapshot(snapshot: VertexTestDataSnapshot): Promise<void> {
         await await this._restrictedAllowWritesWithoutAction(async () => {
             // Disable the slugId auto-creation trigger since it'll conflict with the SlugId nodes already in the data snapshot
-            const pauseSlugId = await this.isTriggerInstalled("trackActionChanges");
+            const pauseSlugId = await this.isTriggerInstalled("updateSlugIdRelation");
             if (pauseSlugId) {
-                await this._restrictedWrite(`CALL apoc.trigger.pause("createSlugIdRelation")`);
+                await this._restrictedWrite(`CALL apoc.trigger.pause("updateSlugIdRelation")`);
             }
             try {
                 await this._restrictedWrite(async tx => {
@@ -249,7 +257,7 @@ export class Vertex implements VertexCore {
                 });
             } finally {
                 if (pauseSlugId) {
-                    await this._restrictedWrite(`CALL apoc.trigger.resume("createSlugIdRelation")`);
+                    await this._restrictedWrite(`CALL apoc.trigger.resume("updateSlugIdRelation")`);
                 }
             }
         });

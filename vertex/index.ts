@@ -145,13 +145,6 @@ export {
 } from "./layer4/action-generic.ts";
 
 export {
-    getActionChanges,
-} from "./layer4/action-changes.ts";
-export type {
-    ActionChangeSet,
-} from "./layer4/action-changes.ts";
-
-export {
     SYSTEM_VNID
 } from "./layer4/schema.ts";
 

@@ -54,30 +54,29 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
         forward: async (dbWrite) => {
             // Create the triggers that maintain slugId relationships for models that use slugIds as identifiers:
             await dbWrite(async tx => {
-                // 1) Whenever a new VNode is created, if it has a slugId property, create a :SlugId node
-                //    with a relationship to the VNode.
-                await tx.run(`
-                    CALL apoc.trigger.add("createSlugIdRelation","
-                        UNWIND $createdNodes AS n
-                        WITH n
-                        WHERE n:VNode AND n.slugId IS NOT NULL
-                        CREATE (:SlugId {slugId: n.slugId, timestamp: datetime()})-[:IDENTIFIES]->(n)
-                    ", {phase:"before"})
-                `);
-                // 2) Whenever a new slugId property value is set on an existing VNode, create a :SlugId node
+                // 1) Whenever a new slugId property value is set on a new or existing VNode, create a :SlugId node
                 //    with a relationship to that VNode.
                 //    If the SlugId already exists, update its timestamp to make it the "current" one
                 await tx.run(`
                     CALL apoc.trigger.add("updateSlugIdRelation", "
                         // $assignedNodeProperties is map of {key: [list of {key,old,new,node}]}
                         UNWIND $assignedNodeProperties.slugId AS prop
-                        WITH prop.node as n, prop.old as oldSlugId
-                        WHERE n:VNode AND n.slugId IS NOT NULL AND n.slugId <> oldSlugId
-                        MERGE (s:SlugId {slugId: n.slugId})-[:IDENTIFIES]->(n)
+                        WITH prop.node as n
+                        WHERE 
+                            n:VNode AND
+                            n.slugId IS NOT NULL AND
+                            NOT EXISTS {
+                                MATCH (:SlugId {slugId: n.slugId})-[:IDENTIFIES]->(n)
+                            }
+                        // Use CREATE to avoid a situation where a node takes over a historical slugId of another node,
+                        // which would be a security and data integrity risk. This will throw an error if the slugId
+                        // was previously used by another note, since the CREATE will fail.
+                        CREATE (s:SlugId {slugId: n.slugId})
+                        CREATE (s)-[:IDENTIFIES]->(n)
                         SET s.timestamp = datetime()
                     ", {phase: "before"})
                 `);
-                // 3) When a VNode is deleted, delete any "floating" slug IDs.
+                // 2) When a VNode is deleted, delete any "floating" slug IDs.
                 await tx.run(`
                     CALL apoc.trigger.add("deleteSlugIdRelation", "
                         WITH $deletedNodes AS deletedNodes
@@ -92,9 +91,8 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
             });
         },
         backward: async (dbWrite) => {
-            await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("createSlugIdRelation")`));
-            await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("updateSlugIdRelation")`));
-            await dbWrite(tx => tx.run(`CALL apoc.trigger.remove("deleteSlugIdRelation")`));
+            await dbWrite(`CALL apoc.trigger.remove("updateSlugIdRelation")`);
+            await dbWrite(`CALL apoc.trigger.remove("deleteSlugIdRelation")`);
         },
     },
 });
