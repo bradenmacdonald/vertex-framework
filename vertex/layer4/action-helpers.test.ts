@@ -1,4 +1,4 @@
-import { group, test, assertEquals, assertThrowsAsync, configureTestData } from "../lib/tests.ts";
+import { group, test, assertEquals, assertRejects, configureTestData } from "../lib/tests.ts";
 import {
     C,
     VNodeType,
@@ -138,9 +138,8 @@ group(import.meta, () => {
 
         test("gives an error with an invalid ID", async () => {
             await testGraph.runAsSystem(CreateAstronomicalBody({slugId: "earth"}));
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: {key: "foobar"}})),
-                undefined,
                 `Cannot change AstronomicalBody relationship ORBITS to "foobar" - target not found.`,
             );
         });
@@ -148,9 +147,8 @@ group(import.meta, () => {
         test("gives an error with a node of a different type", async () => {
             await testGraph.runAsSystem(CreatePerson({slugId: "Jamie"}));
             await testGraph.runAsSystem(CreateAstronomicalBody({slugId: "earth"}));
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.runAsSystem(UpdateAstronomicalBody({key: "earth", orbits: {key: "Jamie"}})),
-                undefined,
                 `Cannot change AstronomicalBody relationship ORBITS to "Jamie" - target not found.`,
             );
         });
@@ -244,9 +242,8 @@ group(import.meta, () => {
 
         test("gives an error with an invalid ID", async () => {
             await testGraph.runAsSystem(CreateAstronomicalBody({slugId: "moon"}));
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon", visitedBy: [{key: "nobody", when: VD`1970-01-01`}]})),
-                undefined,
                 `Cannot set VISITED_BY relationship to VNode with key "nobody" which doesn't exist or is the wrong type.`,
             );
         });
@@ -255,11 +252,10 @@ group(import.meta, () => {
             const notAPersonKey = "alz-budrin";
             await testGraph.runAsSystem(CreateAstronomicalBody({slugId: notAPersonKey}));
             await testGraph.runAsSystem(CreateAstronomicalBody({slugId: "moon"}));
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.runAsSystem(UpdateAstronomicalBody({key: "moon", visitedBy: [
                     {key: notAPersonKey, when: VD`1970-01-01`}
                 ]})),
-                undefined,
                 `Cannot set VISITED_BY relationship to VNode with key "${notAPersonKey}" which doesn't exist or is the wrong type.`,
             );
         });

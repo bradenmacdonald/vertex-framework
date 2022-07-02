@@ -82,7 +82,7 @@ group("Data Request", () => {
         test("ignoring the type system and adding a non-existent property throws an exception", () => {
             assertThrows(() => {
                 getRequestedRawProperties(SomeVNodeType, v => (v as any).nonProp);
-            }, undefined, "Unknown property nonProp");
+            }, "Unknown property nonProp");
         });
 
     });

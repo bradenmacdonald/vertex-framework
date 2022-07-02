@@ -561,7 +561,7 @@ group(import.meta, () => {
                         numHomes: 0,
                         numOccupiedHomes: -50,
                     });
-                }, undefined, `Expect value to be greater or equal than 1 (actual: 0)`);
+                }, `Expect value to be greater or equal than 1 (actual: 0)`);
             });
         });
     });

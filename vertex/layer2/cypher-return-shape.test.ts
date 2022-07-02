@@ -1,4 +1,4 @@
-import { group, test, assert, assertEquals, assertThrowsAsync, configureTestData, assertArrayIncludes } from "../lib/tests.ts";
+import { group, test, assert, assertEquals, assertRejects, configureTestData, assertArrayIncludes } from "../lib/tests.ts";
 import { convertNeo4jRecord } from "./cypher-return-shape.ts";
 import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils.ts";
 import { testGraph, Person } from "../test-project/index.ts";
@@ -176,18 +176,16 @@ group(import.meta, () => {
 
         test("retrieving a non-node as a VNode should fail", async () => {
             const shape = ResponseSchema({p: Field.VNode(Person)});
-            await assertThrowsAsync(
+            await assertRejects(
                 () => runAndConvert(`RETURN false AS p`, {}, shape),
-                undefined,
                 "Field p is of type boolean, not a VNode."
             );
         });
 
         test("retrieving a non-VNode as a VNode should fail", async () => {
             const shape = ResponseSchema({p: Field.VNode(Person)});
-            await assertThrowsAsync(
+            await assertRejects(
                 () => runAndConvert(`MATCH (s:SlugId) RETURN s AS p LIMIT 1`, {}, shape),
-                undefined,
                 "Field p is a node but is missing the VNode label"
             );
         });

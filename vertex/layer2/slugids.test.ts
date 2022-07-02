@@ -5,7 +5,7 @@ import {
     Field,
     VNID,
 } from "../index.ts";
-import { group, test, assertEquals, configureTestData, assertThrowsAsync } from "../lib/tests.ts";
+import { group, test, assertEquals, configureTestData, assertRejects } from "../lib/tests.ts";
 import { testGraph } from "../test-project/index.ts";
 
 /** A VNodeType for use in this test suite. */
@@ -84,7 +84,7 @@ group(import.meta, () => {
         `);
         // We can't use the slug ID "new-slug" for bob because even though it's not a current slugId, it was previously
         // used for alex.
-        await assertThrowsAsync(async () => {
+        await assertRejects(async () => {
             await doQuery(C`
                 MATCH (p:${Person} {slugId: ${"bob"}})
                 SET p.slugId = "new-slug"
