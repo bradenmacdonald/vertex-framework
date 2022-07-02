@@ -5,6 +5,8 @@ services:
   # Neo4j graph database
   ################################################################
   neo4j:
+    # For ARM support (until we are compatible with Neo4j 4.4), use
+    # image: neo4j/neo4j-arm64-experimental:4.3.14-arm64
     image: neo4j:4.3
     environment:
       # Set default password to "vertex"
