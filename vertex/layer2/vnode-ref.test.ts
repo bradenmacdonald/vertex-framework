@@ -54,8 +54,8 @@ group(import.meta, () => {
         const test2 = C`MATCH (:${OtherVNTRef})-[:${OtherVNTRef.rel.SELF_RELATIONSHIP_WITH_REF}]->(:${OtherVNTRef})`;
         // Now compilation will fail, because that's when it attempts to evaluate these objects, and this forward
         // reference has not yet been resolved:
-        assertThrows(() => test1.queryString, undefined, "Unable to use forward reference that hasn't been resolved with .resolveTo()");
-        assertThrows(() => test2.queryString, undefined, "Unable to use forward reference that hasn't been resolved with .resolveTo()");
+        assertThrows(() => test1.queryString, "Unable to use forward reference that hasn't been resolved with .resolveTo()");
+        assertThrows(() => test2.queryString, "Unable to use forward reference that hasn't been resolved with .resolveTo()");
         // But we can use MovieRef because it has been resolved:
         const test3 = C`MATCH (:${MovieRef})-[:${MovieRef.rel.FRANCHISE_IS}]->()`;
         assertEquals(test3.queryString, "MATCH (:TestMovie:VNode)-[:FRANCHISE_IS]->()");

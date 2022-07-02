@@ -4,7 +4,7 @@
  * The tests are in layer 3 because testing the validation code requires updating the graph via actions, which are part
  * of layer 3.
  */
-import { group, test, assertThrowsAsync, assertEquals, configureTestData } from "../lib/tests.ts";
+import { group, test, assertRejects, assertEquals, configureTestData } from "../lib/tests.ts";
 import { testGraph, } from "../test-project/index.ts";
 import {
     C,
@@ -81,9 +81,8 @@ group(import.meta, () => {
         });
 
         test("Creating a VNode with an invalid slugIdPrefix works fine", async () => {
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.runAsSystem(CreateNote({slugId: "test1-note-foo"})),
-                undefined,
                 `Note has an invalid slugId "test1-note-foo". Expected it to start with "note-".`,
             );
         });
@@ -99,12 +98,11 @@ group(import.meta, () => {
                 modifiedNodes: [aliceId, bcId],
             }));
             // Try creating a person without the required BirthCertificate:
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.runAsSystem(GenericCypherAction({
                     cypher: C`CREATE (p:${Person} { id: ${bobId}, slugId: "Bob"})`,
                     modifiedNodes: [bobId],
                 })),
-                undefined,
                 "Required relationship type HAS_BIRTH_CERT must point to one node, but does not exist."
             );
         });
@@ -117,7 +115,7 @@ group(import.meta, () => {
                 modifiedNodes: [aliceId, bcId],
             }));
             // Try adding an additional birth certificate to that person:
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.runAsSystem(GenericCypherAction({
                     cypher: C`
                         MATCH (p:${Person} {slugId: "Alice"})
@@ -125,7 +123,6 @@ group(import.meta, () => {
                     `,
                     modifiedNodes: [aliceId, bcId],
                 })),
-                undefined,
                 "Required to-one relationship type HAS_BIRTH_CERT is pointing to more than one node."
             );
         });
@@ -146,7 +143,7 @@ group(import.meta, () => {
                 modifiedNodes: [aliceId, bobId],
             })),
             // Try adding an additional spouse to Alice:
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.runAsSystem(GenericCypherAction({
                     cypher: C`
                         MATCH (alice:${Person} {slugId: "alice"})
@@ -155,7 +152,6 @@ group(import.meta, () => {
                     `,
                     modifiedNodes: [aliceId, charliId],
                 })),
-                undefined,
                 "To-one relationship type HAS_SPOUSE is pointing to more than one node."
             );
         });
@@ -182,9 +178,8 @@ group(import.meta, () => {
             // Mark Alice and Charli as being friends:
             await addFriendship(aliceId, charliId);
             // Try adding an additional friendship between Alice and Bob, who are already friends:
-            await assertThrowsAsync(
+            await assertRejects(
                 () => addFriendship(aliceId, bobId),
-                undefined,
                 "Creating multiple HAS_FRIEND relationships between the same pair of nodes is not allowed."
             );
         });

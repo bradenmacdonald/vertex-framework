@@ -49,7 +49,7 @@ group(import.meta, () => {
 
     test("Doesn't interpolate a VNodeType as a value", () => {
         const query = C`MATCH (p:VNode) SET p.someField = ${Person} RETURN p.id`;
-        assertThrows(() => query.queryString, undefined, "Interpolating a VNodeType into a string is only supported for matching labels");
+        assertThrows(() => query.queryString, "Interpolating a VNodeType into a string is only supported for matching labels");
     });
 
     test("Interpolates values", () => {
@@ -230,19 +230,19 @@ group(import.meta, () => {
     test("CypherQuery throws an error if passed invalid arguments", () => {
         assertThrows(() => {
             new CypherQuery(["one string"], ["two", "args"]);
-        }, undefined, "expected params array to have length 1 less than strings array");
+        }, "expected params array to have length 1 less than strings array");
     });
 
     test("throws an error if passed multiple values for the same argument", () => {
         assertThrows(() => {
             C`MATCH (p:${Person})`.withParams({foo: "bar"}).withParams({foo: "other"});
-        }, undefined, `Multiple values for query parameter "foo"`);
+        }, `Multiple values for query parameter "foo"`);
     });
 
     test("throws an error if using HAS KEY without a parameter", () => {
         assertThrows(() => {
             C`MATCH (p:${Person}), p HAS KEY $something`.queryString;
-        }, undefined, `Expected a "something" parameter in the query for the p HAS KEY $something lookup.`);
+        }, `Expected a "something" parameter in the query for the p HAS KEY $something lookup.`);
     });
 
     group("return shape", () => {

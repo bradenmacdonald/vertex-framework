@@ -1,4 +1,4 @@
-import { group, test, assertEquals, assertNotEquals, assertStrictEquals, assertThrowsAsync, configureTestData } from "../lib/tests.ts";
+import { group, test, assertEquals, assertNotEquals, assertStrictEquals, assertRejects, configureTestData } from "../lib/tests.ts";
 import {
     C,
     VNID,
@@ -108,19 +108,19 @@ group(import.meta, () => {
 
         test("doesn't allow creating invalid VNodes", async () => {
             // There are overlapping tests in action-runner.test.ts, but that's OK.
-            await assertThrowsAsync(() => testGraph.runAsSystem(
+            await assertRejects(() => testGraph.runAsSystem(
                 // deno-lint-ignore no-explicit-any
                 CreateAstroBody({slugId: 17 as any, mass: 15}),
-            ), undefined, `Field "slugId" is invalid: Not a string`);
+            ), `Field "slugId" is invalid: Not a string`);
             // slugId cannot contain spaces:
-            await assertThrowsAsync(() => testGraph.runAsSystem(
+            await assertRejects(() => testGraph.runAsSystem(
                 CreateAstroBody({slugId: "this slugId has spaces", mass: 123}),
-            ), undefined, `Field "slugId" is invalid: Not a valid slug (cannot contain spaces or other special characters other than '-')`);
+            ), `Field "slugId" is invalid: Not a valid slug (cannot contain spaces or other special characters other than '-')`);
             // required props missing:
-            await assertThrowsAsync(() => testGraph.runAsSystem(
+            await assertRejects(() => testGraph.runAsSystem(
                 // deno-lint-ignore no-explicit-any
                 CreateAstroBody({} as any),
-            ), undefined, `Field "slugId" is invalid: Value is not allowed to be null`);
+            ), `Field "slugId" is invalid: Value is not allowed to be null`);
         });
 
         test("sets all required labels for VNodeTypes with inherited labels", async () => {

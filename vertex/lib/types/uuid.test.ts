@@ -34,9 +34,9 @@ group(import.meta, () => {
         });
 
         test("throw if string is not a valid UUIDv4", () => {
-                assertThrows(() => new UUIDv4(""), undefined, `Invalid UUID string ""`);
-                assertThrows(() => new UUIDv4("this is not a UUID"), undefined, `Invalid UUID string "this is not a UUID"`);
-                assertThrows(() => new UUIDv4("00000000-ALEX-0000-0000-000000000000"), undefined, `Invalid UUID string "00000000-ALEX-0000-0000-000000000000"`);
+                assertThrows(() => new UUIDv4(""), `Invalid UUID string ""`);
+                assertThrows(() => new UUIDv4("this is not a UUID"), `Invalid UUID string "this is not a UUID"`);
+                assertThrows(() => new UUIDv4("00000000-ALEX-0000-0000-000000000000"), `Invalid UUID string "00000000-ALEX-0000-0000-000000000000"`);
         });
 
         test("serializes to JSON", () => {
@@ -87,9 +87,9 @@ group(import.meta, () => {
         });
 
         test("throw if string is not a valid UUIDv4", () => {
-            assertThrows(() => UUID(""), undefined, `Invalid UUID string ""`);
-            assertThrows(() => UUID("this is not a UUID"), undefined, `Invalid UUID string "this is not a UUID"`);
-            assertThrows(() => UUID("00000000-ALEX-0000-0000-000000000000"), undefined, `Invalid UUID string "00000000-ALEX-0000-0000-000000000000"`);
+            assertThrows(() => UUID(""), `Invalid UUID string ""`);
+            assertThrows(() => UUID("this is not a UUID"), `Invalid UUID string "this is not a UUID"`);
+            assertThrows(() => UUID("00000000-ALEX-0000-0000-000000000000"), `Invalid UUID string "00000000-ALEX-0000-0000-000000000000"`);
         });
     });
 });

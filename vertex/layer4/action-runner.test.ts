@@ -1,4 +1,4 @@
-import { group, test, assertEquals, assertThrowsAsync, configureTestData } from "../lib/tests.ts";
+import { group, test, assertEquals, assertRejects, configureTestData } from "../lib/tests.ts";
 import { testGraph, } from "../test-project/index.ts";
 import {
     C,
@@ -65,7 +65,7 @@ group("action runner", () => {
         test("create a node (check constraint)", async () => {
             // Check our assumptions: make sure there actually is a unique constraint on id
             await testGraph.runAsSystem(createAsteroid);
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.runAsSystem(createAsteroid)
             );
         });
@@ -84,10 +84,10 @@ group("action runner", () => {
 
     test("Running an action with a non-existent user ID will raise an error", async () => {
         const name = "Moon17";
-        await assertThrowsAsync(() => testGraph.runAs(
+        await assertRejects(() => testGraph.runAs(
             VNID("_VuIbH1qBVKPl61pzwd1wL"),
             GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name, mass: 15}}),
-        ), undefined, `Invalid user ID (_VuIbH1qBVKPl61pzwd1wL) - unable to apply action.`);
+        ), `Invalid user ID (_VuIbH1qBVKPl61pzwd1wL) - unable to apply action.`);
         assertEquals(
             (await testGraph.read(tx => tx.query(C`MATCH (m:${AstronomicalBody} {name: ${name}}) RETURN m`))).length,
             0
@@ -97,11 +97,10 @@ group("action runner", () => {
     group("Graph data cannot be modified outside of an action", () => {
 
         test("from a read transaction", async () => {
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.read(tx =>
                     tx.run("CREATE (x:SomeNode) RETURN x", {})
                 ),
-                undefined,
                 "Writing in read access mode not allowed."
             );
         });
@@ -111,11 +110,10 @@ group("action runner", () => {
             // a trigger should enfore that no changes to the database are made outside of an
             // action. Doing so requires using both _restrictedWrite() and 
             // _restrictedAllowWritesWithoutAction() together.
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph._restrictedWrite(tx =>
                     tx.run("CREATE (x:SomeNode) RETURN x", {})
                 ),
-                undefined,
                 "every data write transaction should be associated with one Action",
             );
         });
@@ -143,9 +141,8 @@ group("action runner", () => {
         });
 
         // The action will fail if the action implementation creates a node but doesn't include its VNID in "modifiedNodes":
-        await assertThrowsAsync(
+        await assertRejects(
             () => testGraph.runAsSystem( CreateCeresAction({markAsModified: false}) ),
-            undefined,
             "A AstroBody node was modified by this action but not explicitly marked as modified by the Action.",
         );
 
@@ -163,9 +160,8 @@ group("action runner", () => {
         );
         // Try modifying the node without returning any "modifiedNodes" - this should be denied:
         const cypher = C`MATCH (ab:${AstronomicalBody} {id: ${id}}) SET ab.mass = 5`;
-        await assertThrowsAsync(
+        await assertRejects(
             () => testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: []})),
-            undefined,
             "A AstroBody node was modified by this action but not explicitly marked as modified by the Action.",
         );
         // Then it should work if it does mark the node as modified:
@@ -174,28 +170,25 @@ group("action runner", () => {
 
     test("An action cannot create a node that doesn't match its properties schema", async () => {
         // Create a new node but with invalid properties:
-        await assertThrowsAsync(
+        await assertRejects(
             () => testGraph.runAsSystem(
                 GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: 123456}})
             ),
-            undefined,
             `Field "name" is invalid: Not a string`,
         );
-        await assertThrowsAsync(
+        await assertRejects(
             () => testGraph.runAsSystem(
                 GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: "foo"}})
             ),
-            undefined,
             `Field "mass" is invalid: Value is not allowed to be null`,
         );
     });
 
     test("An action cannot save a node with only the label :VNode", async () => {
-        await assertThrowsAsync(
+        await assertRejects(
             () => testGraph.runAsSystem(
                 GenericCreateAction({labels: ["VNode"], data: {name: "foo"}})
             ),
-            undefined,
             "Tried saving a VNode without additional labels. Every VNode must have the :VNode label and at least one other label.",
         );
     });
@@ -215,15 +208,14 @@ group("action runner", () => {
             cypher: C`MATCH (p:${Planet} {id: ${id}}) DETACH DELETE p`,
             modifiedNodes: [id],
         }));
-        await assertThrowsAsync(() => getPlanetName(), EmptyResultError);
+        await assertRejects(() => getPlanetName(), EmptyResultError);
     });
 
     test("An action must apply all labels from a VNode's inheritance chain", async () => {
-        await assertThrowsAsync(
+        await assertRejects(
             () => testGraph.runAsSystem(
                 GenericCreateAction({labels: ["Planet", "VNode"], data: {name: "Test Planet 7", mass: 100, numberOfMoons: 0}})
             ),
-            undefined,
             "VNode with label :Planet is missing required inherited label :AstroBody"
         );
     });

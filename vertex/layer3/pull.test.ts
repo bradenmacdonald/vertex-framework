@@ -239,7 +239,7 @@ group(import.meta, () => {
                 buildCypherQuery(request, filter),
                 buildCypherQuery(mergedRequest, filter),
             );
-            assertEquals(
+            assertEquals<unknown>(
                 await testGraph.pullOne(request, filter),
                 await testGraph.pullOne(mergedRequest, filter),
             );

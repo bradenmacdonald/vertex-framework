@@ -1,4 +1,4 @@
-import { group, test, assertEquals, assertThrowsAsync, configureTestData, assertThrows } from "./lib/tests.ts";
+import { group, test, assertEquals, assertRejects, configureTestData, assertThrows } from "./lib/tests.ts";
 import { Person, testGraph } from "./test-project/index.ts";
 
 import { VNID, SlugId, VNodeType } from "./index.ts";
@@ -19,7 +19,7 @@ group("Vertex Core", () => {
             testGraph.registerVNodeType(SomeVNT);
             assertThrows(() => {
                 testGraph.registerVNodeType(SomeVNT);
-            }, undefined, "Duplicate VNodeType label: SomeVNT");
+            }, "Duplicate VNodeType label: SomeVNT");
             testGraph.unregisterVNodeType(SomeVNT);
         });
     });
@@ -34,9 +34,8 @@ group("Vertex Core", () => {
         });
 
         test("Can report an error message", async () => {
-            await assertThrowsAsync(
+            await assertRejects(
                 () => testGraph.read(tx => tx.run("RETURN tribble bibble")),
-                undefined,
                 "Invalid input 'bibble'",
             );
         });

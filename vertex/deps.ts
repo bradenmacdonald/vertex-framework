@@ -4,4 +4,4 @@ export {
     Neo4j,
 }
 
-export * as stdLog from "https://deno.land/std@0.120.0/log/mod.ts"
+export * as stdLog from "https://deno.land/std@0.146.0/log/mod.ts"
