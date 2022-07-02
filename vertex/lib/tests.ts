@@ -108,9 +108,9 @@ export function configureTestData(args: {
     if (args.isolateTestWrites) {
         if (args.loadTestProjectData) {
             beforeEach(loadTestProjectData);
+        } else {
+            beforeEach(resetTestDbToSnapshot);
         }
-        // Reset the database to the snapshot after each test
-        afterEach(resetTestDbToSnapshot);
     } else {
         // These tests are not writing to the database so we don't need to reset it after each test.
         // But if the test suite as a whole needs sample data, we need to load it first and reset it after:
