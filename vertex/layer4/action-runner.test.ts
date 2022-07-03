@@ -105,68 +105,90 @@ group("action runner", () => {
             );
         });
 
-        // test("from a write transaction", async () => {
-        //     // Application code should not ever use _restrictedWrite, but even when it is used,
-        //     // a trigger should enfore that no changes to the database are made outside of an
-        //     // action. Doing so requires using both _restrictedWrite() and 
-        //     // _restrictedAllowWritesWithoutAction() together.
-        //     await assertRejects(
-        //         () => testGraph._restrictedWrite(tx =>
-        //             tx.run("CREATE (x:SomeNode) RETURN x", {})
-        //         ),
-        //         "every data write transaction should be associated with one Action",
-        //     );
-        // });
+        test({
+            name: "from a write transaction (DISRUPTIVE on 4.4)",
+            // These tests are important and work but they introduce some instability into the Neo4j 4.4 server, which
+            // will cause other tests to fail randomly, so we run them on a separate instance of the server.
+            // See https://github.com/neo4j/neo4j/issues/12844
+            ignore: Deno.env.get("RUN_NEO44_DISRUPTIVE_TESTS") === undefined,
+            fn: async () => {
+                // Application code should not ever use _restrictedWrite, but even when it is used,
+                // a trigger should enfore that no changes to the database are made outside of an
+                // action. Doing so requires using both _restrictedWrite() and 
+                // _restrictedAllowWritesWithoutAction() together.
+                await assertRejects(
+                    () => testGraph._restrictedWrite(tx =>
+                        tx.run("CREATE (x:SomeNode) RETURN x", {})
+                    ),
+                    "every data write transaction should be associated with one Action",
+                );
+            }
+        });
     });
 
-    // test("An action cannot create a node without including it in modifiedNodes", async () => {
-    //     // Here is an action that creates a new node, and may or may not report that new node as "modified"
-    //     const CreateCeresAction = defineAction({
-    //         type: `CreateCeres1`,
-    //         parameters: {} as {markAsModified: boolean},
-    //         resultData: {} as {id: string},
-    //         apply: async (tx, data) => {
-    //             const id = VNID();
-    //             await tx.query(C`
-    //                 CREATE (p:${AstronomicalBody} {id: ${id}})
-    //                 SET p.name = "Ceres", p.mass = 0.00016
-    //             `);
-    //             return {
-    //                 resultData: {id},
-    //                 // If "markAsModified" is true, say that we modified the new node, otherwise skip it.
-    //                 modifiedNodes: data.markAsModified ? [id] : [],
-    //                 description: "Created Ceres",
-    //             };
-    //         },
-    //     });
+    test({
+        name: "An action cannot create a node without including it in modifiedNodes (DISRUPTIVE on 4.4)",
+        // These tests are important and work but they introduce some instability into the Neo4j 4.4 server, which
+        // will cause other tests to fail randomly, so we run them on a separate instance of the server.
+        // See https://github.com/neo4j/neo4j/issues/12844
+        ignore: Deno.env.get("RUN_NEO44_DISRUPTIVE_TESTS") === undefined,
+        fn: async () => {
+            // Here is an action that creates a new node, and may or may not report that new node as "modified"
+            const CreateCeresAction = defineAction({
+                type: `CreateCeres1`,
+                parameters: {} as {markAsModified: boolean},
+                resultData: {} as {id: string},
+                apply: async (tx, data) => {
+                    const id = VNID();
+                    await tx.query(C`
+                        CREATE (p:${AstronomicalBody} {id: ${id}})
+                        SET p.name = "Ceres", p.mass = 0.00016
+                    `);
+                    return {
+                        resultData: {id},
+                        // If "markAsModified" is true, say that we modified the new node, otherwise skip it.
+                        modifiedNodes: data.markAsModified ? [id] : [],
+                        description: "Created Ceres",
+                    };
+                },
+            });
 
-    //     // The action will fail if the action implementation creates a node but doesn't include its VNID in "modifiedNodes":
-    //     await assertRejects(
-    //         () => testGraph.runAsSystem( CreateCeresAction({markAsModified: false}) ),
-    //         "A AstroBody node was modified by this action but not explicitly marked as modified by the Action.",
-    //     );
+            // The action will fail if the action implementation creates a node but doesn't include its VNID in "modifiedNodes":
+            await assertRejects(
+                () => testGraph.runAsSystem( CreateCeresAction({markAsModified: false}) ),
+                "A AstroBody node was modified by this action but not explicitly marked as modified by the Action.",
+            );
 
-    //     // Then it should work if it does mark the node as modified:
-    //     const result = await testGraph.runAsSystem( CreateCeresAction({markAsModified: true}) );
-    //     assertEquals(typeof result.id, "string");
-    //     assertEquals(typeof result.actionId, "string");
-    //     assertEquals(result.actionDescription, "Created Ceres");
-    // });
+            // Then it should work if it does mark the node as modified:
+            const result = await testGraph.runAsSystem( CreateCeresAction({markAsModified: true}) );
+            assertEquals(typeof result.id, "string");
+            assertEquals(typeof result.actionId, "string");
+            assertEquals(result.actionDescription, "Created Ceres");
+        }
+    });
 
-    // test("An action cannot mutate a node without including it in modifiedNodes", async () => {
-    //     // Create a new AstronomicalBody node:
-    //     const {id} = await testGraph.runAsSystem(
-    //         GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: "Test Dwarf 2", mass: 100}})
-    //     );
-    //     // Try modifying the node without returning any "modifiedNodes" - this should be denied:
-    //     const cypher = C`MATCH (ab:${AstronomicalBody} {id: ${id}}) SET ab.mass = 5`;
-    //     await assertRejects(
-    //         () => testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: []})),
-    //         "A AstroBody node was modified by this action but not explicitly marked as modified by the Action.",
-    //     );
-    //     // Then it should work if it does mark the node as modified:
-    //     await testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: [id]}));
-    // });
+
+    test({
+        name: "An action cannot mutate a node without including it in modifiedNodes (DISRUPTIVE on 4.4)",
+        // These tests are important and work but they introduce some instability into the Neo4j 4.4 server, which
+        // will cause other tests to fail randomly, so we run them on a separate instance of the server.
+        // See https://github.com/neo4j/neo4j/issues/12844
+        ignore: Deno.env.get("RUN_NEO44_DISRUPTIVE_TESTS") === undefined,
+        fn: async () => {
+            // Create a new AstronomicalBody node:
+            const {id} = await testGraph.runAsSystem(
+                GenericCreateAction({labels: ["AstroBody", "VNode"], data: {name: "Test Dwarf 2", mass: 100}})
+            );
+            // Try modifying the node without returning any "modifiedNodes" - this should be denied:
+            const cypher = C`MATCH (ab:${AstronomicalBody} {id: ${id}}) SET ab.mass = 5`;
+            await assertRejects(
+                () => testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: []})),
+                "A AstroBody node was modified by this action but not explicitly marked as modified by the Action.",
+            );
+            // Then it should work if it does mark the node as modified:
+            await testGraph.runAsSystem(GenericCypherAction({cypher, modifiedNodes: [id]}));
+        }
+    });
 
     test("An action cannot create a node that doesn't match its properties schema", async () => {
         // Create a new node but with invalid properties:
