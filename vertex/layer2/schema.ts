@@ -15,7 +15,7 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
         dependsOn: [],
         // This is the root migration, which sets up the schema so we can track all other migrations.
         forward: (dbWrite) => dbWrite(tx =>
-            tx.run("CREATE CONSTRAINT migration_id_uniq ON (m:Migration) ASSERT m.id IS UNIQUE")
+            tx.run("CREATE CONSTRAINT migration_id_uniq FOR (m:Migration) REQUIRE m.id IS UNIQUE")
         ),
         backward: (dbWrite) => dbWrite(tx =>
             tx.run("DROP CONSTRAINT migration_id_uniq IF EXISTS")
@@ -26,10 +26,10 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
         forward: async (dbWrite) => {
             await dbWrite(async tx => {
                 // We have the core label "VNode" which applies to all VNodes and enforces their VNID+slugId uniqueness
-                await tx.run(`CREATE CONSTRAINT vnode_id_uniq ON (v:VNode) ASSERT v.id IS UNIQUE`);
-                await tx.run(`CREATE CONSTRAINT vnode_slugid_uniq ON (v:VNode) ASSERT v.slugId IS UNIQUE`)
+                await tx.run(`CREATE CONSTRAINT vnode_id_uniq FOR (v:VNode) REQUIRE v.id IS UNIQUE`);
+                await tx.run(`CREATE CONSTRAINT vnode_slugid_uniq FOR (v:VNode) REQUIRE v.slugId IS UNIQUE`)
                 // SlugIds are used to identify VNodes, and continue to work even if the "current" slugId is changed:
-                await tx.run("CREATE CONSTRAINT slugid_slugid_uniq ON (s:SlugId) ASSERT s.slugId IS UNIQUE");
+                await tx.run("CREATE CONSTRAINT slugid_slugid_uniq FOR (s:SlugId) REQUIRE s.slugId IS UNIQUE");
             });
         },
         backward: async (dbWrite) => {
