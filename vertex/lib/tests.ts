@@ -105,6 +105,7 @@ export function configureTestData(args: {
     // Additional VNodeTypes to register:
     additionalVNodeTypes?: VNodeType[],
 }): void {
+    beforeEach(async () => { await testGraph._restrictedWrite(async (tx) => await tx.run("CALL db.clearQueryCaches()")); return; });
     if (args.isolateTestWrites) {
         if (args.loadTestProjectData) {
             beforeEach(loadTestProjectData);
