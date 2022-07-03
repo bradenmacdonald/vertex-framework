@@ -85,17 +85,21 @@ export function test(
         name: name.join(" > "),
         async fn(t) {
             // Before.
-            for (const { beforeAll, beforeEach, completedTests } of hooks) {
-                if (completedTests === 0) {
-                    await callAll(beforeAll);
+            await t.step("before", async () => {
+                for (const { beforeAll, beforeEach, completedTests } of hooks) {
+                    if (completedTests === 0) {
+                        await callAll(beforeAll);
+                    }
+                    
+                    await callAll(beforeEach);
                 }
-                
-                await callAll(beforeEach);
-            }
+            })
             
             // Test.
+            let succeeded = false;
             try {
                 await fn(t);
+                succeeded = true;
             } finally {
                 for (const hook of hooks) {
                     hook.completedTests++;
@@ -104,8 +108,9 @@ export function test(
                         hook.completedOnlyTests++;
                     }
                 }
-                
-                // After.
+            }
+
+            const doAfter = async () => {
                 for (
                     const {
                         afterAll,
@@ -125,6 +130,12 @@ export function test(
                         await callAll(afterAll);
                     }
                 }
+            };
+
+            if (succeeded) {
+                await t.step("after", doAfter);
+            } else {
+                await doAfter(); // Can't do it in a step since steps will be skipped after a failure.
             }
         },
         ...opts,
