@@ -1,12 +1,10 @@
 # Vertex Framework
 
-Vertex Framework is an **experimental** graph data management framework in active development for use by the Neolace platform and for [TechNotes](https://technotes.org). It sits between a TypeScript application and a [Neo4j graph database](https://neo4j.com/).
+Vertex Framework is a graph data management framework, originally developed for use by the [Neolace](https://www.neolace.com) platform. It sits between a TypeScript application and a [Neo4j graph database](https://neo4j.com/), and it provides type safety and convenience methods for accessing graph data.
 
 ![Diagram showing vertex framework between the Application and the Neo4j database](./docs/images/overview.svg)
 
-Its design choices are oriented around the Neolace use case and probably not suitable for general use at this time.
-
-🚧 **Vertex Framework is alpha software.** Its API will feature regular breaking changes. 🚧
+Its design choices are oriented around the Neolace use case, but it is a general purpose framework.
 
 ---
 
@@ -425,8 +423,7 @@ You should then generally be able to use `MovieRef` anywhere you would use `Movi
 Future improvements planned for Vertex Framework:
 
 * Optimize performance of TypeScript typing (currently quite slow)
-* Pagination of results when using `pull()`
-* Pagination and filtering of -to-many virtual properties when using `pull()`
+* Consolidate the `pull()` and `query()` APIs
 * A mechanism for actions that have side effects
 * "Standard" virtual properties like "DateCreated", "ChangeHistory", etc. available on all VNodes
 * "Preview" transactions: open a non-committable transaction (that doesn't take write locks) so that the database can be queried as if some action(s) were applied, to preview and validate their effects without committing them.
@@ -437,4 +434,4 @@ MIT
 
 ## Contributing
 
-If you're interested in this project, contributions and help are welcome! Please feel free to open a GitHub issue or pull request, or to reach out to Braden at braden@technotes.org.
+If you're interested in this project, contributions and help are welcome! Please feel free to open a GitHub issue or pull request, or to reach out to Braden at braden@neolace.com.
