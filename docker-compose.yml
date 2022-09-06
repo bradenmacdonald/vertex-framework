@@ -5,7 +5,7 @@ services:
   # Neo4j graph database
   ################################################################
   neo4j:
-    image: neo4j:4.4.8
+    image: neo4j:4.4.10
     environment:
       # Set default password to "vertex"
       NEO4J_AUTH: neo4j/vertex
