@@ -218,11 +218,11 @@ group(import.meta, () => {
         // If one wants to save a number as an Integer explicitly, use C.int()
         const numValue = 15;
 
-        const defaultQuery = C`RETURN apoc.meta.type(${numValue}) AS numberType`;
+        const defaultQuery = C`RETURN apoc.meta.cypher.type(${numValue}) AS numberType`;
         const defaultResult = await testGraph.read(tx => tx.run(defaultQuery.queryString, defaultQuery.params));
         assertEquals(defaultResult.records[0].get("numberType"), "FLOAT");
 
-        const intQuery = C`RETURN apoc.meta.type(${C.int(numValue)}) AS numberType`;
+        const intQuery = C`RETURN apoc.meta.cypher.type(${C.int(numValue)}) AS numberType`;
         const intResult = await testGraph.read(tx => tx.run(intQuery.queryString, intQuery.params));
         assertEquals(intResult.records[0].get("numberType"), "INTEGER");
     });
