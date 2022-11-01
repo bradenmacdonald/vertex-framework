@@ -76,7 +76,7 @@ const actions: Map<string, ActionDefinition> = new Map();
  * Returns an ActionDefinition which can be used to run actions of this type, and which
  * can be called to generate a data structure which represents a specific action of this type.
  */
-export function defineAction<ActionTypeString extends string, Parameters extends Record<string, any>, ResultData = Record<string, never>>(
+export function defineAction<ActionTypeString extends string, Parameters extends Record<string, any>, ResultData extends Record<string, any> = Record<string, never>>(
     {type, apply}: {
         type: ActionTypeString;
         parameters: Parameters;
