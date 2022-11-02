@@ -106,11 +106,7 @@ group("action runner", () => {
         });
 
         test({
-            name: "from a write transaction (DISRUPTIVE on 4.4)",
-            // These tests are important and work but they introduce some instability into the Neo4j 4.4 server, which
-            // will cause other tests to fail randomly, so we run them on a separate instance of the server.
-            // See https://github.com/neo4j/neo4j/issues/12844
-            ignore: Deno.env.get("RUN_NEO44_DISRUPTIVE_TESTS") === undefined,
+            name: "from a write transaction",
             fn: async () => {
                 // Application code should not ever use _restrictedWrite, but even when it is used,
                 // a trigger should enfore that no changes to the database are made outside of an
@@ -127,11 +123,7 @@ group("action runner", () => {
     });
 
     test({
-        name: "An action cannot create a node without including it in modifiedNodes (DISRUPTIVE on 4.4)",
-        // These tests are important and work but they introduce some instability into the Neo4j 4.4 server, which
-        // will cause other tests to fail randomly, so we run them on a separate instance of the server.
-        // See https://github.com/neo4j/neo4j/issues/12844
-        ignore: Deno.env.get("RUN_NEO44_DISRUPTIVE_TESTS") === undefined,
+        name: "An action cannot create a node without including it in modifiedNodes",
         fn: async () => {
             // Here is an action that creates a new node, and may or may not report that new node as "modified"
             const CreateCeresAction = defineAction({
@@ -169,11 +161,7 @@ group("action runner", () => {
 
 
     test({
-        name: "An action cannot mutate a node without including it in modifiedNodes (DISRUPTIVE on 4.4)",
-        // These tests are important and work but they introduce some instability into the Neo4j 4.4 server, which
-        // will cause other tests to fail randomly, so we run them on a separate instance of the server.
-        // See https://github.com/neo4j/neo4j/issues/12844
-        ignore: Deno.env.get("RUN_NEO44_DISRUPTIVE_TESTS") === undefined,
+        name: "An action cannot mutate a node without including it in modifiedNodes",
         fn: async () => {
             // Create a new AstronomicalBody node:
             const {id} = await testGraph.runAsSystem(

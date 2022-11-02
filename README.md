@@ -1,22 +1,14 @@
 # Vertex Framework
 
-Vertex Framework is a graph data management framework, originally developed for use by the [Neolace](https://www.neolace.com) platform. It sits between a TypeScript application and a [Neo4j graph database](https://neo4j.com/), and it provides type safety and convenience methods for accessing graph data.
+## Type Safe Application Framework for Neo4j and Deno
+
+**Vertex Framework** is a graph data management framework, originally developed for use by the [Neolace](https://www.neolace.com) platform. It sits between a [Deno/TypeScript](https://deno.land/) application and a [Neo4j graph database](https://neo4j.com/), and it provides **type safety** (which Neo4j doesn't) and convenience methods for accessing graph data (which Neo4j doesn't).
 
 ![Diagram showing vertex framework between the Application and the Neo4j database](./docs/images/overview.svg)
-
-Its design choices are oriented around the Neolace use case, but it is a general purpose framework.
 
 ---
 
 Here are some of the features that Vertex Framework provides:
-
-## Data traceability (Actions)
-
-Have you ever been debugging a web application and wondered how some data value got into your database? (Who changed this setting / how did this entry get created / etc.). With Vertex Framework, that question is always easy to answer. While *reading* from the database is completely unrestricted, *writing* to the database is only possible via **Actions**.
-
-An **`Action`** represents a change to the database, such as "Create User", "Update User Profile", "Edit Article", and so on. (Actions are similar to GraphQL "Mutations", and are also "Commands" in the more general [Command Pattern](https://en.wikipedia.org/wiki/Command_pattern).) When an `Action` is run, data about the Action itself is saved into the graph, such as what user ran the action, when the action ran, how long it took to process, and what nodes it modified. This means that it's trivial to look up an ordered list of actions that have modified any given node in the graph, giving the complete change history of that node.
-
-Vertex Framework uses [APOC triggers](https://neo4j.com/labs/apoc/4.1/background-operations/triggers/) to enforce this constraint, i.e. to ensure that the database cannot be modified other than through Actions, and that Actions must always indicate which nodes they have modified.
 
 ## Data integrity and schema
 
@@ -58,7 +50,15 @@ export class Person extends VNodeType {
 
 ```
 
-When any `Action` creates or modifies a VNode with the `Person` label, Vertex framework will validate this schema. If the Action created a `Person` VNode that was missing the required `name` property, or that had a `FRIEND_OF` relationship pointing to a `Movie` VNode, or any other schema violation, the `Action` will fail validation and its transaction will not be committed.
+When any change is made to a VNode with the `Person` label, Vertex framework will validate this schema within the transaction. If the change created a `Person` VNode that was missing the required `name` property, or that had a `FRIEND_OF` relationship pointing to a `Movie` VNode, or any other schema violation, the transaction will fail validation and will not be committed.
+
+## Data traceability (Actions)
+
+While *reading* from the graph database is completely unrestricted, *writing* to the database managed by Vertex Framework is only possible via **Actions**.
+
+An **`Action`** represents a change to the database, such as "Create User", "Update User Profile", "Edit Article", and so on. (Actions are similar to GraphQL "Mutations", and are also "Commands" in the more general [Command Pattern](https://en.wikipedia.org/wiki/Command_pattern).) When an `Action` is run, data about the Action itself is saved into the graph, such as what user ran the action, when the action ran, how long it took to process, and what nodes it modified. This means that it's trivial to look up an ordered list of actions that have modified any given node in the graph, giving the complete change history of that node.
+
+Vertex Framework uses [APOC triggers](https://neo4j.com/docs/apoc/current/background-operations/triggers/) to enforce this constraint, i.e. to ensure that the database cannot be modified other than through Actions, and that Actions must always indicate which nodes they have modified.
 
 ## Auto-generated Actions
 
@@ -87,15 +87,15 @@ const firstMovieTitle = await graph.read(async tx => {
 
     const result = await tx.run(`
         MATCH (p:Person:VNode {id: $id})
-        MATCH (p)-[:ACTED_IN]->(m:Movie:VNode)
-        RETURN m
+        MATCH (p)-[:ACTED_IN]->(movie:Movie:VNode)
+        RETURN movie
     `, {
         id: personId,
     });
 
-    return result.records[0].get("m").title;
+    return result.records[0].get("movie").title;
 });
-// Type of "firstMovieTitle" is now "any"
+// Type of "firstMovieTitle" is now "any" 😔
 ```
 
 And here is the same query using the optional syntactic sugar:
@@ -103,23 +103,23 @@ And here is the same query using the optional syntactic sugar:
 ```typescript
 const firstMovieTitle = await graph.read(async tx => {
 
-    const result = await tx.query(C`
+    const result = await tx.queryOne(C`
         MATCH (p:${Person} {id: ${personId}})
-        MATCH (p)-[:${Person.rel.ACTED_IN}]->(m:${Movie})
-    `.RETURN({m: Movie}));
+        MATCH (p)-[:${Person.rel.ACTED_IN}]->(movie:${Movie})
+    `.RETURN({movie: Movie}));
 
-    return result[0].m.title;
+    return result.movie.title;
 });
-// Type of "firstMovieTitle" is now "string"
+// Type of "firstMovieTitle" is now "string" 🚀
 ```
 
 This second example shows:
 
-* TypeScript knows what fields are available on the returned `m` record, and the types of each, such as the `title` field which is a `string`.
+* TypeScript knows what fields are available on the returned `movie` record, and the types of each, such as the `title` field which is a `string`.
 * Variables like `personId` can be interpolated directly into the query - there's no need to define a neo4j parameter variable like `$id` and then pass a separate object with parameter values. You can rest assured that the data values are still passed as parameters though, ensuring that query plans can be re-used and your application is safe against Cypher injection attacks.
 * Instead of hard-coding labels and relationship types, you can interpolate a `VNode` type and its relationship definitions. The syntactic sugar code knows that these are labels, not parameters, and will replace `:${Person}` with the correct `:Person:VNode` label, and similar for relationships.
   * This has the advantage that if you make any typo or reference a relationship that has been renamed, etc., TypeScript will immediately highlight your error, making query writing and refactoring easier.
-  * If you're wondering why `:${Person}` gets replaced with both `:Person` and `:VNode` labels, that is required since only `:VNode` has an index on VNIDs, and Vertex Framework handles data "deletion" by keep data around but removing the `:VNode` label.)
+  * If you're wondering why `:${Person}` gets replaced with both `:Person` and `:VNode` labels, that is required since only `:VNode` has an index on VNIDs, and Vertex Framework allows you to optionally handle data "deletion" by keep data around but removing the `:VNode` label.)
 
 For complex custom queries, `.givesShape` can be used to specify arbitrary return types that TypeScript will be aware of, though the syntax is a little more verbose:
 
@@ -129,7 +129,7 @@ const result = await tx.query(C`
     MATCH (p)-[rel:${Person.rel.ACTED_IN}]->(m:${Movie})
     RETURN {title: m.title, role: rel.role} AS movie
 `.givesShape({
-    movie: {map: {title: "string", role: "string"}},
+    movie: Field.Record({title: Field.String, role: Field.String}),
 }));
 // Type of "result" is Array<{movie: {title: string; role: string;}}>
 ```
@@ -284,7 +284,7 @@ Conditional properties are designed to partially provide one of the big features
 
 ## slugIds
 
-Vertex Framework requires that every VNode has a `id` primary key. Optionally, some VNode types can have a "secondary key" by defining a property called `slugId` and setting its type to `slugIdProperty`. A short ID is a string between 1 and 32 characters long used as a changeable identifier for that VNode. For example, a person named Alex might have the slugId `p-alex`.
+Vertex Framework requires that every VNode has a `id` primary key. Optionally, some VNode types can have a "secondary key" by defining a property called `slugId` and setting its type to `slugIdProperty`. A `slugId` is a string between 1 and 32 characters long used as a changeable identifier for that VNode. For example, a person named Alex might have the slugId `p-alex`.
 
 Unlike the primary key, the `slugId` of a given VNode can be changed when needed. However, Vertex Framework ensures that even though slugIds can be changed, "old" slugIds will continue to work and to "point to" the same VNode. This allows you to use slugIds in URLs, confident that even if the slugId is changed at some point, the URL will continue to work forever.
 
@@ -422,7 +422,7 @@ You should then generally be able to use `MovieRef` anywhere you would use `Movi
 
 Future improvements planned for Vertex Framework:
 
-* Optimize performance of TypeScript typing (currently quite slow)
+* Optimize performance of TypeScript typing (currently slow in some complex cases)
 * Consolidate the `pull()` and `query()` APIs
 * A mechanism for actions that have side effects
 * "Standard" virtual properties like "DateCreated", "ChangeHistory", etc. available on all VNodes

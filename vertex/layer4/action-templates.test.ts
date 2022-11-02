@@ -172,7 +172,7 @@ group(import.meta, () => {
             const dbTypes = await testGraph.read(tx => tx.query(C`
                 MATCH (t:${TypeTester} {id: ${id}})
                 UNWIND keys(t) AS propKey
-                RETURN propKey, apoc.meta.type(t[propKey]) AS type
+                RETURN propKey, apoc.meta.cypher.type(t[propKey]) AS type
             `.givesShape({propKey: Field.String, type: Field.String})));
             assertEquals(new Set(dbTypes), new Set([
                 {propKey: "id", type: "STRING"},
