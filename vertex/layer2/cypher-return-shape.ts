@@ -44,6 +44,9 @@ export function convertNeo4jFieldValue<FD extends TypedField>(fieldName: string,
         case FieldType.Slug: {
             return fieldValue;
         }
+        case FieldType.JsonObjString: {
+            return JSON.parse(fieldValue);
+        }
         ////////////////////////////////////////////////
         // Composite field types
         case FieldType.Record: {

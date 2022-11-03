@@ -18,6 +18,7 @@ import {
     validateDateTime,
     validateEmail,
     validateList,
+validateJsonObjString,
 } from "./validator.ts";
 
 /* Export properly typed Neo4j data structures  */
@@ -27,6 +28,8 @@ export type Path = Neo4j.Path<bigint>;
 
 export type PrimitiveValue = null|number|bigint|string|boolean|VDate|Date;
 export type GenericValue = PrimitiveValue|{[key: string]: GenericValue}|GenericValue[];
+export type JsonObject = { [x: string]: JsonCompatibleValue };
+export type JsonCompatibleValue = string | number | boolean | JsonObject | Array<JsonCompatibleValue>;
 
 /**
  * Field data types which can be used as VNode/Neo4j property types and also returned from Cypher queries.
@@ -40,6 +43,8 @@ export const enum FieldType {
     String,
     /** A unicode-aware slug (cannot contain spaces/punctuation). Valid: "the-thing". Invalid: "foo_bar" or "foo bar" */
     Slug,
+    /** An object (map) encoded as a Json string. Will be transparently decoded when read by Vertex Framework */
+    JsonObjString,
     Boolean,
     /** A date without any time format. */
     Date,
@@ -50,7 +55,8 @@ export const enum FieldType {
     // Time,
     /**
      * An AnyPrimitive property can be any of: Null, Int, BigInt, Float, String, Boolean, Date, or DateTime.
-     * (VNID and Slug are special cases of String that can't be distinguished from String by value, so are excluded.)
+     * (VNID, JsonObjString, and Slug are special cases of String that can't be distinguished from String by value,
+     * so are excluded.)
      */
     AnyPrimitive,
 
@@ -87,6 +93,7 @@ export type PropertyFieldType = (
     | FieldType.Float
     | FieldType.String
     | FieldType.Slug
+    | FieldType.JsonObjString
     | FieldType.Boolean
     | FieldType.Date
     | FieldType.DateTime
@@ -101,6 +108,7 @@ type GetPrimitiveValueType<FT extends PropertyFieldType> =
     FT extends FieldType.Float ? number :
     FT extends FieldType.String ? string :
     FT extends FieldType.Slug ? string :
+    FT extends FieldType.JsonObjString ? JsonObject :
     FT extends FieldType.Boolean ? boolean :
     FT extends FieldType.Date ? VDate :
     FT extends FieldType.DateTime ? Date :
@@ -231,6 +239,8 @@ export type _StringField = _PropertyTypedFieldConstructor<FieldType.String, fals
 export type _NullableStringField = _PropertyTypedFieldConstructor<FieldType.String, true>;
 export type _SlugField = _PropertyTypedFieldConstructor<FieldType.Slug, false>;
 export type _NullableSlugField = _PropertyTypedFieldConstructor<FieldType.Slug, true>;
+export type _JsonObjStringField = _PropertyTypedFieldConstructor<FieldType.JsonObjString, false>;
+export type _NullableJsonObjStringField = _PropertyTypedFieldConstructor<FieldType.JsonObjString, true>;
 export type _BooleanField = _PropertyTypedFieldConstructor<FieldType.Boolean, false>;
 export type _NullableBooleanField = _PropertyTypedFieldConstructor<FieldType.Boolean, true>;
 
@@ -281,6 +291,7 @@ function _getFieldTypes<Nullable extends boolean>(nullable: Nullable) {
         String: makePropertyField(FieldType.String, nullable, validateString, trimStringMaxLength(1_000)) as unknown as Nullable extends true ? _NullableStringField : _StringField,
         /** A unicode-aware slug (cannot contain spaces/punctuation). Valid: "the-thing". Invalid: "foo_bar" or "foo bar" */
         Slug: makePropertyField(FieldType.Slug, nullable, validateSlug, trimStringMaxLength(60)) as unknown as Nullable extends true ? _NullableSlugField : _SlugField,
+        JsonObjString: makePropertyField(FieldType.JsonObjString, nullable, validateJsonObjString) as unknown as Nullable extends true ? _NullableJsonObjStringField : _JsonObjStringField,
         Boolean: makePropertyField(FieldType.Boolean, nullable, validateBoolean) as unknown as Nullable extends true ? _NullableBooleanField : _BooleanField,
         /** A calendar date, i.e. a date without time information */
         Date: makePropertyField(FieldType.Date, nullable, validateVDate),

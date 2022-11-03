@@ -19,6 +19,7 @@ import {
     Path,
     PrimitiveValue,
     GenericValue,
+    JsonObject,
 } from "./field.ts";
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -342,6 +343,44 @@ group(import.meta, () => {
             });
         });
 
+        group("JSON Object String", () => {
+
+            test("Basic field", () => {
+                const fieldDeclaration = Field.JsonObjString;
+                assertEquals(fieldDeclaration.type, FieldType.JsonObjString);
+                assertEquals(fieldDeclaration.nullable, false);
+    
+                const value1 = validateValue(fieldDeclaration, {foo: "bar"});
+                checkType<AssertEqual<typeof value1, JsonObject>>();
+                assertEquals(typeof value1, "object");
+                assertEquals(value1, {foo: "bar"});  // Ensure that validation has preserved the value.
+                // These should all be valid:
+                const check = (value: Record<string, unknown>) => assertEquals(validateValue(fieldDeclaration, value), value);
+                check({});
+                check({a: 1, b: 2});
+                check({c: null, d: "foo", e: {f: null, g: [1, "a"]}});
+
+                assertThrows(() => { validateValue(fieldDeclaration, [1, 2, 3]); });
+                assertThrows(() => { validateValue(fieldDeclaration, "string"); });
+                assertThrows(() => { validateValue(fieldDeclaration, null); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
+            });
+    
+            test("NullOr.", () => {
+                const fieldDeclaration = Field.NullOr.JsonObjString;
+                assertEquals(fieldDeclaration.type, FieldType.JsonObjString);
+                assertEquals(fieldDeclaration.nullable, true);
+    
+                const value1 = validateValue(fieldDeclaration, {foo: "bar"});
+                checkType<AssertEqual<typeof value1, JsonObject|null>>();
+                const value2 = validateValue(fieldDeclaration, null);
+                assertStrictEquals(value2, null);
+                assertThrows(() => { validateValue(fieldDeclaration, [1, 2, 3]); });
+                assertThrows(() => { validateValue(fieldDeclaration, "string"); });
+                assertThrows(() => { validateValue(fieldDeclaration, undefined); });
+            });
+        });
+
         group("Boolean", () => {
 
             test("Basic field", () => {
@@ -578,6 +617,7 @@ group(import.meta, () => {
                 fieldFloat: Field.Float,
                 fieldStr: Field.String,
                 fieldSlug: Field.Slug,
+                fieldJsonObjString: Field.JsonObjString,
                 fieldBool: Field.Boolean,
                 fieldDate: Field.Date,
                 fieldDT: Field.DateTime,
