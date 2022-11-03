@@ -106,7 +106,7 @@ const firstMovieTitle = await graph.read(async tx => {
     const result = await tx.queryOne(C`
         MATCH (p:${Person} {id: ${personId}})
         MATCH (p)-[:${Person.rel.ACTED_IN}]->(movie:${Movie})
-    `.RETURN({movie: Movie}));
+    `.RETURN({movie: Field.VNode(Movie)}));
 
     return result.movie.title;
 });

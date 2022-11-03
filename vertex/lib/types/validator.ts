@@ -5,6 +5,7 @@
  * These are for internal use within Vertex Framework only, and aren't exported as part of the framework code.
  */
 import { Neo4j } from "../../deps.ts";
+import type { JsonObject } from "./field.ts";
 import { VDate } from "./vdate.ts";
 import { isVNID, VNID } from "./vnid.ts";
 
@@ -147,6 +148,14 @@ export const validateSlug: Validator<string> = (_value) => {
     }
     return value;
 }
+
+/** Validate that the value is an object (map) that has been encoded as a JSON string. */
+export const validateJsonObjString: Validator<JsonObject> = (value) => {
+    if (typeof value !== "object" || Array.isArray(value) || value === null) {
+        throw new Error("JSON Object typed field is a JSON encoded string but is not an object (map).")
+    }
+    return value as JsonObject;
+};
 
 const emailTester = /^[-!#$%&'*+\/0-9=?A-Z^_a-z`{|}~](\.?[-!#$%&'*+\/0-9=?A-Z^_a-z`{|}~])*@[a-zA-Z0-9](-*\.?[a-zA-Z0-9])*\.[a-zA-Z](-?[a-zA-Z0-9])+$/;
 

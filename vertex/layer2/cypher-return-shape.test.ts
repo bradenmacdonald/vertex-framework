@@ -66,6 +66,12 @@ group(import.meta, () => {
         assertEquals(results, [{value: hello}]);
         assertEquals(typeof results[0].value, "string");
     });
+    test("basic test - a typed record with a JsonObjString field.", async () => {
+        const shape = ResponseSchema({value: Field.JsonObjString});
+        const results = await runAndConvert(`RETURN "{\\"foo\\": 123, \\"bar\\": [true, false]}" as value`, {}, shape);
+        assertEquals(results, [{value: {foo: 123, bar: [true, false]}}]);
+        assertEquals(typeof results[0].value, "object");
+    });
     test("basic test - a typed record with a Boolean field.", async () => {
         const shape = ResponseSchema({value: Field.Boolean});
         const results = await runAndConvert(`RETURN true as value`, {}, shape);
