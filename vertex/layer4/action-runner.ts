@@ -60,10 +60,13 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
             // Mark the Action as having :MODIFIED any affects nodes, and also retrieve the current version of them.
             // (If a node was deleted, this will ignore it.)
             const modifiedNodeIdsArray = Array.from(modifiedNodeIds);
+            // Note: in the query below, we use CREATE since we're pretty sure the -[MODFIIED]-> relationship can't
+            // exist yet, as the Action node is newly created. It would be safer to use MERGE but merge is more
+            // expensive, so we use CREATE for efficiency.
             const result = await tx.query(C`
                 MATCH (a:${Action} {id: ${actionId}})
                 MATCH (n:VNode) WHERE n.id IN ${modifiedNodeIdsArray}
-                MERGE (a)-[:${Action.rel.MODIFIED}]->(n)
+                CREATE (a)-[:${Action.rel.MODIFIED}]->(n)
             `.RETURN({n: Field.Node}));
 
             // Load relationship data for validation.
