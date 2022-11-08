@@ -7,7 +7,7 @@ import { looksLikeVNID, VNID } from "./lib/types/vnid.ts";
 import { PullNoTx, PullOneNoTx } from "./layer3/pull.ts";
 import { migrations as coreMigrations } from "./layer2/schema.ts";
 import { migrations as actionMigrations, SYSTEM_VNID } from "./layer4/schema.ts";
-import { WrappedTransaction } from "./transaction.ts";
+import { WrappedTransaction, ProfileStats } from "./transaction.ts";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface.ts";
 import { VNodeKey } from "./lib/key.ts";
 import { C } from "./layer2/cypher-sugar.ts";
@@ -28,6 +28,7 @@ export class Vertex implements VertexCore {
     private readonly driver: Neo4j.Driver;
     public readonly migrations: {[name: string]: Migration};
     private registeredNodeTypes: {[label: string]: VNodeType} = {};
+    private activeProfile: ProfileStats[] = [];
 
     constructor(config: InitArgs) {
         this.driver = neo4j.driver(
@@ -93,9 +94,37 @@ export class Vertex implements VertexCore {
         const session = this.driver.session({defaultAccessMode: "READ"});
         let result: T;
         try {
-            result = await session.readTransaction(tx => code(new WrappedTransaction(tx)));
+            result = await session.executeRead(tx => code(new WrappedTransaction(tx, this.activeProfile.at(-1))));
         } finally {
             await session.close();
+        }
+        return result;
+    }
+
+    /**
+     * Start profiling any future transactions executed by this graph instance (counting dbHits to measure their
+     * performance/complexity). Calls to this can be nested.
+     * Transactions which are already open when this is called will be excluded.
+     *
+     * This also can turn on query logging, to show you specifically how many dbHits are used for each query, and to
+     * help debug issues with queries.
+     */
+    public startProfile(queryLogMode?: "compact"|"full") {
+        this.activeProfile.push({dbHits: 0, queryLogMode});
+    }
+
+    /**
+     * Stop profiling transactions and return the number of dbHits since the prior call to startProfile()
+     */
+    public finishProfile(): ProfileStats {
+        const result = this.activeProfile.pop();
+        if (result === undefined) {
+            throw new Error("finishProfile: no profile is currently active.");
+        }
+        const nextProfile = this.activeProfile.at(-1);
+        if (nextProfile) {
+            // Add the hits from this inner profile to any outer profile that's still running. (Support nesting.)
+            nextProfile.dbHits += result.dbHits;
         }
         return result;
     }
@@ -160,7 +189,7 @@ export class Vertex implements VertexCore {
         const session = this.driver.session({defaultAccessMode: "WRITE"});
         try {
             if (typeof codeOrQuery === "function") {
-                return await session.writeTransaction(tx => codeOrQuery(new WrappedTransaction(tx)));
+                return await session.executeWrite(tx => codeOrQuery(new WrappedTransaction(tx, this.activeProfile.at(-1))));
             } else {
                 await session.run(codeOrQuery);
             }

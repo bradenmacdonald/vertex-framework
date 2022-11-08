@@ -8,12 +8,19 @@ import { query, queryOne } from "./layer2/query.ts";
 import { OneRelationshipSpec, RelationshipSpec, updateToManyRelationship, updateToOneRelationship } from "./layer4/action-helpers.ts";
 import { pull, pullOne, PullNoTx, PullOneNoTx } from "./layer3/pull.ts";
 import { VNodeType } from "./layer3/vnode.ts";
+import { log } from "./lib/log.ts";
+
+/** A data structure to keep track of the dbHits (performance measure) for all queries run */
+export interface ProfileStats {
+    dbHits: number;
+    queryLogMode?: "compact"|"full";
+}
 
 /** A Neo4j Transaction with some Vertex Framework convenience methods */
 export class WrappedTransaction {
-    #tx: Neo4j.Transaction;
+    #tx: Neo4j.ManagedTransaction;
 
-    public constructor(plainTx: Neo4j.Transaction) {
+    public constructor(plainTx: Neo4j.ManagedTransaction, public readonly profile?: ProfileStats) {
         this.#tx = plainTx;
     }
 
@@ -23,8 +30,24 @@ export class WrappedTransaction {
      * @param parameters Optional query parameters.
      * @returns A Neo4j result (set of records)
      */
-    public run(query: string, parameters?: { [key: string]: any }): Neo4j.Result {
-        return this.#tx.run(query, parameters ? fixParameterTypes(parameters) : undefined);
+    public async run(query: string, parameters?: { [key: string]: any }): Promise<Neo4j.QueryResult> {
+        const origQuery = query;
+        if (this.profile) {
+            // We want to measure dbHits stats for all queries exectuted:
+            query = `PROFILE ` + query;
+        }
+        const result = await this.#tx.run(query, parameters ? fixParameterTypes(parameters) : undefined);
+        if (this.profile && result.summary.profile) {
+            let dbHits = 0;
+            const addHits = (profileObj: Neo4j.ProfiledPlan) => { dbHits += profileObj.dbHits; profileObj.children.forEach(addHits); }
+            addHits(result.summary.profile);
+            this.profile.dbHits += dbHits;
+            if (this.profile.queryLogMode) {
+                const queryFormatted = this.profile.queryLogMode === "compact" ? origQuery.trim().replaceAll(/\s+/g, " ").substring(0, 100).padEnd(100, " ") : origQuery;
+                log.info(`Neo4j query: ${queryFormatted} (${dbHits} dbHits)`);
+            }
+        }
+        return result;
     }
 
     public query<CQ extends CypherQuery>(cypherQuery: CQ): Promise<QueryResponse<CQ>[]> {

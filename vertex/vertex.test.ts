@@ -1,5 +1,5 @@
 import { group, test, assertEquals, assertRejects, configureTestData, assertThrows } from "./lib/tests.ts";
-import { Person, testGraph } from "./test-project/index.ts";
+import { Movie, Person, testGraph } from "./test-project/index.ts";
 
 import { VNID, SlugId, VNodeType } from "./index.ts";
 
@@ -24,7 +24,6 @@ group("Vertex Core", () => {
         });
     });
 
-
     group("Basic database operations", () => {
 
         test("Can retrieve a value", async () => {
@@ -38,6 +37,20 @@ group("Vertex Core", () => {
                 () => testGraph.read(tx => tx.run("RETURN tribble bibble")),
                 "Invalid input 'b'",  // 'bibble' is the invalid part here
             );
+        });
+    });
+
+    group("Query profiling", () => {
+
+        configureTestData({loadTestProjectData: true, isolateTestWrites: false});
+
+        test("Can check how many dbHits a query takes", async () => {
+            testGraph.startProfile("compact");
+            const result = await testGraph.read(tx => tx.run(`MATCH (m:${Movie.label}:VNode {slugId: $s}) RETURN m.title`, {s: "tropic-thunder"}));
+            const profile = testGraph.finishProfile();
+            assertEquals(result.records.length, 1);
+            assertEquals(result.records[0].get("m.title"), "Tropic Thunder");
+            assertEquals(profile.dbHits, 4);
         });
     });
 
