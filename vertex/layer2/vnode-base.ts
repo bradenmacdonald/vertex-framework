@@ -69,11 +69,26 @@ export class _BaseVNodeType {
     /** When pull()ing data of this type, what field should it be sorted by? e.g. "name" or "name DESC" */
     static readonly defaultOrderBy: string|undefined = undefined;
 
-    static async validate(_dbObject: RawVNode<typeof this>, _tx: WrappedTransaction): Promise<void> {
-        // Validation for this VNodeType can occur here. Subclasses should _not_ call super(); the action runner will
-        // automatically validate any inherited classes after an action.
-    }
+    /**
+     * Validation for this VNodeType can occur here. Subclasses should _not_ call super(); the action runner will
+     * automatically validate any inherited classes after an action.
+     * @param _rawNode Contains all the property values of this node, as well as its internal Neo4j ID
+     * @param _relationships Contains data about all relationships from this node to other nodes.
+     */
+    static async validate(
+        _rawNode: RawVNode<typeof this>,
+        _relationships: RawRelationships[],
+    ): Promise<void> {}
 
+    /**
+     * Do any extended validation that requires running queries.
+     * This funciton is given the VNIDs of any nodes of this type that were modified in the current action. For
+     * efficiency, the validation should be grouped so the any queries needed are run once no matter how many nodes
+     * of this type were modified.
+     */
+    static validateExt(_nodeIds: VNID[], _tx: WrappedTransaction): Promise<void> {
+        return Promise.resolve();
+    }
 
     /** Helper method needed to declare a VNodeType's "rel" (relationships) property with correct typing and metadata. */
     static hasRelationshipsFromThisTo<Rels extends RelationshipsSchema>(relationships: Deferrable<Rels>): Rels {
@@ -137,6 +152,13 @@ export class _BaseVNodeType {
 // never instantiated.
 export const BaseVNodeType = _BaseVNodeType;
 
+export interface RawRelationships {
+    relType: string;
+    relProps: Record<string, unknown>;
+    targetLabels: string[];
+    targetId: number;
+}
+
 export interface BaseVNodeType {
     new(): _BaseVNodeType;
     readonly label: string;
@@ -145,8 +167,24 @@ export interface BaseVNodeType {
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     readonly rel: RelationshipsSchema;
     readonly defaultOrderBy: string|undefined;
-    // deno-lint-ignore no-explicit-any
-    validate(dbObject: RawVNode<any>, tx: WrappedTransaction): Promise<void>;
+
+    /**
+     * Validation for this VNodeType can occur here. Subclasses should _not_ call super(); the action runner will
+     * automatically validate any inherited classes after an action.
+     */
+    validate(
+        // deno-lint-ignore no-explicit-any
+        rawNode: RawVNode<any>,
+        relationships: RawRelationships[],
+    ): Promise<void>;
+
+    /**
+     * Do any extended validation that requires running queries.
+     * This funciton is given the VNIDs of any nodes of this type that were modified in the current action. For
+     * efficiency, the validation should be grouped so the any queries needed are run once no matter how many nodes
+     * of this type were modified.
+     */
+    validateExt(nodeIds: VNID[], tx: WrappedTransaction): Promise<void>;
 
     withId(id: VNID): string;
 }

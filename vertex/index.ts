@@ -30,16 +30,14 @@ export {
     validateValue,
     validatePropSchema,
     FieldValidationError,
-} from "./lib/types/field.ts";
-export type {
-    TypedField,
-    ResponseFieldType,
-    GetDataType,
-    GetDataShape,
+    type TypedField,
+    type ResponseFieldType,
+    type GetDataType,
+    type GetDataShape,
     // Neo4j types:
-    Node,
-    Relationship,
-    Path,
+    type Node,
+    type Relationship,
+    type Path,
 } from "./lib/types/field.ts";
 
 //// Layer 1 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,6 +63,7 @@ export {
     ValidationError,
     //isBaseVNodeType - internal use only
     getRelationshipType,
+    type RawRelationships,
 } from "./layer2/vnode-base.ts";
 export type {
     RawVNode,
@@ -103,9 +102,7 @@ export type {
 
 export {
     DerivedProperty,
-} from "./layer3/derived-props.ts";
-export type {
-    DerivedPropertyFactory,
+    type DerivedPropertyFactory,
 } from "./layer3/derived-props.ts";
 
 export {
@@ -126,12 +123,10 @@ export {
 
 export {
     Action,
+    type ActionRequest,
+    type ActionDefinition,
+    type ActionResult,
     defineAction,
-} from "./layer4/action.ts";
-export type {
-    ActionRequest,
-    ActionDefinition,
-    ActionResult,
 } from "./layer4/action.ts";
 
 export {

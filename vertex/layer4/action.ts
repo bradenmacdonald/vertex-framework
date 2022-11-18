@@ -5,7 +5,7 @@
  * transform it to another state.
  */
 import { VNID } from "../lib/types/vnid.ts";
-import { BaseVNodeType, RawVNode } from "../layer2/vnode-base.ts";
+import { BaseVNodeType } from "../layer2/vnode-base.ts";
 import { WrappedTransaction } from "../transaction.ts";
 import { C } from "../layer2/cypher-sugar.ts";
 import { VNodeType } from "../layer3/vnode.ts";
@@ -118,7 +118,7 @@ export class Action extends VNodeType {
         // This contains the VNIDs of any VNodes that were deleted by this action.
         deletedNodeIds: Field.NullOr.List(Field.VNID),
     };
-    static async validate(_dbObject: RawVNode<typeof this>, _tx: WrappedTransaction): Promise<void> {
+    static async validate(): Promise<void> {
         // No specific validation
     }
     static readonly rel = this.hasRelationshipsFromThisTo({
