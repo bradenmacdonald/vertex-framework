@@ -7,6 +7,7 @@ import { neoNodeToRawVNode } from "../layer2/cypher-return-shape.ts";
 import { C } from "../layer2/cypher-sugar.ts";
 import { Field, Node } from "../lib/types/field.ts";
 import { baseValidateVNode } from "./validation.ts";
+import { ValidationError } from "../layer2/vnode-base.ts";
 
 /**
  * Run an action, storing it onto the global changelog so it can be reverted if needed.
@@ -80,7 +81,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                     relType: type(rel),
                     relProps: properties(rel),
                     targetLabels: labels(target),
-                    targetId: id(target)
+                    targetId: target.id
                 } AS rel
                 RETURN id, collect(rel) AS rels
                 `.givesShape({
@@ -89,7 +90,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                         relType: Field.String,
                         relProps: Field.Any,
                         targetLabels: Field.List(Field.String),
-                        targetId: Field.Int,
+                        targetId: Field.VNID,
                     })),
                 })
             );
@@ -100,7 +101,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                 const node: Node = resultRow.n;
                 if (node.labels.length < 2) {
                     // This is not a problem of bad data, it's a problem with the Action implementation
-                    throw new Error(`Tried saving a VNode without additional labels. Every VNode must have the :VNode label and at least one other label.`);
+                    throw new ValidationError(`Tried saving a VNode without additional labels. Every VNode must have the :VNode label and at least one other label.`);
                 }
                 for (const label of node.labels) {
                     if (label === "VNode") {
@@ -114,7 +115,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                     // Make sure all required labels are applied:
                     for (let parentType = Object.getPrototypeOf(nodeType); parentType.label; parentType = Object.getPrototypeOf(parentType)) {
                         if (!node.labels.includes(parentType.label)) {
-                            throw new Error(`VNode with label :${label} is missing required inherited label :${parentType.label}`);
+                            throw new ValidationError(`VNode with label :${label} is missing required inherited label :${parentType.label}`);
                         }
                     }
                     // Validate this VNodeType:
@@ -124,7 +125,13 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                         await baseValidateVNode(nodeType, rawNode, relData, tx);
                         await nodeType.validate(rawNode, relData);
                     } catch (err) {
-                        throw new Error(`${type} action failed during transaction validation (${err.message}).`, {cause: err});
+                        const msg = `${type} action failed during transaction validation (${err.message}).`;
+                        log.error(msg);
+                        if (err instanceof ValidationError) {
+                            throw err;
+                        } else {
+                            throw new ValidationError(msg, {cause: err});
+                        }
                     }
                 }
             }

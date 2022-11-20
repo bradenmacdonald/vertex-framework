@@ -1,20 +1,9 @@
 import { convertNeo4jFieldValue } from "../layer2/cypher-return-shape.ts";
 import { C } from "../layer2/cypher-sugar.ts";
-import { Cardinality, emptyObj, PropSchemaWithId, RawVNode, ValidationError } from "../layer2/vnode-base.ts";
+import { Cardinality, emptyObj, PropSchemaWithId, RawRelationships, RawVNode, ValidationError } from "../layer2/vnode-base.ts";
 import { VNodeType } from "../layer3/vnode.ts";
 import { validatePropSchema } from "../lib/types/field.ts";
 import { WrappedTransaction } from "../transaction.ts";
-
-
-/**
- * Data about all relationships from a given VNode, used to validate its relationships
- */
-interface RelationshipData {
-    relType: string,
-    relProps: Record<string, unknown>,
-    targetLabels: string[],
-    targetId: number,
-}
 
 
 /**
@@ -27,7 +16,7 @@ interface RelationshipData {
  * @param dbObject 
  * @param tx 
  */
-export async function baseValidateVNode(vnt: VNodeType, dbObject: RawVNode<VNodeType>, relationships: RelationshipData[], tx: WrappedTransaction): Promise<void> {
+export async function baseValidateVNode(vnt: VNodeType, dbObject: RawVNode<VNodeType>, relationships: RawRelationships[], tx: WrappedTransaction): Promise<void> {
 
     // Validate slugId prefix
     if (vnt.slugIdPrefix !== "") {
