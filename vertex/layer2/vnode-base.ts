@@ -156,7 +156,7 @@ export interface RawRelationships {
     relType: string;
     relProps: Record<string, unknown>;
     targetLabels: string[];
-    targetId: number;
+    targetId: VNID;
 }
 
 export interface BaseVNodeType {
