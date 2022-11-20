@@ -95,6 +95,7 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
             );
 
             // Then, validate all nodes that had changes:
+            const vnidsPerLabel: Record<string, VNID[]> = {};
             for (const resultRow of result) {
                 const node: Node = resultRow.n;
                 if (node.labels.length < 2) {
@@ -106,6 +107,10 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                         continue;
                     }
                     const nodeType = graph.getVNodeType(label);
+                    if (vnidsPerLabel[label] === undefined) {
+                        vnidsPerLabel[label] = [];
+                    }
+                    vnidsPerLabel[label].push(node.properties.id);
                     // Make sure all required labels are applied:
                     for (let parentType = Object.getPrototypeOf(nodeType); parentType.label; parentType = Object.getPrototypeOf(parentType)) {
                         if (!node.labels.includes(parentType.label)) {
@@ -117,11 +122,16 @@ export async function runAction<T extends ActionRequest>(graph: VertexCore, acti
                     const relData = relationshipsData.find(rd => rd.id === rawNode.id)?.rels || [];
                     try {
                         await baseValidateVNode(nodeType, rawNode, relData, tx);
-                        await nodeType.validate(rawNode, tx);
+                        await nodeType.validate(rawNode, relData);
                     } catch (err) {
                         throw new Error(`${type} action failed during transaction validation (${err.message}).`, {cause: err});
                     }
                 }
+            }
+            for (const label of Object.keys(vnidsPerLabel)) {
+                const nodeType = graph.getVNodeType(label);
+                // Do extended validation, if any of the modified VNodes implement it:
+                await nodeType.validateExt(vnidsPerLabel[label], tx);
             }
         }
 
