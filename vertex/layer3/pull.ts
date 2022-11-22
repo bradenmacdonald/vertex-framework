@@ -285,7 +285,7 @@ export function pull<VNT extends VNodeType, Request extends AnyDataRequest<VNT>>
     tx: WrappedTransaction,
     vnt: VNT,
     request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
-    filter?: DataRequestFilter,
+    filter?: DataRequestFilter<keyof VNT["properties"]&string>,
 ): Promise<DataResponse<Request>[]>;
 
 export function pull<Request extends AnyDataRequest<any>>(
@@ -401,7 +401,7 @@ export function pullOne<VNT extends VNodeType, Request extends AnyDataRequest<VN
     tx: WrappedTransaction,
     vnt: VNT,
     request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
-    filter?: DataRequestFilter,
+    filter?: DataRequestFilter<keyof VNT["properties"]&string>,
 ): Promise<DataResponse<Request>>;
 
 export function pullOne<Request extends AnyDataRequest<any>>(
@@ -428,7 +428,7 @@ export type PullNoTx = (
         <VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
             vnt: VNT,
             request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
-            filter?: DataRequestFilter,
+            filter?: DataRequestFilter<keyof VNT["properties"]&string>,
         ) => Promise<DataResponse<Request>[]>
     ) & (
         <Request extends AnyDataRequest<any>>(
@@ -443,7 +443,7 @@ export type PullOneNoTx = (
         <VNT extends VNodeType, Request extends AnyDataRequest<VNT>>(
             vnt: VNT,
             request: ((builder: BaseDataRequest<VNT, never, PullMixins<VNT>>) => Request),
-            filter?: DataRequestFilter,
+            filter?: DataRequestFilter<keyof VNT["properties"]&string>,
         ) => Promise<DataResponse<Request>>
     ) & (
         <Request extends AnyDataRequest<any>>(
