@@ -14,7 +14,7 @@ Here are some of the features that Vertex Framework provides:
 
 Neo4j has relatively minimal support for enforcing schema constraints. Vertex Framework implements a layer of schema definition and validation on top of Neo4j, providing your application with all the benefits that strongly typed data brings.
 
-Every node in your data graph that Vertex Framework manages is called a `VNode` and must comply with one or more VNode types defined by your application. All `VNode`s have the `:VNode` label and at least one other label, as well as a property called `id` which holds [a `VNID`](arch-decisions/003-identifiers.md) (a type of UUID) as their primary key.
+Every node in your data graph that Vertex Framework manages is called a `VNode` and must comply with one or more VNode types defined by your application. All `VNode`s have the `:VNode` label and at least one other label, as well as a property called `id` which holds a `VNID` (a type of UUID) as their primary key (see details in the next section).
 
 Here is an example of how an application can define a `VNode` type and its schema:
 
@@ -51,6 +51,24 @@ export class Person extends VNodeType {
 ```
 
 When any change is made to a VNode with the `Person` label, Vertex framework will validate this schema within the transaction. If the change created a `Person` VNode that was missing the required `name` property, or that had a `FRIEND_OF` relationship pointing to a `Movie` VNode, or any other schema violation, the transaction will fail validation and will not be committed.
+
+## Primary keys (VNIDs)
+
+_Every_ VNode has a unique, permanent identifier in its `id` field, of type `VNID`. The VNID identifier type/format is a string that starts with a "_" and is up to 23 characters long (minimum length is 2 characters, but most VNIDs are 20-23 characters long). VNIDs are just a special encoding of v4 UUIDs (in base 62 with an underscore prefix).
+
+Example VNID values:
+
+* `_XtzOcazuJbitHvhviKM`
+* `_VuIbH1qBVKPl61pzwd1wL`
+* `_3DF8hceEobPFSS26FKl733`
+* `_0` (the "null VNID" is a special value reserved by Vertex Framework for special purposes)
+
+Why VNIDs?
+
+* Neo4j node IDs are meant for internal use only and are not suitable for this purpose (they can be recycled etc.).
+* VNIDs are a type of UUID, so allow the client to generate its own ID in advance of writing to the database, which can be handy for e.g. offline edits.
+* VNIDs are more compact than UUIDs, so slightly more efficient in databases like neo4j that lack a proper UUID datatype and use strings instead.
+* VNIDs are seen as a single "word" in text editors so can be easily selected by double-clicking, unlike UUIDs.
 
 ## Data traceability (Actions)
 
@@ -281,25 +299,6 @@ const result = await graph.pull(Person, p => p
 With that example, each entry in the result array will have optional `friends` and `numSameAgeFriends` properties, which may or may not be available at runtime depending on whether or not `?flags=includeFriends` was specified by the request.
 
 Conditional properties are designed to partially provide one of the big features of GraphQL - that API clients can specify which fields they need - in a REST API, while also ensuring that the application has full control over what queries are allowed and what data can be returned.
-
-## slugIds
-
-Vertex Framework requires that every VNode has a `id` primary key. Optionally, some VNode types can have a "secondary key" by defining a property called `slugId` and setting its type to `slugIdProperty`. A `slugId` is a string between 1 and 32 characters long used as a changeable identifier for that VNode. For example, a person named Alex might have the slugId `p-alex`.
-
-Unlike the primary key, the `slugId` of a given VNode can be changed when needed. However, Vertex Framework ensures that even though slugIds can be changed, "old" slugIds will continue to work and to "point to" the same VNode. This allows you to use slugIds in URLs, confident that even if the slugId is changed at some point, the URL will continue to work forever.
-
-To support this, a special syntax is required for looking up VNodes:
-
-```typescript
-const key = "p-alex";  // Key can be a VNID or a slugId
-const alex = (await graph.read(tx => tx.queryOne(C`
-
-    MATCH (p:${Person}), p HAS KEY ${key}
-
-`.RETURN({p: Person})))).p;
-```
-
-That is, in any `MATCH` clause, use `, nodeVariable HAS KEY ${keyVariable}` to lookup a VNode by key, where the key variable can be either a VNID or a slugId. The query will get rewritten to look up the VNode using either `MATCH (p:Person:VNode), (p:VNode {id: $key})` in the case of a VNID or `MATCH (p:Person:VNode), (p:VNode)<-[:IDENTIFIES]-(:slugId {slugId: $key})`. The `slugId` graph nodes required to make this work are automatically managed by Vertex Framework.
 
 ## Inheritance
 

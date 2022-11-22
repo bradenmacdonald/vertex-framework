@@ -191,7 +191,11 @@ group(import.meta, () => {
         test("retrieving a non-VNode as a VNode should fail", async () => {
             const shape = ResponseSchema({p: Field.VNode(Person)});
             await assertRejects(
-                () => runAndConvert(`MATCH (s:SlugId) RETURN s AS p LIMIT 1`, {}, shape),
+                // Note that apoc.create.vNode is *completely* different than our "VNode"s
+                () => runAndConvert(`
+                    CALL apoc.create.vNode(["NotVNode"], {prop: "value"}) YIELD node
+                    RETURN node AS p LIMIT 1
+                `, {}, shape),
                 "Field p is a node but is missing the VNode label"
             );
         });

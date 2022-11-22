@@ -1,5 +1,4 @@
 // deno-lint-ignore-file no-explicit-any
-import { looksLikeVNID } from "../lib/types/vnid.ts";
 import { BaseVNodeType, } from "../layer2/vnode-base.ts";
 import {
     VirtualManyRelationshipProperty,
@@ -22,6 +21,7 @@ import { DerivedProperty } from "./derived-props.ts";
 import { DataRequestFilter, FilteredRequest } from "./data-request-filtered.ts";
 import { convertNeo4jFieldValue } from "../layer2/cypher-return-shape.ts";
 import { EmptyResultError, TooManyResultsError } from "../layer2/query.ts";
+import { C } from "../index.ts";
 
 type PullMixins<VNT extends VNodeType> = ConditionalPropsMixin<VNT> & VirtualPropsMixin<VNT> & DerivedPropsMixin<VNT> & RequiredMixin;
 // This alias seems to confuse TypeScript 4.2:
@@ -79,31 +79,40 @@ export function buildCypherQuery(rootRequest: FilteredRequest): {query: string, 
         return name;
     };
 
-    if (rootFilter.key === undefined) {
-        query = `MATCH (_node:${label}:VNode)\n`;
+    if (rootFilter.id !== undefined) {
+        query = `MATCH (_node:${label}:VNode {id: $_nodeVNID})\n`;
+        params._nodeVNID = rootFilter.id;
+        if (rootFilter.key !== undefined) throw new Error("Cannot specify both 'key' and 'id' in a filter.");
+    } else if (rootFilter.key !== undefined) {
+        query = `MATCH (_node:${label}:VNode {id: $_nodeVNID})\n`;
+        params._nodeVNID = rootFilter.key;
     } else {
-        const key = rootFilter.key;
-        if (looksLikeVNID(key)) {
-            // Look up by VNID.
-            query = `MATCH (_node:${label}:VNode {id: $_nodeVNID})\n`;
-            params._nodeVNID = key;
-        } else {
-            if (rootNodeType.properties.slugId === undefined) {
-                throw new Error(`The requested ${rootNodeType.name} VNode type doesn't use slugId.`);
+        query = `MATCH (_node:${label}:VNode)\n`;
+    }
+
+    let whereSpec = rootFilter.where;
+    if (rootFilter.with) {
+        // 'with' allows lookups like { with: {username: "joe"} } to find a User with the given username.
+        if (rootFilter.where) throw new Error("You cannot specify both 'where' and 'with' on a query. Use 'where: C`... AND ...`' to express both conditions.");
+        const pairs = Object.entries(rootFilter.with);
+        if (pairs.length) {
+            const [firstKey, firstValue] = pairs.pop()!;
+            whereSpec = C`@this.${C(firstKey)} = ${firstValue}`;
+            while (pairs.length > 0) {
+                const [key, value] = pairs.pop()!;
+                whereSpec = C`${whereSpec} AND @this.${C(key)} = ${value}`;
             }
-            query = `MATCH (_node:${label}:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})\n`;
-            params._nodeSlugId = key;
         }
     }
-    if (rootFilter.where) {
+    if (whereSpec) {
         // This query is being filtered by some WHERE condition.
         // Add it and any parameter values into this query. Rename parameters as needed.
-        let whereClause = rootFilter.where.queryString.replace(/@this/g, "_node");
+        let whereClause = whereSpec.queryString.replaceAll(/@this/g, "_node");
         let i = 1;
-        for (const paramName in rootFilter.where.params) {
+        for (const paramName in whereSpec.params) {
             const newParamName = `whereParam${i++}`;
-            whereClause = whereClause.replace("$" + paramName, "$" + newParamName);
-            params[newParamName] = rootFilter.where.params[paramName];
+            whereClause = whereClause.replaceAll("$" + paramName, "$" + newParamName);
+            params[newParamName] = whereSpec.params[paramName];
         }
         query += `WHERE ${whereClause}\n`;
     }

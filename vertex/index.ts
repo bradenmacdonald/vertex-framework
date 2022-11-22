@@ -16,11 +16,6 @@ export {
     isVNID,
 } from "./lib/types/vnid.ts";
 
-export type {
-    SlugId,
-    VNodeKey,
-} from "./lib/key.ts";
-
 export {
     Field,
     FieldType,

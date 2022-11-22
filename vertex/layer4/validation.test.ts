@@ -4,7 +4,7 @@
  * The tests are in layer 3 because testing the validation code requires updating the graph via actions, which are part
  * of layer 3.
  */
-import { group, test, assertRejects, assertEquals, configureTestData } from "../lib/tests.ts";
+import { group, test, assertRejects, configureTestData } from "../lib/tests.ts";
 import { testGraph, } from "../test-project/index.ts";
 import {
     C,
@@ -12,7 +12,6 @@ import {
     VNodeType,
     Field,
     GenericCypherAction,
-    defaultCreateFor,
 } from "../index.ts";
 
 class BirthCertificate extends VNodeType {
@@ -55,38 +54,12 @@ const createPerson = async (name: string): Promise<VNID> => {
 }
 
 
-class Note extends VNodeType {
-    static label = "Note";
-    static readonly slugIdPrefix = "note-";
-    static readonly properties = {...VNodeType.properties, slugId: Field.Slug, text: Field.NullOr.String};
-}
-
-const CreateNote = defaultCreateFor(Note, n => n.slugId);
-
-
 group(import.meta, () => {
 
     configureTestData({isolateTestWrites: true, loadTestProjectData: false, additionalVNodeTypes: [
         BirthCertificate,
         Person,
-        Note,
     ]});
-
-    group("test slugIdPrefix validation", () => {
-
-        test("Creating a VNode with a valid slugIdPrefix works fine", async () => {
-            const {id} = await testGraph.runAsSystem(CreateNote({slugId: "note-test1"}));
-            const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note}), n HAS KEY ${id}`.RETURN({n: Field.VNode(Note)})));
-            assertEquals(check.n.slugId, "note-test1");
-        });
-
-        test("Creating a VNode with an invalid slugIdPrefix works fine", async () => {
-            await assertRejects(
-                () => testGraph.runAsSystem(CreateNote({slugId: "test1-note-foo"})),
-                `Note has an invalid slugId "test1-note-foo". Expected it to start with "note-".`,
-            );
-        });
-    });
 
     group("test relationship validation", () => {
         
@@ -165,8 +138,8 @@ group(import.meta, () => {
             const addFriendship = async (person1Id: VNID, person2Id: VNID): Promise<void> => {
                 await testGraph.runAsSystem(GenericCypherAction({
                     cypher: C`
-                        MATCH (p1:${Person}), p1 HAS KEY ${person1Id}
-                        MATCH (p2:${Person}), p2 HAS KEY ${person2Id}
+                        MATCH (p1:${Person} {id: ${person1Id}})
+                        MATCH (p2:${Person} {id: ${person2Id}})
                         CREATE (p1)-[:${Person.rel.HAS_FRIEND} {friendsSince: date("2010-01-01")}]->(p2)
                     `,
                     modifiedNodes: [person1Id, person2Id],
