@@ -132,7 +132,7 @@ group(import.meta, () => {
                 .dateOfBirth
             );
             test("buildCypherQuery - match by VNID", () => {
-                const query = buildCypherQuery(basicPersonRequest, {key: "_12345"});
+                const query = buildCypherQuery(basicPersonRequest, {id: VNID("_12345")});
 
                 assertEquals(query.query, dedent`
                     MATCH (_node:TestPerson:VNode {id: $_nodeVNID})
@@ -156,15 +156,16 @@ group(import.meta, () => {
 
         group("Movie request, keyed by slugId", () => {
             const request = newDataRequest(Movie).slugId.title.year;
-            const filter: DataRequestFilter = {key: "jumanji-2"};
+            const filter: DataRequestFilter = {with: {slugId: "jumanji-2"}};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
                 assertEquals(query.query, dedent`
-                    MATCH (_node:TestMovie:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
+                    MATCH (_node:TestMovie:VNode)
+                    WHERE _node.slugId = $whereParam1
                     
                     RETURN _node.slugId AS slugId, _node.title AS title, _node.year AS year ORDER BY _node.year DESC
                 `);
-                assertEquals(query.params._nodeSlugId, "jumanji-2");
+                assertEquals(query.params.whereParam1, "jumanji-2");
             });
             test("pull", async () => {
                 const result = await testGraph.pullOne(request, filter);
@@ -181,12 +182,13 @@ group(import.meta, () => {
         // Test a to-many virtual property/relationship:
         group("Get all Chris Pratt Movies", () => {
             const request = newDataRequest(Person).movies(m => m.title.year);
-            const filter: DataRequestFilter = {key: "chris-pratt", };
+            const filter: DataRequestFilter = {with: {slugId: "chris-pratt"}};
             test("buildCypherQuery", () => {
                 // This test covers the situation where we're not including any raw (non-virtual) properties from the main node (_node)
                 const query = buildCypherQuery(request, filter);
                 assertEquals(query.query, dedent`
-                    MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
+                    MATCH (_node:TestPerson:VNode)
+                    WHERE _node.slugId = $whereParam1
 
                     OPTIONAL MATCH _path1 = (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
                     WITH _node, _movie1, _path1, _rel1 ORDER BY _movie1.year DESC
@@ -194,7 +196,7 @@ group(import.meta, () => {
 
                     RETURN _movies1 AS movies ORDER BY _node.name
                 `);
-                assertEquals(query.params._nodeSlugId, "chris-pratt");
+                assertEquals(query.params.whereParam1, "chris-pratt");
             });
             test("pull", async () => {
                 // This test covers the situation where we're not including any raw (non-virtual) properties from the main node (_node)
@@ -233,7 +235,7 @@ group(import.meta, () => {
                 .name
                 .movies(m => m.title.year.franchise(mf => mf.id.name))
             ;
-            const filter: DataRequestFilter = {key: "rdj", };
+            const filter: DataRequestFilter = {with: {slugId: "rdj" }};
 
             assertEquals(
                 buildCypherQuery(request, filter),
@@ -250,7 +252,7 @@ group(import.meta, () => {
             const rdj = await testGraph.pullOne(Person, p => p
                 .name
                 .movies(m => m.title.year.role())
-            , {key: "rdj", });
+            , {with: {slugId: "rdj" }});
 
             assertEquals(rdj.movies.length, 2);
             assertEquals(rdj.movies[0].title, "Avengers: Infinity War");
@@ -264,11 +266,12 @@ group(import.meta, () => {
 
         group("Test ordering a to-many virtual property by a relationship property", () => {
             const request = newDataRequest(Person).name.moviesOrderedByRole(m => m.title.year.role())
-            const filter: DataRequestFilter = {key: "rdj", };
+            const filter: DataRequestFilter = {with: {slugId: "rdj" }};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
                 assertEquals(query.query, dedent`
-                    MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
+                    MATCH (_node:TestPerson:VNode)
+                    WHERE _node.slugId = $whereParam1
 
                     OPTIONAL MATCH _path1 = (_node)-[_rel1:ACTED_IN]->(_movie1:TestMovie:VNode)
                     WITH _node, _movie1, _path1, _rel1, (_rel1.role) AS _role1
@@ -326,11 +329,12 @@ group(import.meta, () => {
 
         group("Test a to-one virtual property/relationship with a circular reference:", () => {
             const request = newDataRequest(Movie).title.franchise(f => f.name.movies(m => m.title));
-            const filter: DataRequestFilter = {key: "infinity-war"};
+            const filter: DataRequestFilter = {with: {slugId: "infinity-war"}};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
                 assertEquals(query.query, dedent`
-                    MATCH (_node:TestMovie:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
+                    MATCH (_node:TestMovie:VNode)
+                    WHERE _node.slugId = $whereParam1
                     
                     CALL {
                         WITH _node
@@ -356,11 +360,12 @@ group(import.meta, () => {
         group("Cypher expression: get a person's age", () => {
             // This tests the "age" virtual property, which computes the Person's age within Neo4j and returns it
             const request = newDataRequest(Person).name.dateOfBirth.age();
-            const filter: DataRequestFilter = {key: "chris-pratt"};
+            const filter: DataRequestFilter = {with: {slugId: "chris-pratt"}};
             test("buildCypherQuery", () => {
                 const query = buildCypherQuery(request, filter);
                 assertEquals(query.query, dedent`
-                    MATCH (_node:TestPerson:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $_nodeSlugId})
+                    MATCH (_node:TestPerson:VNode)
+                    WHERE _node.slugId = $whereParam1
                     WITH _node, (duration.between(_node.dateOfBirth, date()).years) AS _age1
 
                     RETURN _node.name AS name, _node.dateOfBirth AS dateOfBirth, _age1 AS age ORDER BY _node.name
@@ -424,7 +429,7 @@ group(import.meta, () => {
             });
             test("pull", async () => {
                 // Test this horrible query, using Scarlett Johansson as a starting point:
-                const result = await testGraph.pullOne(request, {key: "scarlett-johansson"});
+                const result = await testGraph.pullOne(request, {with: {slugId: "scarlett-johansson"}});
                 // Scarlett Johansson is friends with Robert Downey Jr. and Karen Gillan; results sorted alphabetically by name
                 assertEquals(result.friends.map(f => f.name), ["Karen Gillan", "Robert Downey Jr."]);
                 // Robert Downey Jr.'s co-stars are Chris Pratt, Scarlett Johansson, and Karen Gillan
@@ -458,7 +463,7 @@ group(import.meta, () => {
 
     group("Queries including derived properties", () => {
         test("Compute a property in JavaScript, using data from a raw property and virtual property that are explicitly fetched.", async () => {
-            const chrisPratt = await testGraph.pullOne(Person, p => p.dateOfBirth.age().ageJS(), {key: "chris-pratt"});
+            const chrisPratt = await testGraph.pullOne(Person, p => p.dateOfBirth.age().ageJS(), {with: {slugId: "chris-pratt"}});
             assertEquals(chrisPratt.age, chrisPratt.ageJS.ageJS);
             assertEquals(chrisPratt.age, chrisPratt.ageJS.ageNeo);
             assert(chrisPratt.ageJS.ageJS >= 40);
@@ -469,8 +474,8 @@ group(import.meta, () => {
             checkType<AssertPropertyAbsent<typeof chrisPratt.ageJS, "other">>();
         });
         test("Compute a property in JavaScript, using data from a raw property and virtual property that are NOT explicitly fetched.", async () => {
-            const age = (await testGraph.pullOne(Person, p => p.age(), {key: "chris-pratt"})).age;
-            const chrisPratt = await testGraph.pullOne(Person, p => p.ageJS(), {key: "chris-pratt"});
+            const age = (await testGraph.pullOne(Person, p => p.age(), {with: {slugId: "chris-pratt"}})).age;
+            const chrisPratt = await testGraph.pullOne(Person, p => p.ageJS(), {with: {slugId: "chris-pratt"}});
             assertEquals(age, chrisPratt.ageJS.ageJS);
             assert(chrisPratt.ageJS.ageJS >= 40);
             assert(chrisPratt.ageJS.ageJS <= 70);
@@ -512,14 +517,14 @@ group(import.meta, () => {
         );
 
         test("no flags set", async () => {
-            const chrisPratt = await testGraph.pullOne(request, {key: "chris-pratt"});
+            const chrisPratt = await testGraph.pullOne(request, {with: {slugId: "chris-pratt"}});
             assertEquals(typeof chrisPratt.id, "string");
             assertStrictEquals(chrisPratt.name, undefined);
             assertStrictEquals(chrisPratt.numFriends, undefined);
             assertStrictEquals(chrisPratt.friends, undefined);
             assertStrictEquals(chrisPratt.costars, undefined);
             // Request 2:
-            const chrisPratt2 = await testGraph.pullOne(request2, {key: "chris-pratt"});
+            const chrisPratt2 = await testGraph.pullOne(request2, {with: {slugId: "chris-pratt"}});
             assertEquals(typeof chrisPratt2.id, "string");
             assertStrictEquals(chrisPratt2.name, undefined);
             assertStrictEquals(chrisPratt2.numFriends, undefined);
@@ -530,7 +535,7 @@ group(import.meta, () => {
         });
 
         test("namesFlag set", async () => {
-            const filter = {key: "chris-pratt", flags: ["namesFlag"]};
+            const filter = {with: {slugId: "chris-pratt"}, flags: ["namesFlag"]};
             const friendsExpected = [{name: "Dwayne Johnson"}];
             const costarsExpected = [
                 {name: "Dwayne Johnson"},
@@ -567,7 +572,7 @@ group(import.meta, () => {
         });
 
         test("numFriends and namesFlag set", async () => {
-            const filter = {key: "chris-pratt", flags: ["namesFlag", "numFriendsFlag"]};
+            const filter = {with: {slugId: "chris-pratt"}, flags: ["namesFlag", "numFriendsFlag"]};
 
             const friendsExpected = [{name: "Dwayne Johnson", numFriends: 2}];
             const costarsExpected = [

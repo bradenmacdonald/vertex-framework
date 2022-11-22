@@ -1,4 +1,3 @@
-import { VNID, VNodeKey } from "./lib/key.ts";
 import { WrappedTransaction } from "./transaction.ts";
 import type { VNodeType } from "./layer3/vnode.ts";
 
@@ -12,7 +11,6 @@ export interface VertexCore {
     _restrictedWrite<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T>;
     _restrictedWrite(query: string | { text: string; parameters?: Record<string, unknown> }): Promise<void>;
     _restrictedAllowWritesWithoutAction<T>(someCode: () => Promise<T>): Promise<T>;
-    vnidForKey(key: VNodeKey): Promise<VNID>;
 
     registerVNodeType(vnt: VNodeType): void;
     registerVNodeTypes(vnts: VNodeType[]): void;

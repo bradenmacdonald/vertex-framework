@@ -1,7 +1,7 @@
 import { group, test, assertEquals, assertRejects, configureTestData, assertThrows } from "./lib/tests.ts";
-import { Movie, Person, testGraph } from "./test-project/index.ts";
+import { Movie, testGraph } from "./test-project/index.ts";
 
-import { VNID, SlugId, VNodeType } from "./index.ts";
+import { VNodeType } from "./index.ts";
 
 group("Vertex Core", () => {
 
@@ -45,26 +45,16 @@ group("Vertex Core", () => {
         configureTestData({loadTestProjectData: true, isolateTestWrites: false});
 
         test("Can check how many dbHits a query takes", async () => {
+            const data = await testGraph.read(tx => tx.run(`MATCH (m:${Movie.label}:VNode {slugId: $s}) RETURN m.id`, {s: "tropic-thunder"}));
+            const movieId: string = data.records[0].get("m.id");
+            // For some reason, the # of dbHits was flaky when looking up by slugId, so we just look up by ID to get a
+            // consistent result here.
             testGraph.startProfile("compact");
-            const result = await testGraph.read(tx => tx.run(`MATCH (m:${Movie.label}:VNode {slugId: $s}) RETURN m.title`, {s: "tropic-thunder"}));
+            const result = await testGraph.read(tx => tx.run(`MATCH (m:${Movie.label}:VNode {id: $id}) RETURN m.title`, {id: movieId}));
             const profile = testGraph.finishProfile();
             assertEquals(result.records.length, 1);
             assertEquals(result.records[0].get("m.title"), "Tropic Thunder");
             assertEquals(profile.dbHits, 4);
-        });
-    });
-
-    group("vnidForkey", () => {
-
-        configureTestData({loadTestProjectData: true, isolateTestWrites: false});
-
-        test("can retrieve VNID from either key type", async () => {
-            // First, check Chris Pratt's VNID
-            const slugId: SlugId = "chris-pratt";
-            const vnid: VNID = (await testGraph.pullOne(Person, p => p.id, {key: slugId})).id;
-
-            assertEquals(await testGraph.vnidForKey(vnid), vnid);
-            assertEquals(await testGraph.vnidForKey(slugId), vnid);
         });
     });
 });

@@ -1,5 +1,4 @@
 // deno-lint-ignore-file no-explicit-any
-import { VNodeKey } from "../lib/key.ts";
 import { BaseVNodeType, } from "../layer2/vnode-base.ts";
 import {
     VirtualPropertyDefinition,
@@ -14,6 +13,7 @@ import {
     getProjectedVirtualPropsData,
     getVirtualPropsData,
 } from "./data-request-mixins-impl.ts";
+import { VNID } from "../lib/types/vnid.ts";
 
 
 
@@ -22,9 +22,18 @@ import {
  * This DataRequestFilter specifies things other than the shape, such as ordering, filtering base on some criteria
  * (WHERE ...), pagination, and which conditionally included (flagged) properties to include.
  */
-export interface DataRequestFilter {
-    /** Key: If specified, the main node must have a VNID or slugId that is equal to this. */
-    key?: VNodeKey;
+export interface DataRequestFilter<AllowedPropertyKeys extends string = string> {
+    /** ID: If specified, the main node must have a VNID that is equal to this. */
+    id?: VNID;
+    /** @deprecated Key: Lookup a node by VNID. Use 'id' instead. */
+    key?: VNID;
+    /**
+     * Filter the main node(s) of this data request to only those with properties that exactly match these
+     * e.g. { with: {username: "joe"} }
+     *
+     * IMPORTANT: they keys are inserted into the query unescaped, so never put user input in the keys of this option.
+     */
+    with?: Partial<Record<AllowedPropertyKeys, unknown>>
     /**
      * Filter the main node(s) of this data request to only those that match this predicate.
      * 

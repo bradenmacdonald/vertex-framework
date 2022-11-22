@@ -6,7 +6,16 @@ export const testGraph = new Vertex({
     neo4jPassword: "vertex",
     debugLogging: true,
     extraMigrations: {
-        // No special migrations required.
+        // Make the 'slugId' field act as a unique key for the VNode types in the test project:
+        slugIdUnique: {
+            forward: async (dbWrite) => {
+                await dbWrite("CREATE CONSTRAINT testproject_slugids_uniq FOR (v:VNode) REQUIRE v.slugId IS UNIQUE");
+            },
+            backward: async (dbWrite) => {
+                await dbWrite("DROP CONSTRAINT testproject_slugids_uniq IF EXISTS");
+            },
+            dependsOn: [],
+        },
     },
 });
 

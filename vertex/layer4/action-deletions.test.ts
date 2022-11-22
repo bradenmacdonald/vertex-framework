@@ -19,12 +19,12 @@ group(import.meta, () => {
                 CreateMovieFranchise({slugId: "mcu", name: "Marvel Cinematic Universe"}),
             );
             const movie = await testGraph.runAsSystem(
-                CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018, franchiseId: "mcu"}),
+                CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018, franchiseSlugId: "mcu"}),
             );
             const action1 = await testGraph.runAsSystem(
                 // Soft delete the movie:
                 GenericCypherAction({cypher: C`
-                    MATCH (m:${Movie}), m HAS KEY ${"infinity-war"}
+                    MATCH (m:${Movie} {slugId: "infinity-war"})
                     DETACH DELETE m
                 `, modifiedNodes: [movie.id]}),
             );

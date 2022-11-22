@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any ban-types
 import { ActionDefinition, defineAction } from "./action.ts";
 import { C } from "../layer2/cypher-sugar.ts";
-import { VNID, VNodeKey } from "../lib/key.ts";
+import { VNID } from "../lib/types/vnid.ts";
 import { WrappedTransaction } from "../transaction.ts";
 import { RawVNode, getAllLabels } from "../layer2/vnode-base.ts";
 import { getRequestedRawProperties, GetRequestedRawProperties, RequestVNodeRawProperties } from "../layer2/data-request.ts";
@@ -19,11 +19,11 @@ type PropertyValuesForUpdate<VNT extends VNodeType, keys extends keyof VNT["prop
 
 type UpdateImplementationDetails<VNT extends VNodeType, MutableProps extends keyof VNT["properties"], OtherArgs extends Record<string, any> = {}> = {  // eslint-disable-line @typescript-eslint/ban-types
     // The data argument passed into this action contains:
-    //   key: the VNID or slugId of this node
+    //   id: the VNID of this node
     //   zero or more of the raw property values for the properties specified in "mutableProperties" (MutPropsArrayType)
     //   zero or more of the OtherArgs used by otherUpdates
     clean?: (args: {
-        data: {key: VNodeKey} & PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs,
+        data: {id: VNID} & PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs,
         nodeSnapshot: RawVNode<VNT>,
         changes: PropertyValuesForUpdate<VNT, MutableProps>,
     }) => void,
@@ -48,7 +48,7 @@ export interface UpdateActionDefinition<
 > extends ActionDefinition<
     `Update${VNT["label"]}`,
     // The parameters that can/must be passed to this action to run it:
-    {key: VNodeKey} & PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs,
+    {id: VNID} & PropertyValuesForUpdate<VNT, MutableProps> & OtherArgs,
     Record<string, never>
 > {
     // Because Update actions are designed to work together with the Create action template, we need to store the list
@@ -78,11 +78,11 @@ export function defaultUpdateFor<VNT extends VNodeType, MutableProps extends Req
 
     const UpdateAction = defineAction({
         type: `Update${type.label}` as `Update${VNT["label"]}`,
-        parameters: {} as {key: string} & Args,
+        parameters: {} as {id: VNID} & Args,
         resultData: {} as {prevValues: Args},
         apply: async function applyUpdateAction(tx, data) {
             // Load the current value of the VNode from the graph
-            const nodeSnapshot: RawVNode<VNT> = (await tx.queryOne(C`MATCH (node:${type}), node HAS KEY ${data.key}`.RETURN({node: Field.VNode(type)}))).node;
+            const nodeSnapshot: RawVNode<VNT> = (await tx.queryOne(C`MATCH (node:${type} {id: ${data.id}})`.RETURN({node: Field.VNode(type)}))).node;
             // Store the new values (properties that are being changed):
             const changes: any = {};
     
@@ -107,10 +107,10 @@ export function defaultUpdateFor<VNT extends VNodeType, MutableProps extends Req
                 clean({data, nodeSnapshot, changes});
             }
             await tx.queryOne(C`
-                MATCH (t:${type}), t HAS KEY ${data.key}
+                MATCH (t:${type} {id: ${data.id}})
                 SET t += ${changes}
             `.RETURN({}));
-            let modifiedNodes: VNID[] = [nodeSnapshot.id as any];  // TODO: why is this "as any" needed?
+            let modifiedNodes: VNID[] = [nodeSnapshot.id as VNID];
 
             if (otherUpdates) {
                 // Update relationships etc.
@@ -123,7 +123,7 @@ export function defaultUpdateFor<VNT extends VNodeType, MutableProps extends Req
             return {
                 resultData: {},
                 modifiedNodes,
-                description: `Updated ${type.withId(nodeSnapshot.id as any)} (${Object.keys(data).filter(k => k !== "key").join(", ")})`,
+                description: `Updated ${type.withId(nodeSnapshot.id as any)} (${Object.keys(data).filter(k => k !== "id").join(", ")})`,
             };
         },
     });
@@ -209,7 +209,7 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends Re
             `);
             const description = `Created ${type.withId(id)}`;
             if (updateAction && Object.keys(propsToSetViaUpdate).length > 0) {
-                const updateResult = await updateAction.apply(tx, {type: updateAction.type, key: id, ...propsToSetViaUpdate});
+                const updateResult = await updateAction.apply(tx, {type: updateAction.type, id, ...propsToSetViaUpdate});
                 return {
                     resultData: { id },
                     modifiedNodes: [id, ...updateResult.modifiedNodes],
@@ -228,15 +228,15 @@ export function defaultCreateFor<VNT extends VNodeType, RequiredProps extends Re
     return CreateAction;
 }
 
-export function defaultDeleteFor<VNT extends VNodeType>(type: VNT): ActionDefinition<`Delete${VNT["label"]}`, {key: VNodeKey}, {}> {
+export function defaultDeleteFor<VNT extends VNodeType>(type: VNT): ActionDefinition<`Delete${VNT["label"]}`, {id: VNID}, {}> {
 
     const DeleteAction = defineAction({
         type: `Delete${type.label}` as `Delete${VNT["label"]}`,
-        parameters: {} as {key: VNodeKey},
+        parameters: {} as {id: VNID},
         resultData: {} as {id: VNID},
         apply: async (tx, data) => {
             const result = await tx.queryOne(C`
-                MATCH (node:${type}), node HAS KEY ${data.key}
+                MATCH (node:${type} {id: ${data.id}})
                 DETACH DELETE node
             `.RETURN({"node.id": Field.VNID}));
             const modifiedNodes = [result["node.id"]];

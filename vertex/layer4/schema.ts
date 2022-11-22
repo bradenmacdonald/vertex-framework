@@ -10,14 +10,14 @@ export const SYSTEM_VNID: VNID = VNID("_0");
 export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
     // ES6 objects preserve string key order, so these migrations don't need numbers, only string IDs.
     systemUser: {
-        dependsOn: ["vnode", "slugIdTrigger"],
+        dependsOn: ["vnode"],
         forward: async (dbWrite) => {
             // Create the system user. This is a "bootstrap" User/Action because every user must be created via an
             // action and every action must be performed by a user. So here the system user creates itself.
             await dbWrite(tx => tx.run(`
                 CREATE (u:User:VNode {
                     id: "${SYSTEM_VNID}",
-                    slugId: "user-system",
+                    username: "system",
                     fullName: "System"
                 })-[:PERFORMED]->(a:Action:VNode {
                     id: "${VNID()}",

@@ -42,7 +42,7 @@ export function assertIsEmpty(value: Record<string, unknown>) {
     if (idx === -1) {
         return baseGroup(url, tests);
     }
-    return baseGroup(url.substr(idx + 1), tests);
+    return baseGroup(url.substring(idx + 1), tests);
 }
 
 

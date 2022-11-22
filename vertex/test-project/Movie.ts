@@ -43,18 +43,18 @@ export class Movie extends VNodeType {
 }
 
 interface UpdateMovieExtraArgs {
-    franchiseId?: string|null;
+    franchiseSlugId?: string|null;
 }
 
 export const UpdateMovie = defaultUpdateFor(Movie, m => m.slugId.title.year, {
     otherUpdates: async (args: UpdateMovieExtraArgs, tx, nodeSnapshot) => {
-        const previousValues: Partial<UpdateMovieExtraArgs> = {};
-        if (args.franchiseId !== undefined) {
+        if (args.franchiseSlugId !== undefined) {
+            const franchiseId = await tx.pullOne(MovieFranchise, f => f.id, {with: {slugId: args.franchiseSlugId}});
             await tx.updateToOneRelationship({
                 from: [Movie, nodeSnapshot.id],
                 rel: Movie.rel.FRANCHISE_IS,
-                to: args.franchiseId,
-            }).then(({prevTo}) => previousValues.franchiseId = prevTo.key);
+                to: franchiseId,
+            });
         }
         return {
             additionalModifiedNodes: [],

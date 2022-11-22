@@ -1,6 +1,6 @@
 import { convertNeo4jFieldValue } from "../layer2/cypher-return-shape.ts";
 import { C } from "../layer2/cypher-sugar.ts";
-import { Cardinality, emptyObj, PropSchemaWithId, RawRelationships, RawVNode, ValidationError } from "../layer2/vnode-base.ts";
+import { Cardinality, emptyObj, RawRelationships, RawVNode, ValidationError } from "../layer2/vnode-base.ts";
 import { VNodeType } from "../layer3/vnode.ts";
 import { validatePropSchema } from "../lib/types/field.ts";
 import { WrappedTransaction } from "../transaction.ts";
@@ -17,17 +17,6 @@ import { WrappedTransaction } from "../transaction.ts";
  * @param tx 
  */
 export async function baseValidateVNode(vnt: VNodeType, dbObject: RawVNode<VNodeType>, relationships: RawRelationships[], tx: WrappedTransaction): Promise<void> {
-
-    // Validate slugId prefix
-    if (vnt.slugIdPrefix !== "") {
-        if (!(vnt.properties as PropSchemaWithId).slugId) {
-            throw new Error("A VNodeType cannot specify a slugIdPrefix if it doesn't declare the slugId property");
-        }
-        if (typeof dbObject.slugId !== "string" || !dbObject.slugId.startsWith(vnt.slugIdPrefix)) {
-            throw new ValidationError(`${vnt.label} has an invalid slugId "${dbObject.slugId}". Expected it to start with "${vnt.slugIdPrefix}".`);
-        }
-    }
-
     // Validate properties:
     const newValues: Record<string, unknown> = validatePropSchema(vnt.properties, dbObject);
 

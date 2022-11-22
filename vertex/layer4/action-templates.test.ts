@@ -38,14 +38,14 @@ const UpdatePlanet = defaultUpdateFor(Planet, p => p.slugId.mass.numberOfMoons, 
         if (args.deleteMoon !== undefined) {
             await tx.queryOne(C`
                 MATCH (p:${Planet} {id: ${nodeSnapshot.id}})
-                MATCH (p)-[rel:${Planet.rel.HAS_MOON}]->(moon:${AstronomicalBody}), moon HAS KEY ${args.deleteMoon}
+                MATCH (p)-[rel:${Planet.rel.HAS_MOON}]->(moon:${AstronomicalBody} {slugId: ${args.deleteMoon}})
                 DELETE rel
             `.RETURN({}));
         }
         if (args.addMoon !== undefined) {
             await tx.queryOne(C`
                 MATCH (p:${Planet} {id: ${nodeSnapshot.id}})
-                MATCH (moon:${AstronomicalBody}), moon HAS KEY ${args.addMoon}
+                MATCH (moon:${AstronomicalBody} {slugId: ${args.addMoon}})
                 MERGE (p)-[:${Planet.rel.HAS_MOON}]->(moon)
             `.RETURN({}));
         }
@@ -78,13 +78,13 @@ group(import.meta, () => {
                 assertEquals(p.mass, 15);
             };
             // By its slugId:
-            const r1 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody}), p HAS KEY ${"Ceres"}`.RETURN({p: Field.VNode(AstronomicalBody)})));
+            const r1 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody} {slugId: "Ceres"})`.RETURN({p: Field.VNode(AstronomicalBody)})));
             checkCeres(r1.p);
             // By its VNID:
-            const r2 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody}), p HAS KEY ${result.id}`.RETURN({p: Field.VNode(AstronomicalBody)})));
+            const r2 = await testGraph.read(tx => tx.queryOne(C`MATCH (p:${AstronomicalBody} {id: ${result.id}})`.RETURN({p: Field.VNode(AstronomicalBody)})));
             checkCeres(r2.p);
             // Using pull()
-            const p3 = await testGraph.pullOne(AstronomicalBody, p => p.allProps, {key: result.id});
+            const p3 = await testGraph.pullOne(AstronomicalBody, p => p.allProps, {id: result.id});
             checkCeres(p3);
         });
 
@@ -140,7 +140,7 @@ group(import.meta, () => {
             // moon relationship from the "addMoon" argument is only defined in UpdatePlanet, but this still works,
             // because the CreatePlanet action uses UpdatePlanet internally:
             const result = await testGraph.read(tx => tx.queryOne(C`
-                MATCH (j:${Planet}), j HAS KEY ${"Jupiter"}
+                MATCH (j:${Planet} {slugId: "Jupiter"})
                 MATCH (j)-[:${Planet.rel.HAS_MOON}]->(moon:${AstronomicalBody})
             `.RETURN({moon: Field.VNode(AstronomicalBody), j: Field.VNode(Planet)})));
             assertEquals(result.j.slugId, "Jupiter");
@@ -229,7 +229,7 @@ group(import.meta, () => {
 
             // And then update it:
             const newArgs: Parameters<typeof UpdateTypeTester>[0] = {
-                key: id,
+                id,
                 int: 100,
                 string: "yo",
                 slug: "new-slug",

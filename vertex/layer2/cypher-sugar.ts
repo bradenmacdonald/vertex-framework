@@ -2,7 +2,6 @@
  * Syntactic sugar for writing Cypher queries.
  */
 import { Neo4j } from "../deps.ts";
-import { looksLikeVNID } from "../lib/types/vnid.ts";
 import { GetDataShape, ResponseSchema } from "../lib/types/field.ts";
 import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from "./vnode-base.ts";
 
@@ -27,11 +26,7 @@ import { getRelationshipType, isBaseVNodeType, isRelationshipDeclaration } from 
  *   with this same C() helper:
  *   e.g. Input:  C`SET node.${C(fieldName)} = ${value}`
  *        Output: "SET node.lastName = $p1"
- * 
- * - A non-standard ", ___ HAS KEY _____" syntax can be used in MATCH clauses to match VNodes by either VNID or slugId.
- *   e.g. Input:  C`MATCH (u:${User}), u HAS KEY ${username}`
- *        Output: "MATCH (u:User:VNode), (u:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $p1})"
- * 
+ *
  * - Custom named parameters can be added to the query, via withParams(). This creates a new copy of the
  *   CypherQuery, so that a single base query can be made into several derived queries with different parameters.
  *   e.g. Input:  C`MATCH (u:User) SET u.name = $name, u.username = toLower($name)`.withParams({name: "Jamie"})
@@ -63,8 +58,7 @@ export class CypherQuery {
 
     get isCompiled(): boolean {
         // We could just check if this.#strings.length === 1, but that would miss compilation in the case where we
-        // receive a single string with no parameters to interpolate, which still needs some compilation like replacing
-        // HAS KEY queries (if there are custom parameters added later; can't have HAS KEY with no parameters at all.)
+        // receive a single string with no parameters to interpolate, which still needs some other compilation.
         return this.#isCompiled;
     }
 
@@ -110,9 +104,6 @@ export class CypherQuery {
                 this.saveParameter("p" + i, paramValue);
             }
         }
-
-        // Replace any , HAS KEY ... syntax usages:
-        compiledString = replaceHasKey(compiledString, this.#paramsCompiled);
 
         // Save the result and avoid compiling again:
         this.#strings = [compiledString];
@@ -223,26 +214,3 @@ function C(strings: TemplateStringsArray|string, ...params: unknown[]): CypherQu
 C.int = BigInt;
 
 export {C};
-
-/**
- * In a cypher query, replace ", someVar HAS KEY $varName" with an appropriate matching condition.
- *
- * Vertex framework's VNodes all use a VNID as their primary key, but many can also be looked up using a "slugId". The
- * special syntax
- *  MATCH (node:Label)..., node HAS KEY $key
- * is used to lookup nodes by a variable $key, where $key can be _either_ a VNID or primary key
- */
-export function replaceHasKey(cypherQuery: string, params: Readonly<Record<string, unknown>>): string {
-    return cypherQuery.replace(/(,\s+)(\w+) HAS KEY \$(\w+)/gm, (_, commaWhitespace, nodeVariable, keyParamName) => {
-        const keyValue = params[keyParamName];
-        if (typeof keyValue !== "string") {
-            throw new Error(`Expected a "${keyParamName}" parameter in the query for the ${nodeVariable} HAS KEY $${keyParamName} lookup.`);
-        }
-        if (looksLikeVNID(keyValue)) {
-            // Look up by VNID.
-            return `${commaWhitespace}(${nodeVariable}:VNode {id: $${keyParamName}})`;
-        } else {
-            return `${commaWhitespace}(${nodeVariable}:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $${keyParamName}})`;
-        }
-    });
-}

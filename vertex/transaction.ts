@@ -66,7 +66,7 @@ export class WrappedTransaction {
         from: [vnt: VNodeType, id: VNID],
         rel: VNR,
         to: string|null|OneRelationshipSpec<VNR>,
-    }): Promise<{prevTo: OneRelationshipSpec<VNR, VNID>}> {
+    }): Promise<{prevTo: OneRelationshipSpec<VNR>}> {
         return updateToOneRelationship(this, args);
     }
 
@@ -74,7 +74,7 @@ export class WrappedTransaction {
         from: [vnt: VNodeType, id: VNID],
         rel: VNR,
         to: RelationshipSpec<VNR>[],
-    }): Promise<{prevTo: RelationshipSpec<VNR, VNID>[]}> {
+    }): Promise<{prevTo: RelationshipSpec<VNR>[]}> {
         return updateToManyRelationship(this, args);
     }
 }

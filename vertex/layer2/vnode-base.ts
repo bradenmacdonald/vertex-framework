@@ -1,6 +1,6 @@
 import { WrappedTransaction } from "../transaction.ts";
 import { Field, FieldType, GetDataShape, PropSchema, PropertyTypedField } from "../lib/types/field.ts";
-import { VNID } from "../lib/key.ts";
+import { VNID } from "../lib/types/vnid.ts";
 import { applyLazilyToDeferrable, deferrable, Deferrable } from "../lib/deferrable.ts";
 
 // An empty object that can be used as a default value for read-only properties
@@ -59,8 +59,6 @@ export enum Cardinality {
 export class _BaseVNodeType {
     public constructor() { throw new Error("VNodeType should never be instantiated. Use it statically only."); }
     static label = "VNode";
-    /** If this type has a slugId property, this is the prefix that all of its slugIds must have (e.g. "user-") */
-    static readonly slugIdPrefix: string = "";
     static readonly properties = {
         id: Field.VNID,
     };
@@ -162,7 +160,6 @@ export interface RawRelationships {
 export interface BaseVNodeType {
     new(): _BaseVNodeType;
     readonly label: string;
-    readonly slugIdPrefix: string;
     readonly properties: PropSchemaWithId;
     /** Relationships allowed/available _from_ this VNode type to other VNodes */
     readonly rel: RelationshipsSchema;

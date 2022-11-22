@@ -1,5 +1,5 @@
 import { Neo4j } from "../deps.ts";
-import { group, test, configureTestData, assertEquals, assert, assertIsEmpty, assertThrows } from "../lib/tests.ts";
+import { group, test, assertEquals, assert, assertIsEmpty, assertThrows } from "../lib/tests.ts";
 import { C, CypherQuery, VNID, Field } from "../index.ts";
 import { testGraph, Person } from "../test-project/index.ts";
 
@@ -94,76 +94,6 @@ group(import.meta, () => {
         assertEquals(outerClause.params, {clause0_p1: vnid, p1: name});
     });
 
-    test("Convert the special nodeVar HAS KEY $var syntax into appropriate lookups", () => {
-        // MATCH clauses can have ", someNodeVariable HAS KEY $param" where $param is a VNID or slugId, and the query
-        // will get updated automatically to incorporate the right lookup
-        const vnid = VNID("_52DMYoaBc3fGp528wZJSFS");
-        const slugId = "jessie"
-        const makeQuery = (key: string): CypherQuery => C`
-            MATCH (p:${Person})-[:${Person.rel.FRIEND_OF}]-(f:Friend), p HAS KEY ${key}
-            RETURN p, f
-        `;
-
-        const withVNID = makeQuery(vnid);
-        assertEquals(withVNID.queryString, `
-            MATCH (p:TestPerson:VNode)-[:FRIEND_OF]-(f:Friend), (p:VNode {id: $p2})
-            RETURN p, f
-        `);
-        assertEquals(withVNID.params, {p2: vnid});
-
-        const withSlugId = makeQuery(slugId);
-        assertEquals(withSlugId.queryString, `
-            MATCH (p:TestPerson:VNode)-[:FRIEND_OF]-(f:Friend), (p:VNode)<-[:IDENTIFIES]-(:SlugId {slugId: $p2})
-            RETURN p, f
-        `);
-        assertEquals(withSlugId.params, {p2: slugId});
-    });
-
-    group("PROFILE with real data", () => {
-        configureTestData({loadTestProjectData: true, isolateTestWrites: false});
-
-        test("HAS KEY lookups by VNID are efficient", async () => {
-            // Make sure we're not paying any database lookup performance penalty for using this HAS KEY lookup.
-            // First, get the VNID:
-            const vnid = (await testGraph.pullOne(Person, p => p.id, {key: "rdj"})).id;
-    
-            // A query written as efficiently as possible using normal syntax:
-            const simpleQuery = C`PROFILE MATCH (person:${Person} {id: ${vnid}}) RETURN person`;
-            const simpleResult = await testGraph.read(tx => tx.run(simpleQuery.queryString, simpleQuery.params));
-    
-            // The same query (VNID lookup) but using HAS KEY:
-            const hasKeyQuery = C`PROFILE MATCH (person:${Person}), person HAS KEY ${vnid} RETURN person`;
-            const hasKeyResult = await testGraph.read(tx => tx.run(hasKeyQuery.queryString, hasKeyQuery.params));
-            
-            assertEquals(
-                // Make sure the database query complexity is the same:
-                sumDbHits(hasKeyResult.summary.profile),
-                sumDbHits(simpleResult.summary.profile),
-            );
-            assertEquals(sumDbHits(hasKeyResult.summary.profile), 8);
-        });
-    
-        test("HAS KEY lookups by slugId are efficient", async () => {
-            // Make sure we're not paying any database lookup performance penalty for using this HAS KEY lookup
-            const slugId = "rdj";
-    
-            // A query written as efficiently as possible using normal syntax:
-            const simpleQuery = C`PROFILE MATCH (person:${Person})<-[:IDENTIFIES]-(:SlugId {slugId: ${slugId}}) RETURN person LIMIT 1`;
-            const simpleResult = await testGraph.read(tx => tx.run(simpleQuery.queryString, simpleQuery.params));
-    
-            // The same query (SlugId lookup) but using HAS KEY:
-            const hasKeyQuery = C`PROFILE MATCH (person:${Person}), person HAS KEY ${slugId} RETURN person`;
-            const hasKeyResult = await testGraph.read(tx => tx.run(hasKeyQuery.queryString, hasKeyQuery.params));
-            
-            assertEquals(
-                // Make sure the database query complexity is the same:
-                sumDbHits(hasKeyResult.summary.profile),
-                sumDbHits(simpleResult.summary.profile),
-            );
-            assertEquals(sumDbHits(hasKeyResult.summary.profile), 11);  // 11 is the best we can do while supporting lookups on previous slugId values. Lower would be better.
-        });
-    });
-
     test("Lets us use .withParams() to add custom parameters", () => {
         // (this interpolation is also lazy, but we don't really care that it is)
         const vnid = VNID("_52DMYoaBc3fGp528wZJSFS");
@@ -193,22 +123,13 @@ group(import.meta, () => {
         assertEquals(q3.params, {id: VNID("_3333333333333333333333")});
     });
 
-    test("Lets us use HAS KEY and .withParams() with no auto-parameters", () => {
-        // This tests an edge case where a string with no interpolations still needs the HAS KEY substitution, which
-        // must also means that the param must be added before the query is compiled (compilation of HAS KEY requires
-        // the param value to be known, to know if it's a VNID or slugId)
-        const query = C`MATCH (vn:VNode), vn HAS KEY $customKeyArg`.withParams({customKeyArg: VNID("_1111111111111111111111")});
-        assertEquals(query.queryString, `MATCH (vn:VNode), (vn:VNode {id: $customKeyArg})`);
-        assertEquals(query.params, {customKeyArg: VNID("_1111111111111111111111")});
-    });
-
     test("C() can be used directly", () => {
         // If someone doesn't like the C`...` tagged template literal helper, it can always
         // be used to directly construct a query string, and params passed in via .withParams()
-        const query = C("MATCH (vn:VNode), vn HAS KEY $customKeyArg").withParams({
+        const query = C("MATCH (vn:VNode {id: $customKeyArg})").withParams({
             customKeyArg: VNID("_1111111111111111111111"),
         });
-        assertEquals(query.queryString, `MATCH (vn:VNode), (vn:VNode {id: $customKeyArg})`);
+        assertEquals(query.queryString, `MATCH (vn:VNode {id: $customKeyArg})`);
         assertEquals(query.params, {customKeyArg: VNID("_1111111111111111111111")});
     });
 
@@ -237,12 +158,6 @@ group(import.meta, () => {
         assertThrows(() => {
             C`MATCH (p:${Person})`.withParams({foo: "bar"}).withParams({foo: "other"});
         }, `Multiple values for query parameter "foo"`);
-    });
-
-    test("throws an error if using HAS KEY without a parameter", () => {
-        assertThrows(() => {
-            C`MATCH (p:${Person}), p HAS KEY $something`.queryString;
-        }, `Expected a "something" parameter in the query for the p HAS KEY $something lookup.`);
     });
 
     group("return shape", () => {

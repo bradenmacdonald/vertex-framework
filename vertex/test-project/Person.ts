@@ -116,8 +116,8 @@ export const ActedIn = defineAction({
     //resultData: {} as Record<string, never>,
     apply: async (tx, data) => {
         const result = await tx.queryOne(C`
-            MATCH (p:${Person}), p HAS KEY ${data.personId}
-            MATCH (m:${Movie}), m HAS KEY ${data.movieId}
+            MATCH (p:${Person} {slugId: ${data.personId}})
+            MATCH (m:${Movie} {slugId: ${data.movieId}})
             MERGE (p)-[rel:${Person.rel.ACTED_IN}]->(m)
             SET rel.role = ${data.role}
             `.RETURN({"p.id": Field.VNID, "m.id": Field.VNID}));
@@ -138,8 +138,8 @@ export const RecordFriends = defineAction({
     },
     apply: async (tx, data) => {
         const result = await tx.queryOne(C`
-            MATCH (p1:${Person}), p1 HAS KEY ${data.personId}
-            MATCH (p2:${Person}), p2 HAS KEY ${data.otherPersonId}
+            MATCH (p1:${Person} {slugId: ${data.personId}})
+            MATCH (p2:${Person} {slugId: ${data.otherPersonId}})
             MERGE (p1)-[:${Person.rel.FRIEND_OF}]-(p2)
         `.RETURN({"p1.id": Field.VNID, "p2.id": Field.VNID}));
         return {

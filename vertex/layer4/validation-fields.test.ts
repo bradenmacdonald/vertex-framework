@@ -41,7 +41,7 @@ group(import.meta, () => {
                 defaultString: "  this should be trimmed  ",
                 allCapsString: " this should SHOUT but not be trimmed "
             }));
-            const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note}), n HAS KEY ${id}`.RETURN({n: Field.VNode(Note)})));
+            const check = await testGraph.read(tx => tx.queryOne(C`MATCH (n:${Note} {id: ${id}})`.RETURN({n: Field.VNode(Note)})));
             assertEquals(check.n.defaultString, "this should be trimmed");
             assertEquals(check.n.allCapsString, " THIS SHOULD SHOUT BUT NOT BE TRIMMED ");
         });

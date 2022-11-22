@@ -15,14 +15,14 @@ export async function createTestData(graph: Vertex): Promise<void> {
         CreateMovieFranchise({slugId: "jumanji", name: "Jumanji"}),
 
         CreateMovie({slugId: "tropic-thunder", title: "Tropic Thunder", year: 2008}),
-        CreateMovie({slugId: "guardians-galaxy", title: "Guardians of the Galaxy", year: 2014, franchiseId: "mcu"}),
+        CreateMovie({slugId: "guardians-galaxy", title: "Guardians of the Galaxy", year: 2014, franchiseSlugId: "mcu"}),
         CreateMovie({slugId: "jem-holograms", title: "Jem and the Holograms", year: 2015}),
         CreateMovie({slugId: "office-xmas-party", title: "Office Christmas Party", year: 2016}),
-        CreateMovie({slugId: "jumanji-2017", title: "Jumanji: Welcome to the Jungle", year: 2017, franchiseId: "jumanji"}),
+        CreateMovie({slugId: "jumanji-2017", title: "Jumanji: Welcome to the Jungle", year: 2017, franchiseSlugId: "jumanji"}),
         CreateMovie({slugId: "rough-night", title: "Rough Night", year: 2017}),
-        CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018, franchiseId: "mcu"}),
+        CreateMovie({slugId: "infinity-war", title: "Avengers: Infinity War", year: 2018, franchiseSlugId: "mcu"}),
         CreateMovie({slugId: "spy-who-dumped-me", title: "The Spy Who Dumped Me", year: 2018}),
-        CreateMovie({slugId: "jumanji-2", title: "Jumanji: The Next Level", year: 2019, franchiseId: "jumanji"}),
+        CreateMovie({slugId: "jumanji-2", title: "Jumanji: The Next Level", year: 2019, franchiseSlugId: "jumanji"}),
 
         CreatePerson({slugId: "rdj", name: "Robert Downey Jr.", dateOfBirth: VD`1965-04-04`}),
         ActedIn({personId: "rdj", movieId: "infinity-war", role: "Tony Stark / Iron Man"}),

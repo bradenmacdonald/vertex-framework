@@ -3,15 +3,13 @@ import { neo4j, Neo4j } from "./deps.ts";
 import { ActionRequest, ActionResult } from "./layer4/action.ts";
 import { runAction } from "./layer4/action-runner.ts";
 import { log } from "./lib/log.ts";
-import { looksLikeVNID, VNID } from "./lib/types/vnid.ts";
+import { VNID } from "./lib/types/vnid.ts";
 import { PullNoTx, PullOneNoTx } from "./layer3/pull.ts";
 import { migrations as coreMigrations } from "./layer2/schema.ts";
 import { migrations as actionMigrations, SYSTEM_VNID } from "./layer4/schema.ts";
 import { WrappedTransaction, ProfileStats } from "./transaction.ts";
 import { Migration, VertexCore, VertexTestDataSnapshot } from "./vertex-interface.ts";
-import { VNodeKey } from "./lib/key.ts";
-import { C } from "./layer2/cypher-sugar.ts";
-import { Field, FieldType } from "./lib/types/field.ts";
+import { Field } from "./lib/types/field.ts";
 import type { VNodeType } from "./layer3/vnode.ts";
 import { InvalidNodeLabel } from "./layer2/vnode-base.ts";
 
@@ -53,10 +51,6 @@ export class Vertex implements VertexCore {
 
         if (vnt.properties.id !== Field.VNID) {
             throw new Error(`${vnt.name} VNodeType does not inherit the required id property from the base class.`);
-        }
-
-        if ("slugId" in vnt.properties && vnt.properties.slugId.type !== FieldType.Slug) {
-            throw new Error(`If a VNode declares a slugId property, it must be of type Field.Slug.`);
         }
 
         this.registeredNodeTypes[vnt.label] = vnt;
@@ -165,16 +159,6 @@ export class Vertex implements VertexCore {
     }
 
     /**
-     * Given a VNode Key (either a VNID or a SlugId), convert it to a VNID.
-     */
-    public async vnidForKey(key: VNodeKey): Promise<VNID> {
-        if (looksLikeVNID(key)) {
-            return key;
-        }
-        return await this.read(tx => tx.queryOne(C`MATCH (vn:VNode), vn HAS KEY ${key}`.RETURN({"vn.id": Field.VNID}))).then(result => result["vn.id"]);
-    }
-
-    /**
      * Create a database write transaction, for reading and/or writing
      * data to the graph DB. This should only be used from within a schema migration or by action-runner.ts, because
      * writes to the database should only happen via Actions.
@@ -265,30 +249,19 @@ export class Vertex implements VertexCore {
      */
     public async resetDBToSnapshot(snapshot: VertexTestDataSnapshot): Promise<void> {
         await await this._restrictedAllowWritesWithoutAction(async () => {
-            // Disable the slugId auto-creation trigger since it'll conflict with the SlugId nodes already in the data snapshot
-            const pauseSlugId = await this.isTriggerInstalled("updateSlugIdRelation");
-            if (pauseSlugId) {
-                await this._restrictedWrite(`CALL apoc.trigger.pause("updateSlugIdRelation")`);
-            }
-            try {
-                await this._restrictedWrite(async tx => {
-                    await tx.run(`MATCH (n) DETACH DELETE n`);
-                    // For some annoying reason, this silently fails:
-                    //  await tx.run(`CALL apoc.cypher.runMany($cypher, {})`, {cypher: snapshot.cypherSnapshot});
-                    // So we have to split up the statements ourselves and run each one via tx.run()
-                    for (const statement of snapshot.cypherSnapshot.split(";\n")) {
-                        if (statement.trim() === "") {
-                            continue;
-                        }
-                        // log.warn(statement);
-                        await tx.run(statement);
+            await this._restrictedWrite(async tx => {
+                await tx.run(`MATCH (n) DETACH DELETE n`);
+                // For some annoying reason, this silently fails:
+                //  await tx.run(`CALL apoc.cypher.runMany($cypher, {})`, {cypher: snapshot.cypherSnapshot});
+                // So we have to split up the statements ourselves and run each one via tx.run()
+                for (const statement of snapshot.cypherSnapshot.split(";\n")) {
+                    if (statement.trim() === "") {
+                        continue;
                     }
-                });
-            } finally {
-                if (pauseSlugId) {
-                    await this._restrictedWrite(`CALL apoc.trigger.resume("updateSlugIdRelation")`);
+                    // log.warn(statement);
+                    await tx.run(statement);
                 }
-            }
+            });
         });
     }
 
