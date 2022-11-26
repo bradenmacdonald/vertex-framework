@@ -151,3 +151,8 @@ export {
 export type {
     VertexTestDataSnapshot
 } from "./vertex-interface.ts";
+
+// Allow applications to access types and functions from the Neo4j driver:
+import { Neo4j } from "./deps.ts";
+export const Neo4jError = Neo4j.Neo4jError;
+export { Neo4j };
