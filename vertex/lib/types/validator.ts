@@ -139,7 +139,8 @@ const slugRegex = /^[-\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]+
 
 /**
  * Validate that a string value is a slug. Can contain letters from any language, but not spaces or punctuation other
- * than hyphen (hyphen is allowed, but underscore is not as underscore is less visible when text is underlined).
+ * than hyphen (hyphen is allowed, but underscore is not as underscore is less visible when text is underlined) and it
+ * is essential that there is no overlap between slugs and VNIDs (VNIDs start with an underscore).
  */
 export const validateSlug: Validator<string> = (_value) => {
     const value = validateString(_value);
