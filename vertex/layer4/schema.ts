@@ -81,6 +81,8 @@ export const migrations: Readonly<{[id: string]: Migration}> = Object.freeze({
                 await tx.run(`
                     CALL apoc.trigger.add("validateActionModified", "
 
+                        CYPHER runtime=slotted // avoid huge slowdown with pipelined runtime on Neo4j Enterprise 5.2.0
+
                         // Start with a MATCH so this trigger only runs when there is an action in the transaction
                         MATCH (action:Action:VNode)
                             WHERE id(action) IN [cn IN $createdNodes WHERE cn:Action | id(cn)]
