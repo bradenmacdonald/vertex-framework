@@ -15,7 +15,8 @@ import { InvalidNodeLabel } from "./layer2/vnode-base.ts";
 
 
 export interface InitArgs {
-    neo4jUrl: string; // e.g. "bolt://neo4j"
+    neo4jDatabase?: string; // e.g. "neo4j"
+    neo4jUrl: string; // e.g. "bolt://localhost:7687"
     neo4jUser: string; // e.g. "neo4j",
     neo4jPassword: string;
     debugLogging?: boolean;
@@ -24,6 +25,8 @@ export interface InitArgs {
 
 export class Vertex implements VertexCore {
     private readonly driver: Neo4j.Driver;
+    /** The name of the database that we connect to. Defaults to "neo4j". */
+    public readonly database: string;
     public readonly migrations: {[name: string]: Migration};
     private registeredNodeTypes: {[label: string]: VNodeType} = {};
     private activeProfile: ProfileStats[] = [];
@@ -34,6 +37,7 @@ export class Vertex implements VertexCore {
             neo4j.auth.basic(config.neo4jUser, config.neo4jPassword),
             { useBigInt: true },
         );
+        this.database = config.neo4jDatabase ?? "neo4j";
         this.migrations = {...coreMigrations, ...actionMigrations, ...config.extraMigrations};
     }
 
@@ -85,7 +89,7 @@ export class Vertex implements VertexCore {
      * Create a database read transaction, for reading data from the graph DB.
      */
     public async read<T>(code: (tx: WrappedTransaction) => Promise<T>): Promise<T> {
-        const session = this.driver.session({defaultAccessMode: "READ"});
+        const session = this.driver.session({defaultAccessMode: "READ", database: this.database});
         let result: T;
         try {
             result = await session.executeRead(tx => code(new WrappedTransaction(tx, this.activeProfile.at(-1))));
@@ -170,7 +174,7 @@ export class Vertex implements VertexCore {
     public async _restrictedWrite(query: string | { text: string; parameters?: Record<string, unknown> }): Promise<void>;
     public async _restrictedWrite(codeOrQuery: ((tx: WrappedTransaction) => Promise<unknown>) | string | { text: string; parameters?: any }) {
         // Normal flow: create a new write transaction
-        const session = this.driver.session({defaultAccessMode: "WRITE"});
+        const session = this.driver.session({defaultAccessMode: "WRITE", database: this.database});
         try {
             if (typeof codeOrQuery === "function") {
                 return await session.executeWrite(tx => codeOrQuery(new WrappedTransaction(tx, this.activeProfile.at(-1))));
