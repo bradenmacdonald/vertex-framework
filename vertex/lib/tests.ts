@@ -1,6 +1,7 @@
-// import {test as baseTest, group as baseGroup, afterAll, afterEach, beforeAll, beforeEach} from "https://deno.land/x/hooked@v0.1.0/mod.ts";
+// deno-lint-ignore-file no-explicit-any
 import {test as baseTest, group as baseGroup, afterAll, afterEach, beforeAll, beforeEach} from "./tests-hooked.ts";
-export * from "https://deno.land/std@0.146.0/testing/asserts.ts";
+export * from "https://deno.land/std@0.170.0/testing/asserts.ts";
+export * from "https://deno.land/std@0.170.0/testing/types.ts";
 
 import { log } from "./log.ts"
 import { VertexTestDataSnapshot } from "../vertex-interface.ts";
@@ -21,6 +22,15 @@ export function assertIsEmpty(value: Record<string, unknown>) {
     }
 }
 
+/** Compile-time helper for asserting that an object doesn't have a specific property */
+export type IsPropertyPresent<Type, KeyName extends string> =
+    Type extends {[K in KeyName]: any} ? true : false;
+
+/** Compile-time helper for asserting that an object has a specific optional property */
+export type IsPropertyOptional<Type, KeyName extends string, ValueType = any> =
+    Type extends {[K in KeyName]: ValueType} ? false :
+    Type extends {[K in KeyName]?: ValueType} ? true :
+    false;
 
 /**
  * Helper to create a nice name for the base test group in a test suite file.

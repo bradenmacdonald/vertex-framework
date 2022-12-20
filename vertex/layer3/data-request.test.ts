@@ -1,6 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
-import { group, test, assertEquals, assertThrows } from "../lib/tests.ts";
-import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils.ts";
+import { group, test, assertEquals, assertThrows, assertType, IsPropertyPresent } from "../lib/tests.ts";
 import {
     VNodeType,
     RequestVNodeRawProperties,
@@ -44,9 +43,9 @@ group("Data Request", () => {
             const _selector: RequestVNodeRawProperties<typeof SomeVNodeType> = v => {
                 const selectionSoFar = v.otherProp.number;
                 // The "name" property exists and can be added to the request:
-                checkType<AssertPropertyPresent<typeof selectionSoFar, "name", any>>();
+                assertType<IsPropertyPresent<typeof selectionSoFar, "name">>(true);
                 // No "nonProp" property exists so cannot be added:
-                checkType<AssertPropertyAbsent<typeof selectionSoFar, "nonProp">>();
+                assertType<IsPropertyPresent<typeof selectionSoFar, "nonProp">>(false);
                 return selectionSoFar;
             };
         });
@@ -55,10 +54,10 @@ group("Data Request", () => {
             // Note: this is a compile-time test, not a run-time test
             const _selector: RequestVNodeRawProperties<typeof SomeVNodeType> = v => {
                 const selectionSoFar = v.otherProp.number;
-                // No "number" property is already requested so cannot be added:
-                checkType<AssertPropertyAbsent<typeof selectionSoFar, "number">>();
+                // The "number" property is already requested so cannot be added:
+                assertType<IsPropertyPresent<typeof selectionSoFar, "number">>(false);
                 // But it could have been added before:
-                checkType<AssertPropertyPresent<typeof v.otherProp, "number", any>>();
+                assertType<IsPropertyPresent<typeof v.otherProp, "number">>(true);
                 return selectionSoFar;
             };
         });

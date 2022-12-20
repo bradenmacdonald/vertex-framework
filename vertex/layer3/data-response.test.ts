@@ -1,7 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
-import { group, test } from "../lib/tests.ts";
+import { group, test, assertType, IsExact, IsPropertyOptional, IsPropertyPresent } from "../lib/tests.ts";
 
-import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils.ts";
 import type { BaseDataRequest, VNID, VDate } from "../index.ts";
 import { Person } from "../test-project/index.ts";
 import type { DataResponse } from "./data-response.ts";
@@ -29,9 +28,9 @@ group(import.meta, () => {
             const request = newDataRequest(Person).name;
             const response: DataResponse<typeof request> = undefined as any;
 
-            checkType<AssertEqual<typeof response.name, string>>();
-            checkType<AssertPropertyPresent<typeof response, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "id">>();
+            assertType<IsExact<typeof response.name, string>>(true);
+            assertType<IsExact<typeof response["name"], string>>(true);
+            assertType<IsPropertyPresent<typeof response, "id">>(false);
         });
 
         test("Request all properties", () => {
@@ -39,12 +38,12 @@ group(import.meta, () => {
             const request = newDataRequest(Person).allProps;
             const response: DataResponse<typeof request> = undefined as any;
 
-            checkType<AssertEqual<typeof response.name, string>>();
-            checkType<AssertPropertyPresent<typeof response, "name", string>>();
-            checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
-            checkType<AssertPropertyPresent<typeof response, "dateOfBirth", VDate>>();
-            checkType<AssertPropertyPresent<typeof response, "slugId", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "other">>();
+            assertType<IsExact<typeof response.name, string>>(true);
+            assertType<IsExact<typeof response["name"], string>>(true);
+            assertType<IsExact<typeof response["id"], VNID>>(true);
+            assertType<IsExact<typeof response["dateOfBirth"], VDate>>(true);
+            assertType<IsExact<typeof response["slugId"], string>>(true);
+            assertType<IsPropertyPresent<typeof response, "other">>(false);
         });
 
         test("Conditionally Request a single raw property", () => {
@@ -52,8 +51,9 @@ group(import.meta, () => {
             const request = newDataRequest(Person).if("someFlag", p => p.name);
             const response: DataResponse<typeof request> = undefined as any;
 
-            checkType<AssertPropertyOptional<typeof response, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "id">>();
+            assertType<IsPropertyOptional<typeof response, "name">>(true);
+            assertType<IsExact<typeof response["name"], string|undefined>>(true);
+            assertType<IsPropertyPresent<typeof response, "id">>(false);
         });
     });
 
@@ -72,9 +72,8 @@ group(import.meta, () => {
             const request = newDataRequest(Person).name;
             const response: DataResponse<typeof request> = undefined as any;
 
-            checkType<AssertEqual<typeof response.name, string>>();
-            checkType<AssertPropertyPresent<typeof response, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "id">>();
+            assertType<IsExact<typeof response.name, string>>(true);
+            assertType<IsPropertyPresent<typeof response, "id">>(false);
         });
 
         test("Request all properties", () => {
@@ -82,12 +81,11 @@ group(import.meta, () => {
             const request = newDataRequest(Person).allProps;
             const response: DataResponse<typeof request> = undefined as any;
 
-            checkType<AssertEqual<typeof response.name, string>>();
-            checkType<AssertPropertyPresent<typeof response, "name", string>>();
-            checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
-            checkType<AssertPropertyPresent<typeof response, "dateOfBirth", VDate>>();
-            checkType<AssertPropertyPresent<typeof response, "slugId", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "other">>();
+            assertType<IsExact<typeof response.name, string>>(true);
+            assertType<IsExact<typeof response.id, VNID>>(true);
+            assertType<IsExact<typeof response.dateOfBirth, VDate>>(true);
+            assertType<IsExact<typeof response.slugId, string>>(true);
+            assertType<IsPropertyPresent<typeof response, "other">>(false);
         });
 
         test("Conditionally Request a single raw property", () => {
@@ -95,8 +93,9 @@ group(import.meta, () => {
             const request = newDataRequest(Person).if("someFlag", p => p.name);
             const response: DataResponse<typeof request> = undefined as any;
 
-            checkType<AssertPropertyOptional<typeof response, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "id">>();
+            assertType<IsPropertyOptional<typeof response, "name">>(true);
+            assertType<IsExact<typeof response.name, string|undefined>>(true);
+            assertType<IsPropertyPresent<typeof response, "id">>(false);
         });
 
         test("Request a raw property and conditionally Request another raw property", () => {
@@ -104,9 +103,10 @@ group(import.meta, () => {
             const request = newDataRequest(Person).slugId.if("someFlag", p => p.name);
             const response: DataResponse<typeof request> = undefined as any;
 
-            checkType<AssertPropertyPresent<typeof response, "slugId", string>>();
-            checkType<AssertPropertyOptional<typeof response, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof response, "id">>();
+            assertType<IsExact<typeof response.slugId, string>>(true);
+            assertType<IsPropertyOptional<typeof response, "name">>(true);
+            assertType<IsExact<typeof response.name, string|undefined>>(true);
+            assertType<IsPropertyPresent<typeof response, "id">>(false);
         });
 
         test("Request a virtual property", () => {
@@ -114,11 +114,13 @@ group(import.meta, () => {
             const request = newDataRequest(Person).age().id.if("d", p => p.slugId).if("test", p => p.dateOfBirth);
             const response: DataResponse<typeof request> = undefined as any;
 
-            checkType<AssertPropertyPresent<typeof response, "age", number>>();
-            checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
-            checkType<AssertPropertyOptional<typeof response, "slugId", string>>();
-            checkType<AssertPropertyOptional<typeof response, "dateOfBirth", VDate>>();
-            checkType<AssertPropertyAbsent<typeof response, "other">>();
+            assertType<IsExact<typeof response.age, number>>(true);
+            assertType<IsExact<typeof response.id, VNID>>(true);
+            assertType<IsPropertyOptional<typeof response, "slugId", string>>(true);
+            assertType<IsExact<typeof response.slugId, string|undefined>>(true);
+            assertType<IsPropertyOptional<typeof response, "dateOfBirth">>(true);
+            assertType<IsExact<typeof response.dateOfBirth, VDate|undefined>>(true);
+            assertType<IsPropertyPresent<typeof response, "other">>(false);
         });
 
         test("Complex request using all mixins and including a projected property", () => {
@@ -134,17 +136,17 @@ group(import.meta, () => {
                 )
             );
             const response: DataResponse<typeof request> = undefined as any;
-            checkType<AssertPropertyPresent<typeof response, "id", VNID>>();
-            checkType<AssertPropertyPresent<typeof response.friends[0], "name", string>>();
-            checkType<AssertPropertyOptional<typeof response.friends[0], "dateOfBirth", VDate>>();
-            checkType<AssertPropertyOptional<typeof response.friends[0], "age", number>>();
+            assertType<IsExact<typeof response.id, VNID>>(true);
+            assertType<IsExact<typeof response.friends[0]["name"], string>>(true);
+            assertType<IsExact<typeof response.friends[0]["dateOfBirth"], VDate|undefined>>(true);
+            assertType<IsExact<typeof response.friends[0]["age"], number|undefined>>(true);
             const costar = response?.friends[0].costars[0];  // The ? is just to make this work at runtime since we're using a mock.
-            checkType<AssertPropertyPresent<typeof costar, "name", string>>();
-            checkType<AssertPropertyAbsent<typeof costar, "id">>();
-            checkType<AssertPropertyPresent<typeof costar.movies[0], "title", string>>();
-            checkType<AssertPropertyPresent<typeof costar.movies[0], "year", number>>();
-            checkType<AssertPropertyPresent<typeof costar.movies[0], "role", string|null>>();  // Projected properties are always nullable
-            checkType<AssertPropertyAbsent<typeof costar.movies[0], "id">>();
+            assertType<IsExact<typeof costar.name, string>>(true);
+            assertType<IsPropertyPresent<typeof costar, "id">>(false);
+            assertType<IsExact<typeof costar.movies[0]["title"], string>>(true);
+            assertType<IsExact<typeof costar.movies[0]["year"], number>>(true);
+            assertType<IsExact<typeof costar.movies[0]["role"], string>>(true);
+            assertType<IsPropertyPresent<typeof costar.movies[0], "id">>(false);
         });
     });
 });

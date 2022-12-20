@@ -1,6 +1,16 @@
-import { group, test, assert, assertEquals, assertRejects, configureTestData, assertArrayIncludes } from "../lib/tests.ts";
+import {
+    assert,
+    assertArrayIncludes,
+    assertEquals,
+    assertRejects,
+    assertType,
+    IsPropertyPresent,
+    configureTestData,
+    group,
+    IsExact,
+    test,
+} from "../lib/tests.ts";
 import { convertNeo4jRecord } from "./cypher-return-shape.ts";
-import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils.ts";
 import { testGraph, Person } from "../test-project/index.ts";
 import { VDate, VNID, Field, ResponseSchema, GetDataShape } from "../index.ts";
 
@@ -171,8 +181,8 @@ group(import.meta, () => {
                 assertEquals(results.length, 1);
                 const theRock = results[0].p;
     
-                checkType<AssertPropertyPresent<typeof theRock, "name", string>>();
-                checkType<AssertPropertyAbsent<typeof theRock, "someOtherThing">>();
+                assertType<IsExact<(typeof theRock)["name"], string>>(true);
+                assertType<IsPropertyPresent<typeof theRock, "someOtherThing">>(false);
     
                 assertEquals(theRock.name, "Dwayne Johnson");
                 assertEquals(theRock.slugId, "the-rock");
