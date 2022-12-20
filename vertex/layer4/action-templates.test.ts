@@ -1,4 +1,15 @@
-import { group, test, assertEquals, assertNotEquals, assertStrictEquals, assertRejects, configureTestData } from "../lib/tests.ts";
+import {
+    group,
+    test,
+    assertEquals,
+    assertNotEquals,
+    assertStrictEquals,
+    assertRejects,
+    configureTestData,
+    assertType,
+    IsExact,
+    Has,
+} from "../lib/tests.ts";
 import {
     C,
     VNID,
@@ -7,7 +18,6 @@ import {
 } from "../index.ts";
 import { defaultCreateFor, defaultUpdateFor } from "./action-templates.ts";
 import { testGraph, CreateTypeTester, TypeTester, UpdateTypeTester } from "../test-project/index.ts";
-import { AssertEqual, AssertNotEqual, checkType } from "../lib/ts-utils.ts";
 import { VD } from "../lib/types/vdate.ts";
 
 /** A VNodeType for use in this test suite. */
@@ -62,8 +72,9 @@ group(import.meta, () => {
     group("defaultCreateFor", () => {
 
         test("has a statically typed 'type'", () => {
-            checkType<AssertEqual<typeof CreatePlanet.type, "CreatePlanet">>();
-            checkType<AssertNotEqual<typeof CreatePlanet.type, "otherString">>();
+            // The type of 'type' should be a constant string, and should not match any other string:
+            assertType<IsExact<typeof CreatePlanet.type, "CreatePlanet">>(true);
+            assertType<Has<typeof CreatePlanet.type, "otherString">>(false);
         })
 
         test("can create a VNode", async () => {

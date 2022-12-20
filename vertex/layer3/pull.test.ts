@@ -1,9 +1,8 @@
 // deno-lint-ignore-file no-explicit-any camelcase
-import { group, test, configureTestData, assert, assertEquals, assertStrictEquals } from "../lib/tests.ts";
+import { group, test, configureTestData, assert, assertEquals, assertStrictEquals, assertType, IsExact, IsPropertyPresent } from "../lib/tests.ts";
 import { dedent } from "../lib/dedent.ts";
 
 import { buildCypherQuery as _buildCypherQuery, newDataRequest } from "./pull.ts";
-import { checkType, AssertEqual, AssertPropertyAbsent, AssertPropertyPresent, AssertPropertyOptional } from "../lib/ts-utils.ts";
 import { testGraph, Person, Movie } from "../test-project/index.ts";
 import { C, VNID, BaseDataRequest, DataRequestFilter, VDate } from "../index.ts";
 import { FilteredRequest } from "./data-request-filtered.ts";
@@ -39,10 +38,10 @@ group(import.meta, () => {
                 assertEquals(firstPerson.slugId, "chris-pratt");
                 assertEquals(firstPerson.name, "Chris Pratt");
                 assertEquals(firstPerson.dateOfBirth.toString(), "1979-06-21");
-                checkType<AssertPropertyPresent<typeof firstPerson, "id", VNID>>();
-                checkType<AssertPropertyPresent<typeof firstPerson, "slugId", string>>();
-                checkType<AssertPropertyPresent<typeof firstPerson, "name", string>>();
-                checkType<AssertPropertyPresent<typeof firstPerson, "dateOfBirth", VDate>>();
+                assertType<IsExact<typeof firstPerson.id, VNID>>(true);
+                assertType<IsExact<typeof firstPerson.slugId, string>>(true);
+                assertType<IsExact<typeof firstPerson.name, string>>(true);
+                assertType<IsExact<typeof firstPerson.dateOfBirth, VDate>>(true);
             });
         });
 
@@ -74,14 +73,14 @@ group(import.meta, () => {
                 // Note: request should be sorted by name by default, so Chris Pratt comes first
                 const firstPerson = people[0];
                 assertEquals(firstPerson.name, "Chris Pratt");
-                checkType<AssertPropertyPresent<typeof firstPerson, "name", string>>();
+                assertType<IsExact<typeof firstPerson.name, string>>(true);
                 // dateOfBirth was not requested due to the missing flag (only known at runtime, not compile time)
                 assertEquals(firstPerson.dateOfBirth, undefined);
 
-                checkType<AssertPropertyOptional<typeof firstPerson, "dateOfBirth", VDate>>();
+                assertType<IsExact<typeof firstPerson.dateOfBirth, VDate|undefined>>(true);
                 // VNID was explicitly not requested, so should be undefined:
                 assertEquals((firstPerson as any).id, undefined);
-                checkType<AssertPropertyAbsent<typeof firstPerson, "id">>();
+                assertType<IsPropertyPresent<typeof firstPerson, "id">>(false);
             });
             test("pull - get all, DOB flag on", async () => {
                 const people = await testGraph.pull(partialPersonRequest, {flags: ["includeDOB"]});
@@ -89,13 +88,13 @@ group(import.meta, () => {
                 // Note: request should be sorted by name by default, so Chris Pratt comes first
                 const firstPerson = people[0];
                 assertEquals(firstPerson.name, "Chris Pratt");
-                checkType<AssertPropertyPresent<typeof firstPerson, "name", string>>();
+                assertType<IsExact<typeof firstPerson.name, string>>(true);
                 // dateOfBirth was requested using a flag (only known at runtime, not compile time)
                 assertEquals(firstPerson.dateOfBirth?.toString(), "1979-06-21");
-                checkType<AssertPropertyOptional<typeof firstPerson, "dateOfBirth", VDate>>();
+                assertType<IsExact<typeof firstPerson.dateOfBirth, VDate|undefined>>(true);
                 // VNID was explicitly not requested, so should be undefined:
                 assertEquals((firstPerson as any).id, undefined);
-                checkType<AssertPropertyAbsent<typeof firstPerson, "id">>();
+                assertType<IsPropertyPresent<typeof firstPerson, "id">>(false);
             });
             test("pull - with name filter", async () => {
                 const nameStart = "Ka";
@@ -170,9 +169,9 @@ group(import.meta, () => {
             test("pull", async () => {
                 const result = await testGraph.pullOne(request, filter);
                 assertEquals(result.title, "Jumanji: The Next Level");
-                checkType<AssertPropertyPresent<typeof result, "title", string>>();
+                assertType<IsExact<typeof result.title, string>>(true);
                 assertEquals(result.year, 2019);
-                checkType<AssertPropertyPresent<typeof result, "year", number>>();
+                assertType<IsExact<typeof result.year, number>>(true);
             });
         });
     });
@@ -205,7 +204,7 @@ group(import.meta, () => {
                 // Movies should be sorted newest first by default, so the first movie should be the newest one:
                 const firstTitle = chrisPratt.movies[0].title;
                 assertEquals(firstTitle, "Avengers: Infinity War");
-                checkType<AssertEqual<typeof firstTitle, string>>();
+                assertType<IsExact<typeof firstTitle, string>>(true);
             });
             test("pull - alternate syntax", async () => {
                 const chrisPratt = await testGraph.pullOne(Person, p => p
@@ -218,7 +217,7 @@ group(import.meta, () => {
                 // Movies should be sorted newest first by default, so the first movie should be the newest one:
                 const firstTitle = chrisPratt.movies[0].title;
                 assertEquals(firstTitle, "Avengers: Infinity War");
-                checkType<AssertEqual<typeof firstTitle, string>>();
+                assertType<IsExact<typeof firstTitle, string>>(true);
             });
         });
 
@@ -258,8 +257,7 @@ group(import.meta, () => {
             assertEquals(rdj.movies[0].title, "Avengers: Infinity War");
             assertEquals(rdj.movies[0].role, "Tony Stark / Iron Man");  // "role" is a property stored on the relationship
             const infinityWar = rdj.movies[0];
-            // We don't really enforce relationship properties or know when they're nullable so assume they can always be null:
-            checkType<AssertPropertyPresent<typeof infinityWar, "role", string|null>>();
+            assertType<IsExact<typeof infinityWar.role, string>>(true);
             assertEquals(rdj.movies[1].title, "Tropic Thunder");
             assertEquals(rdj.movies[1].role, "Kirk Lazarus");
         });
@@ -381,7 +379,7 @@ group(import.meta, () => {
                     if (m < 0 || (m === 0 && today.getDate() < birthDate.day)) { age--; }
                     return age;
                 }
-                checkType<AssertEqual<typeof chrisPratt["age"], number>>();
+                assertType<IsExact<typeof chrisPratt["age"], number>>(true);
                 assertEquals(chrisPratt.age, getAge(chrisPratt.dateOfBirth));
             });
         })
@@ -444,9 +442,9 @@ group(import.meta, () => {
                     sj_friends_rdj_costars_kg_friends_dj_movies.map(m => m.title),
                     ["Jumanji: The Next Level", "Jumanji: Welcome to the Jungle", "Jem and the Holograms"],
                 );
-                checkType<AssertPropertyPresent<typeof sj_friends_rdj_costars_kg_friends_dj_movies[0], "title", string>>();
-                checkType<AssertPropertyPresent<typeof sj_friends_rdj_costars_kg_friends_dj_movies[0], "year", number>>();
-                checkType<AssertPropertyAbsent<typeof sj_friends_rdj_costars_kg_friends_dj_movies[0], "foobar">>();
+                assertType<IsExact<typeof sj_friends_rdj_costars_kg_friends_dj_movies[0]["title"], string>>(true);
+                assertType<IsExact<typeof sj_friends_rdj_costars_kg_friends_dj_movies[0]["year"], number>>(true);
+                assertType<IsPropertyPresent<typeof sj_friends_rdj_costars_kg_friends_dj_movies[0], "foobar">>(false);
                 // And, stepping back a level, Karen Gillan's movies (in reverse chronological order) are
                 // "Jumanji: The Next Level", "Avengers: Infinity War", "Jumanji: Welcome to the Jungle", "Guardians of the Galaxy"
                 const sj_friends_rdj_costars_kg_movies = sj_friends_rdj_costars[1].movies;
@@ -454,9 +452,9 @@ group(import.meta, () => {
                     sj_friends_rdj_costars_kg_movies.map(m => m.title),
                     ["Jumanji: The Next Level", "Avengers: Infinity War", "Jumanji: Welcome to the Jungle", "Guardians of the Galaxy"],
                 );
-                checkType<AssertPropertyPresent<typeof sj_friends_rdj_costars_kg_movies[0], "title", string>>();
-                checkType<AssertPropertyPresent<typeof sj_friends_rdj_costars_kg_movies[0], "year", number>>();
-                checkType<AssertPropertyAbsent<typeof sj_friends_rdj_costars_kg_movies[0], "foobar">>();
+                assertType<IsExact<typeof sj_friends_rdj_costars_kg_movies[0]["title"], string>>(true);
+                assertType<IsExact<typeof sj_friends_rdj_costars_kg_movies[0]["year"], number>>(true);
+                assertType<IsPropertyPresent<typeof sj_friends_rdj_costars_kg_movies[0], "foobar">>(false);
             });
         });
     });
@@ -469,9 +467,9 @@ group(import.meta, () => {
             assert(chrisPratt.ageJS.ageJS >= 40);
             assert(chrisPratt.ageJS.ageJS <= 70);
             // Check typing:
-            checkType<AssertPropertyPresent<typeof chrisPratt.ageJS, "ageJS", number>>();
-            checkType<AssertPropertyPresent<typeof chrisPratt.ageJS, "ageNeo", number>>();
-            checkType<AssertPropertyAbsent<typeof chrisPratt.ageJS, "other">>();
+            assertType<IsExact<typeof chrisPratt.ageJS.ageJS, number>>(true);
+            assertType<IsExact<typeof chrisPratt.ageJS.ageNeo, number>>(true);
+            assertType<IsPropertyPresent<typeof chrisPratt.ageJS, "other">>(false);
         });
         test("Compute a property in JavaScript, using data from a raw property and virtual property that are NOT explicitly fetched.", async () => {
             const age = (await testGraph.pullOne(Person, p => p.age(), {with: {slugId: "chris-pratt"}})).age;

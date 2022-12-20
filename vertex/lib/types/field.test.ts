@@ -1,5 +1,4 @@
-import { group, test, assert, assertEquals, assertStrictEquals, assertThrows } from "../tests.ts";
-import { AssertEqual, checkType } from "../ts-utils.ts";
+import { group, test, assert, assertEquals, assertStrictEquals, assertThrows, assertType, IsExact } from "../tests.ts";
 import { VNID } from "./vnid.ts";
 import { VDate } from "./vdate.ts";
 import { Person } from "../../test-project/index.ts";
@@ -57,7 +56,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, "_0");
-                checkType<AssertEqual<typeof value1, VNID>>();
+                assertType<IsExact<typeof value1, VNID>>(true);
                 assertThrows(() => { validateValue(fieldDeclaration, 123); });
                 assertThrows(() => { validateValue(fieldDeclaration, "_not a vnid"); });
                 assertThrows(() => { validateValue(fieldDeclaration, null); });
@@ -69,7 +68,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, "_0");
-                checkType<AssertEqual<typeof value1, VNID|null>>();
+                assertType<IsExact<typeof value1, VNID|null>>(true);
                 validateValue(fieldDeclaration, null);
                 assertThrows(() => { validateValue(fieldDeclaration, 123); });
                 assertThrows(() => { validateValue(fieldDeclaration, "_not a vnid"); });
@@ -79,7 +78,7 @@ group(import.meta, () => {
                 // Add a custom check, in this case disallowing a specific value
                 const fieldDeclaration = Field.VNID.Check(disallowValue(VNID("_0")));
                 const value1 = validateValue(fieldDeclaration, "_3DF8hceEobPFSS26FKl733");
-                checkType<AssertEqual<typeof value1, VNID>>();
+                assertType<IsExact<typeof value1, VNID>>(true);
                 assertThrows(() => { validateValue(fieldDeclaration, "_0"); });
                 assertThrows(() => { validateValue(fieldDeclaration, "_not a vnid"); });
             });
@@ -88,9 +87,9 @@ group(import.meta, () => {
                 // Add a custom check, in this case disallowing a specific value
                 const fieldDeclaration = Field.NullOr.VNID.Check(disallowValue(VNID("_0")));
                 const value1 = validateValue(fieldDeclaration, "_3DF8hceEobPFSS26FKl733");
-                checkType<AssertEqual<typeof value1, VNID|null>>();
+                assertType<IsExact<typeof value1, VNID|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
-                checkType<AssertEqual<typeof value2, VNID|null>>();
+                assertType<IsExact<typeof value2, VNID|null>>(true);
                 assertThrows(() => { validateValue(fieldDeclaration, "_0"); });
                 assertThrows(() => { validateValue(fieldDeclaration, "_not a vnid"); });
             });
@@ -104,7 +103,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, 1234);
-                checkType<AssertEqual<typeof value1, number>>();
+                assertType<IsExact<typeof value1, number>>(true);
                 assertEquals(typeof value1, "number");
                 validateValue(fieldDeclaration, -35);
                 assertThrows(() => { validateValue(fieldDeclaration, "50"); });
@@ -117,7 +116,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, 1234);
-                checkType<AssertEqual<typeof value1, number|null>>();
+                assertType<IsExact<typeof value1, number|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
                 assertStrictEquals(value2, null);
                 assertThrows(() => { validateValue(fieldDeclaration, "50"); });
@@ -137,9 +136,9 @@ group(import.meta, () => {
                 // Add a custom check, in this case a range
                 const fieldDeclaration = Field.NullOr.Int.Check(check.number.min(10).max(100));
                 const value1 = validateValue(fieldDeclaration, 50);
-                checkType<AssertEqual<typeof value1, number|null>>();
+                assertType<IsExact<typeof value1, number|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
-                checkType<AssertEqual<typeof value2, number|null>>();
+                assertType<IsExact<typeof value2, number|null>>(true);
                 assertThrows(() => { validateValue(fieldDeclaration, 0); });
                 assertThrows(() => { validateValue(fieldDeclaration, 300); });
             });
@@ -157,7 +156,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, aHugeNumber);
-                checkType<AssertEqual<typeof value1, bigint>>();
+                assertType<IsExact<typeof value1, bigint>>(true);
                 assertEquals(typeof value1, "bigint");
                 assertStrictEquals(value1, aHugeNumber);  // Ensure that validation has preserved the value.
 
@@ -204,7 +203,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, Math.PI);
-                checkType<AssertEqual<typeof value1, number>>();
+                assertType<IsExact<typeof value1, number>>(true);
                 assert(typeof value1, "number");
                 assertStrictEquals(value1, Math.PI);  // Ensure that validation has preserved the value.
 
@@ -218,7 +217,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, 1234.5678);
-                checkType<AssertEqual<typeof value1, number|null>>();
+                assertType<IsExact<typeof value1, number|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
                 assertStrictEquals(value2, null);
                 assertThrows(() => { validateValue(fieldDeclaration, "50"); });
@@ -242,7 +241,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, "Hello 世界");
-                checkType<AssertEqual<typeof value1, string>>();
+                assertType<IsExact<typeof value1, string>>(true);
                 assertEquals(typeof value1, "string");
                 assertStrictEquals(value1, "Hello 世界");  // Ensure that validation has preserved the value.
 
@@ -256,7 +255,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, "Hello 世界");
-                checkType<AssertEqual<typeof value1, string|null>>();
+                assertType<IsExact<typeof value1, string|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
                 assertStrictEquals(value2, null);
                 assertThrows(() => { validateValue(fieldDeclaration, 50); });
@@ -296,7 +295,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, "a-slug");
-                checkType<AssertEqual<typeof value1, string>>();
+                assertType<IsExact<typeof value1, string>>(true);
                 assertEquals(typeof value1, "string");
                 assertStrictEquals(value1, "a-slug");  // Ensure that validation has preserved the value.
                 // These should all be valid:
@@ -319,7 +318,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, "a-slug");
-                checkType<AssertEqual<typeof value1, string|null>>();
+                assertType<IsExact<typeof value1, string|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
                 assertStrictEquals(value2, null);
                 assertThrows(() => { validateValue(fieldDeclaration, "under_score"); });
@@ -351,7 +350,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, {foo: "bar"});
-                checkType<AssertEqual<typeof value1, JsonObject>>();
+                assertType<IsExact<typeof value1, JsonObject>>(true);
                 assertEquals(typeof value1, "object");
                 assertEquals(value1, {foo: "bar"});  // Ensure that validation has preserved the value.
                 // These should all be valid:
@@ -372,7 +371,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, {foo: "bar"});
-                checkType<AssertEqual<typeof value1, JsonObject|null>>();
+                assertType<IsExact<typeof value1, JsonObject|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
                 assertStrictEquals(value2, null);
                 assertThrows(() => { validateValue(fieldDeclaration, [1, 2, 3]); });
@@ -389,7 +388,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, true);
-                checkType<AssertEqual<typeof value1, boolean>>();
+                assertType<IsExact<typeof value1, boolean>>(true);
                 assertEquals(typeof value1, "boolean");
                 assertStrictEquals(value1, true);  // Ensure that validation has preserved the value.
 
@@ -403,7 +402,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, true);
-                checkType<AssertEqual<typeof value1, boolean|null>>();
+                assertType<IsExact<typeof value1, boolean|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
                 assertStrictEquals(value2, null);
                 assertThrows(() => { validateValue(fieldDeclaration, "50"); });
@@ -423,7 +422,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, VDate.fromString(stringDate));
-                checkType<AssertEqual<typeof value1, VDate>>();
+                assertType<IsExact<typeof value1, VDate>>(true);
                 assertEquals(typeof value1, "object");
                 assert(value1 instanceof VDate);
                 assertStrictEquals(value1.toString(), stringDate);
@@ -446,7 +445,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, VDate.fromString(stringDate));
-                checkType<AssertEqual<typeof value1, VDate|null>>();
+                assertType<IsExact<typeof value1, VDate|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
                 assertStrictEquals(value2, null);
                 assertThrows(() => { validateValue(fieldDeclaration, stringDate); });
@@ -468,7 +467,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, dateValue);
-                checkType<AssertEqual<typeof value1, Date>>();
+                assertType<IsExact<typeof value1, Date>>(true);
                 assert(value1 instanceof Date);
                 assertStrictEquals(value1.toISOString(), stringDate);
                 // Note, Joi does not allow strings as datetimes - parse them first:
@@ -485,7 +484,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, dateValue);
-                checkType<AssertEqual<typeof value1, Date|null>>();
+                assertType<IsExact<typeof value1, Date|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
                 assertStrictEquals(value2, null);
                 assertThrows(() => { validateValue(fieldDeclaration, "50"); });
@@ -509,7 +508,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.type, FieldType.AnyPrimitive);
     
                 const value1 = validateValue(fieldDeclaration, 12345);
-                checkType<AssertEqual<typeof value1, PrimitiveValue>>();
+                assertType<IsExact<typeof value1, PrimitiveValue>>(true);
                 assertStrictEquals(value1, 12345);
                 // That was a number, check that other primitive types are supported:
                 assertStrictEquals(validateValue(fieldDeclaration, null), null);
@@ -547,7 +546,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, false);
     
                 const value1 = validateValue(fieldDeclaration, ["s1", "s2"]);
-                checkType<AssertEqual<typeof value1, string[]>>();
+                assertType<IsExact<typeof value1, string[]>>(true);
                 assertEquals(value1, ["s1", "s2"]);  // Ensure that validation has preserved the value.
                 // These should all be valid:
                 const check = (str: string[]) => assertEquals(validateValue(fieldDeclaration, str), str);
@@ -567,7 +566,7 @@ group(import.meta, () => {
                 assertEquals(fieldDeclaration.nullable, true);
     
                 const value1 = validateValue(fieldDeclaration, [1, 2, 3]);
-                checkType<AssertEqual<typeof value1, number[]|null>>();
+                assertType<IsExact<typeof value1, number[]|null>>(true);
                 const value2 = validateValue(fieldDeclaration, null);
                 assertStrictEquals(value2, null);
                 assertThrows(() => { validateValue(fieldDeclaration, ["not a number"]); });
@@ -698,43 +697,43 @@ group(import.meta, () => {
         // Basic property field types:
         test("VNID", () => {
             const shape = ResponseSchema({myVNID: Field.VNID, nullVNID: Field.NullOr.VNID});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {myVNID: VNID, nullVNID: VNID|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {myVNID: VNID, nullVNID: VNID|null}>>(true);
         });
         test("Int", () => {
             const shape = ResponseSchema({myInt: Field.Int, nullInt: Field.NullOr.Int});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {myInt: number, nullInt: number|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {myInt: number, nullInt: number|null}>>(true);
         });
         test("BigInt", () => {
             const shape = ResponseSchema({myBigInt: Field.BigInt, nullBigInt: Field.NullOr.BigInt});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {myBigInt: bigint, nullBigInt: bigint|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {myBigInt: bigint, nullBigInt: bigint|null}>>(true);
         });
         test("Float", () => {
             const shape = ResponseSchema({myFloat: Field.Float, nullFloat: Field.NullOr.Float});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {myFloat: number, nullFloat: number|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {myFloat: number, nullFloat: number|null}>>(true);
         });
         test("String", () => {
             const shape = ResponseSchema({myString: Field.String, nullString: Field.NullOr.String});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {myString: string, nullString: string|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {myString: string, nullString: string|null}>>(true);
         });
         test("Slug", () => {
             const shape = ResponseSchema({mySlug: Field.Slug, nullSlug: Field.NullOr.Slug});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {mySlug: string, nullSlug: string|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {mySlug: string, nullSlug: string|null}>>(true);
         });
         test("Boolean", () => {
             const shape = ResponseSchema({myBool: Field.Boolean, nullBool: Field.NullOr.Boolean});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {myBool: boolean, nullBool: boolean|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {myBool: boolean, nullBool: boolean|null}>>(true);
         });
         test("Date", () => {
             const shape = ResponseSchema({myDate: Field.Date, nulDate: Field.NullOr.Date});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {myDate: VDate, nulDate: VDate|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {myDate: VDate, nulDate: VDate|null}>>(true);
         });
         test("DateTime", () => {
             const shape = ResponseSchema({myDateTime: Field.DateTime, nullDateTime: Field.NullOr.DateTime});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {myDateTime: Date, nullDateTime: Date|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {myDateTime: Date, nullDateTime: Date|null}>>(true);
         });
         test("AnyPrimitive", () => {
             const shape = ResponseSchema({primValue: Field.AnyPrimitive});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {primValue: PrimitiveValue}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {primValue: PrimitiveValue}>>(true);
         });
         // Composite types:
 
@@ -748,7 +747,7 @@ group(import.meta, () => {
                     key1: Field.VNID,
                 }),
             });
-            checkType<AssertEqual<GetDataShape<typeof shape>, {
+            assertType<IsExact<GetDataShape<typeof shape>, {
                 recordField: {
                     subMap: { subKey1: string|null, subKey2: bigint },
                     otherKey: string,
@@ -756,56 +755,56 @@ group(import.meta, () => {
                 nullMap: null|{
                     key1: VNID,
                 },
-            }>>();
+            }>>(true);
         });
         test("Map", () => {
             const shape = ResponseSchema({
                 mapField: Field.Map(Field.Map(Field.List(Field.NullOr.BigInt))),
                 nullMap: Field.NullOr.Map(Field.VNID),
             });
-            checkType<AssertEqual<GetDataShape<typeof shape>, {
+            assertType<IsExact<GetDataShape<typeof shape>, {
                 mapField: {
                     [K: string]: { [K: string]: Array<null|bigint> },
                 },
                 nullMap: null|{
                     [K: string]: VNID,
                 },
-            }>>();
+            }>>(true);
         });
         test("List", () => {
             const shape = ResponseSchema({
                 idList: Field.List(Field.VNID),
                 nullStringList: Field.NullOr.List(Field.String),
             });
-            checkType<AssertEqual<GetDataShape<typeof shape>, {
+            assertType<IsExact<GetDataShape<typeof shape>, {
                 idList: VNID[],
                 nullStringList: string[]|null,
-            }>>();
+            }>>(true);
         });
         test("AnyGeneric", () => {
             const shape = ResponseSchema({
                 generic: Field.AnyGeneric,
                 genericMap: Field.Map(Field.AnyGeneric),
             });
-            checkType<AssertEqual<GetDataShape<typeof shape>, {
+            assertType<IsExact<GetDataShape<typeof shape>, {
                 generic: GenericValue,
                 genericMap: {[key: string]: GenericValue},
-            }>>();
+            }>>(true);
         });
 
         // Types unique to response fields:
 
         test("Raw Neo4j Node", () => {
             const shape = ResponseSchema({nodeField: Field.Node, nullNode: Field.NullOr.Node});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {nodeField: Node, nullNode: Node|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {nodeField: Node, nullNode: Node|null}>>(true);
         });
         test("Raw Neo4j Path", () => {
             const shape = ResponseSchema({pathField: Field.Path, nullPath: Field.NullOr.Path});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {pathField: Path, nullPath: Path|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {pathField: Path, nullPath: Path|null}>>(true);
         });
         test("Raw Neo4j Relationship", () => {
             const shape = ResponseSchema({relField: Field.Relationship, nullRel: Field.NullOr.Relationship});
-            checkType<AssertEqual<GetDataShape<typeof shape>, {relField: Relationship, nullRel: Relationship|null}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {relField: Relationship, nullRel: Relationship|null}>>(true);
         });
         test("RawVNode", () => {
             const shape = ResponseSchema({
@@ -813,14 +812,14 @@ group(import.meta, () => {
                 nullPerson: Field.NullOr.VNode(Person),
             });
             // First we check very specific types, to make it easier to diagnose typing bugs:
-            checkType<AssertEqual<GetDataShape<typeof shape>["person"]["id"], VNID>>();
-            checkType<AssertEqual<GetDataShape<typeof shape>["person"]["slugId"], string>>();
-            checkType<AssertEqual<GetDataShape<typeof shape>["person"]["name"], string>>();
-            checkType<AssertEqual<GetDataShape<typeof shape>["person"]["dateOfBirth"], VDate>>();
-            checkType<AssertEqual<GetDataShape<typeof shape>["person"]["_labels"], string[]>>();
-            checkType<AssertEqual<GetDataShape<typeof shape>["nullPerson"], null | RawVNode<typeof Person>>>();
+            assertType<IsExact<GetDataShape<typeof shape>["person"]["id"], VNID>>(true);
+            assertType<IsExact<GetDataShape<typeof shape>["person"]["slugId"], string>>(true);
+            assertType<IsExact<GetDataShape<typeof shape>["person"]["name"], string>>(true);
+            assertType<IsExact<GetDataShape<typeof shape>["person"]["dateOfBirth"], VDate>>(true);
+            assertType<IsExact<GetDataShape<typeof shape>["person"]["_labels"], string[]>>(true);
+            assertType<IsExact<GetDataShape<typeof shape>["nullPerson"], null | RawVNode<typeof Person>>>(true);
             // Then check the typing of the whole thing:
-            checkType<AssertEqual<GetDataShape<typeof shape>, {
+            assertType<IsExact<GetDataShape<typeof shape>, {
                 person: {
                     id: VNID,
                     slugId: string,
@@ -837,12 +836,12 @@ group(import.meta, () => {
                 } & {
                     _labels: string[]
                 }),
-            }>>();
+            }>>(true);
         });
         test("Any", () => {
             const shape = ResponseSchema({someUnknownValue: Field.Any});
             // deno-lint-ignore no-explicit-any
-            checkType<AssertEqual<GetDataShape<typeof shape>, {someUnknownValue: any}>>();
+            assertType<IsExact<GetDataShape<typeof shape>, {someUnknownValue: any}>>(true);
         });
     });
 });

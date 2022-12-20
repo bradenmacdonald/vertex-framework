@@ -1,6 +1,5 @@
 import { C, VirtualPropType, VNodeType, VNodeTypeRef, isVNodeType, PropSchema } from "../index.ts";
-import { group, test, assert, assertEquals, assertStrictEquals, assertThrows } from "../lib/tests.ts";
-import { AssertPropertyAbsent, AssertPropertyPresent, checkType } from "../lib/ts-utils.ts";
+import { group, test, assert, assertEquals, assertStrictEquals, assertThrows, assertType, IsExact, IsPropertyPresent, Has } from "../lib/tests.ts";
 import { Movie } from "../test-project/index.ts";
 const MovieRef: typeof Movie = VNodeTypeRef();
 VNodeTypeRef.resolve(MovieRef, Movie);
@@ -36,17 +35,16 @@ group(import.meta, () => {
     test("a forward reference is an instance of VNodeType", () => {
         assert(isVNodeType(MovieRef));
         // And typescript sees it as a VNodeType:
-        checkType<AssertPropertyPresent<typeof MovieRef, "label", string>>();
-        checkType<AssertPropertyPresent<typeof MovieRef, "properties", PropSchema>>();
-        checkType<AssertPropertyAbsent<typeof MovieRef, "somethingElse">>();
+        assertType<IsExact<typeof MovieRef["label"], string>>(true);
+        assertType<Has<typeof MovieRef["properties"], PropSchema>>(true);
+        assertType<IsPropertyPresent<typeof MovieRef, "somethingElse">>(false);
     });
 
     test("a forward reference's relationships can be accessed before the forward reference is resolved", () => {
         const test = OtherVNTRef.rel.SELF_RELATIONSHIP;
         // And typescript sees it as a VNode Relationship declaration:
-        // deno-lint-ignore no-explicit-any
-        checkType<AssertPropertyPresent<typeof test, "to", Array<any>>>();
-        checkType<AssertPropertyAbsent<typeof test, "somethingElse">>();
+        assertType<Has<typeof test["to"], Array<unknown>>>(true);
+        assertType<IsPropertyPresent<typeof test, "somethingElse">>(false);
     });
 
     test("a forward reference can be used in a lazy CypherQuery object without being evaluated", () => {
