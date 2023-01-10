@@ -7,3 +7,4 @@ export {
 }
 
 export * as stdLog from "https://deno.land/std@0.175.0/log/mod.ts"
+export { format as formatDuration } from "https://deno.land/std@0.175.0/fmt/duration.ts";

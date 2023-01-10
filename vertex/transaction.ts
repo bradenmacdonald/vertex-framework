@@ -1,5 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
-import { Neo4j } from "./deps.ts";
+import { formatDuration, Neo4j } from "./deps.ts";
 import { VNID } from "./lib/types/vnid.ts";
 import { RelationshipDeclaration } from "./layer2/vnode-base.ts";
 
@@ -38,7 +38,9 @@ export class WrappedTransaction {
             // We want to measure dbHits stats for all queries exectuted:
             query = `PROFILE ` + query;
         }
+        const startTime = performance.now();
         const result = await this.#tx.run(query, parameters ? fixParameterTypes(parameters) : undefined);
+        const queryRuntime = performance.now() - startTime;
         if (profile && result.summary.profile) {
             let dbHits = 0;
             const addHits = (profileObj: Neo4j.ProfiledPlan) => { dbHits += profileObj.dbHits; profileObj.children.forEach(addHits); }
@@ -46,7 +48,12 @@ export class WrappedTransaction {
             profile.dbHits += dbHits;
             if (profile.queryLogMode) {
                 const queryFormatted = profile.queryLogMode === "compact" ? origQuery.trim().replaceAll(/\s+/g, " ").substring(0, 100).padEnd(100, " ") : origQuery;
-                log.info(`Neo4j query: ${queryFormatted} (${dbHits} dbHits)`);
+                const querySummary = `Neo4j query: ${queryFormatted} (${dbHits} dbHits in ${formatDuration(queryRuntime, {ignoreZero: true})})`;
+                if (queryRuntime > 200) {
+                    log.warning(querySummary);
+                } else {
+                    log.debug(querySummary);
+                }
                 if (profile.queryLogMode === "full") {
                     // Try to format the parameters in the same way as Neo4j so one can copy-paste this into a Cypher shell:
                     log.debug(stringify(result.summary.query.parameters).replaceAll(/"([\w]+)":/g, "$1:"));
