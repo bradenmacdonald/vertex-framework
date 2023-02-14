@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import {test as baseTest, group as baseGroup, afterAll, afterEach, beforeAll, beforeEach} from "./tests-hooked.ts";
-export * from "https://deno.land/std@0.170.0/testing/asserts.ts";
-export * from "https://deno.land/std@0.170.0/testing/types.ts";
+export * from "https://deno.land/std@0.175.0/testing/asserts.ts";
+export * from "https://deno.land/std@0.175.0/testing/types.ts";
 
 import { log } from "./log.ts"
 import { VertexTestDataSnapshot } from "../vertex-interface.ts";
