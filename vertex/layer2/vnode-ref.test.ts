@@ -41,6 +41,7 @@ group(import.meta, () => {
     });
 
     test("a forward reference's relationships can be accessed before the forward reference is resolved", () => {
+        // deno-lint-ignore no-unused-vars
         const test = OtherVNTRef.rel.SELF_RELATIONSHIP;
         // And typescript sees it as a VNode Relationship declaration:
         assertType<Has<typeof test["to"], Array<unknown>>>(true);
