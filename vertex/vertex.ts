@@ -19,7 +19,6 @@ export interface InitArgs {
     neo4jUrl: string; // e.g. "bolt://localhost:7687"
     neo4jUser: string; // e.g. "neo4j",
     neo4jPassword: string;
-    debugLogging?: boolean;
     extraMigrations: {[name: string]: Migration};
 }
 

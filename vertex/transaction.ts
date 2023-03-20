@@ -1,5 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
-import { Neo4j } from "./deps.ts";
+import { formatDuration, Neo4j } from "./deps.ts";
 import { VNID } from "./lib/types/vnid.ts";
 import { RelationshipDeclaration } from "./layer2/vnode-base.ts";
 
@@ -8,7 +8,7 @@ import { query, queryOne } from "./layer2/query.ts";
 import { OneRelationshipSpec, RelationshipSpec, updateToManyRelationship, updateToOneRelationship } from "./layer4/action-helpers.ts";
 import { pull, pullOne, PullNoTx, PullOneNoTx } from "./layer3/pull.ts";
 import { VNodeType } from "./layer3/vnode.ts";
-import { log } from "./lib/log.ts";
+import { log, stringify } from "./lib/log.ts";
 
 /** A data structure to keep track of the dbHits (performance measure) for all queries run */
 export interface ProfileStats {
@@ -19,6 +19,7 @@ export interface ProfileStats {
 /** A Neo4j Transaction with some Vertex Framework convenience methods */
 export class WrappedTransaction {
     #tx: Neo4j.ManagedTransaction;
+    statementProfile?: ProfileStats;
 
     public constructor(plainTx: Neo4j.ManagedTransaction, public readonly profile?: ProfileStats) {
         this.#tx = plainTx;
@@ -32,22 +33,54 @@ export class WrappedTransaction {
      */
     public async run(query: string, parameters?: { [key: string]: any }): Promise<Neo4j.QueryResult> {
         const origQuery = query;
-        if (this.profile) {
+        const profile = this.statementProfile ?? this.profile;
+        if (profile) {
             // We want to measure dbHits stats for all queries exectuted:
             query = `PROFILE ` + query;
         }
+        const startTime = performance.now();
         const result = await this.#tx.run(query, parameters ? fixParameterTypes(parameters) : undefined);
-        if (this.profile && result.summary.profile) {
+        const queryRuntime = performance.now() - startTime;
+        if (profile && result.summary.profile) {
             let dbHits = 0;
             const addHits = (profileObj: Neo4j.ProfiledPlan) => { dbHits += profileObj.dbHits; profileObj.children.forEach(addHits); }
             addHits(result.summary.profile);
-            this.profile.dbHits += dbHits;
-            if (this.profile.queryLogMode) {
-                const queryFormatted = this.profile.queryLogMode === "compact" ? origQuery.trim().replaceAll(/\s+/g, " ").substring(0, 100).padEnd(100, " ") : origQuery;
-                log.info(`Neo4j query: ${queryFormatted} (${dbHits} dbHits)`);
+            profile.dbHits += dbHits;
+            if (profile.queryLogMode) {
+                const queryFormatted = profile.queryLogMode === "compact" ? origQuery.trim().replaceAll(/\s+/g, " ").substring(0, 100).padEnd(100, " ") : origQuery;
+                const querySummary = `Neo4j query: ${queryFormatted} (${dbHits} dbHits in ${formatDuration(queryRuntime, {ignoreZero: true})})`;
+                if (queryRuntime > 200) {
+                    log.warning(querySummary);
+                } else {
+                    log.debug(querySummary);
+                }
+                if (profile.queryLogMode === "full") {
+                    // Try to format the parameters in the same way as Neo4j so one can copy-paste this into a Cypher shell:
+                    log.debug(stringify(result.summary.query.parameters).replaceAll(/"([\w]+)":/g, "$1:"));
+                    const root = result.summary.profile;
+                    const print = (node: typeof root, depth: number) => {
+                        log.debug("  ".repeat(depth) + "*" + node.operatorType + "(" + node.dbHits + " dbHits, " + node.rows + " rows) " + (node.arguments["Details"] ?? ""));
+                        for (const child of node.children) {
+                            print(child, depth + 1);
+                        }
+                    }
+                    print(root, 0);
+                }
+            }
+            if (this.statementProfile && this.profile) {
+                // Add the dbHits from the per-statement profile to the transaction-level profile:
+                this.profile.dbHits += this.statementProfile.dbHits;
             }
         }
         return result;
+    }
+
+    public startProfile(queryLogMode?: "compact"|"full") {
+        if (this.statementProfile) throw new Error("per-statement profile is already on");
+        this.statementProfile = {dbHits: 0, queryLogMode};
+    }
+    public finishProfile() {
+        this.statementProfile = undefined;
     }
 
     public query<CQ extends CypherQuery>(cypherQuery: CQ): Promise<QueryResponse<CQ>[]> {

@@ -4,7 +4,6 @@ export const testGraph = new Vertex({
     neo4jUrl: Deno.env.get("NEO4J_URL") ?? "bolt://localhost:7777",
     neo4jUser: "neo4j",
     neo4jPassword: "vertex",
-    debugLogging: true,
     extraMigrations: {
         // Make the 'slugId' field act as a unique key for the VNode types in the test project:
         slugIdUnique: {
