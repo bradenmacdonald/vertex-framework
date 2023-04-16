@@ -13,6 +13,7 @@ import { log, stringify } from "./lib/log.ts";
 /** A data structure to keep track of the dbHits (performance measure) for all queries run */
 export interface ProfileStats {
     dbHits: number;
+    numQueries: number;
     queryLogMode?: "compact"|"full";
 }
 
@@ -67,9 +68,11 @@ export class WrappedTransaction {
                     print(root, 0);
                 }
             }
+            profile.numQueries++;
             if (this.statementProfile && this.profile) {
                 // Add the dbHits from the per-statement profile to the transaction-level profile:
                 this.profile.dbHits += this.statementProfile.dbHits;
+                this.profile.numQueries++;
             }
         }
         return result;
@@ -77,7 +80,7 @@ export class WrappedTransaction {
 
     public startProfile(queryLogMode?: "compact"|"full") {
         if (this.statementProfile) throw new Error("per-statement profile is already on");
-        this.statementProfile = {dbHits: 0, queryLogMode};
+        this.statementProfile = {dbHits: 0, numQueries: 0, queryLogMode};
     }
     public finishProfile() {
         this.statementProfile = undefined;

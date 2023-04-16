@@ -107,7 +107,7 @@ export class Vertex implements VertexCore {
      * help debug issues with queries.
      */
     public startProfile(queryLogMode?: "compact"|"full") {
-        this.activeProfile.push({dbHits: 0, queryLogMode});
+        this.activeProfile.push({dbHits: 0, numQueries: 0, queryLogMode});
     }
 
     /**
@@ -122,6 +122,7 @@ export class Vertex implements VertexCore {
         if (nextProfile) {
             // Add the hits from this inner profile to any outer profile that's still running. (Support nesting.)
             nextProfile.dbHits += result.dbHits;
+            nextProfile.numQueries += result.numQueries;
         }
         return result;
     }
